@@ -19,8 +19,8 @@ if (ENABLE_COVERAGE)
 endif()
 
 set(TEST_NAMES
-    peer_manager
-)
+    message
+    peer_manager)
 
 foreach (name ${TEST_NAMES})
     if (${name}_SOURCES)

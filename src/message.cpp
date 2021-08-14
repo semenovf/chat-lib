@@ -6,26 +6,23 @@
 // Changelog:
 //      2021.08.14 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
-#pragma once
-#include "pfs/optional.hpp"
-#include <chrono>
-#include <string>
+#include "pfs/chat/message.hpp"
 
 namespace pfs {
 namespace chat {
 
-#if PFS_HAVE_STD_OPTIONAL
-    template <typename T>
-    using optional = std::optional<T>;
-#else
-    template <typename T>
-    using optional = pfs::optional<T>;
-#endif
+PFS_CHAT_DLL_API void push (message & m, message_item * item_ptr)
+{
+    item_ptr->next = nullptr;
 
-// FIXME This temporary typedefs, need real implementations for these entities
-using uri_t  = std::string;
-
-using icon_id_t = std::uint32_t;
+    if (!m.last) {
+        m.first = item_ptr;
+        m.last = item_ptr;
+    } else {
+        m.last->next = item_ptr;
+        m.last = item_ptr;
+    }
+}
 
 }} // namespace pfs::chat
 

@@ -8,31 +8,21 @@
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 #include "exports.hpp"
-#include "types.hpp"
-#include "uuid.hpp"
-#include <memory>
+#include <chrono>
 #include <string>
 
 namespace pfs {
 namespace chat {
 
-struct peer
-{
-    uuid_t id;
-    std::string alias;
-    optional<icon_id_t> icon_id;
-    optional<uri_t>     icon_uri;
-};
+using timestamp_t = std::chrono::time_point<std::chrono::high_resolution_clock>;
 
-template <typename T>
-std::unique_ptr<T> create ();
-
-template <>
-inline std::unique_ptr<peer> create<peer> ()
+inline std::chrono::milliseconds to_millis (timestamp_t const & t)
 {
-    std::unique_ptr<peer> result {new peer};
-    result->id = generate_uuid();
-    return result;
+    return std::chrono::duration_cast<std::chrono::milliseconds>(t.time_since_epoch());
 }
 
+PFS_CHAT_DLL_API std::string to_string (timestamp_t const & t);
+
 }} // namespace pfs::chat
+
+

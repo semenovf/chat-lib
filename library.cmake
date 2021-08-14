@@ -10,7 +10,9 @@ cmake_minimum_required (VERSION 3.5)
 project(chat-lib CXX)
 
 list(APPEND SOURCES
-    ${CMAKE_CURRENT_LIST_DIR}/src/in_memory_peer_storage.cpp)
+    ${CMAKE_CURRENT_LIST_DIR}/src/message.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/src/in_memory_peer_storage.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/src/timestamp.cpp)
 
 # Make object files for STATIC and SHARED targets
 add_library(${PROJECT_NAME}_OBJLIB OBJECT ${SOURCES})
