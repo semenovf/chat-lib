@@ -1,1 +1,1 @@
-# pfs-chat
+# chat-lib
