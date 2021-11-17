@@ -1,12 +1,12 @@
 #!/bin/sh
 
 BASE_URL=https://raw.githubusercontent.com/semenovf/scripts/master
+BAK_SUFFIX=`date +%Y_%m_%d_%H_%M_%S`
 
 SCRIPTS="build.sh \
     build-windows.cmd"
 
-CONFIGS="CMakeLists.txt \
-    .gitignore \
+CONFIGS=".gitignore \
     .travis.yml \
     appveyor.yml \
     codecov.yml"
@@ -20,8 +20,13 @@ curl_copy()
     SOURCE=$2
     TARGET=$3
 
+    if [ -e $TARGET ] ; then
+        echo "Target already exists: $TARGET, new one will be renamed into: $TARGET.$BAK_SUFFIX"
+        TARGET="$TARGET.$BAK_SUFFIX"
+    fi
+
     LAST_COMMAND="curl -s $SOURCE -o $TARGET"
-    echo -n "Copying $FILENAME ... "
+    echo -n "Coping $FILENAME ... "
 
     $LAST_COMMAND > /dev/null
     LAST_STATUS=$?
@@ -29,7 +34,7 @@ curl_copy()
     if [ $LAST_STATUS -eq 0 ] ; then
         echo "OK"
     else
-        echo "ERROR: failure on command"
+        echo "Failure on command"
         echo "\t$LAST_COMMAND"
     fi
 }
@@ -40,26 +45,7 @@ for f in $SCRIPTS ; do
 done
 
 for f in $CONFIGS ; do
-    curl_copy $f $BASE_URL/configs/${f}  $f
+    curl_copy $f $BASE_URL/configs/${f} $f
     [ $LAST_STATUS -ne 0 ] && exit 1
 done
 
-echo "\nNow it is time to edit CMakeLists.txt to complete project basic initialization"
-
-if [ -z "${EDITOR}" ] ; then
-    if command -v mcedit > /dev/null ; then
-        EDITOR=mcedit
-    elif command -v nano > /dev/null ; then
-        EDITOR=nano
-    elif command -v vim > /dev/null ; then
-        EDITOR=vim
-    elif command -v vi > /dev/null ; then
-        EDITOR=vi
-    else
-        echo "ERROR: No any known editor found"
-    fi
-fi
-
-if [ -n "${EDITOR}" ] ; then
-    $EDITOR CMakeLists.txt
-fi
