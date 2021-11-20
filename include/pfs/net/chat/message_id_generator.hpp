@@ -4,25 +4,27 @@
 // This file is part of [chat-lib](https://github.com/semenovf/chat-lib) library.
 //
 // Changelog:
-//      2021.08.14 Initial version.
+//      2021.11.20 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
-#include "pfs/chat/message.hpp"
+#pragma once
+#include "pfs/uuid.hpp"
 
 namespace pfs {
+namespace net {
 namespace chat {
 
-PFS_CHAT_DLL_API void push (message & m, message_item * item_ptr)
+class message_id_generator
 {
-    item_ptr->next = nullptr;
+public:
+    using type = uuid_t;
 
-    if (!m.last) {
-        m.first = item_ptr;
-        m.last = item_ptr;
-    } else {
-        m.last->next = item_ptr;
-        m.last = item_ptr;
+public:
+    message_id_generator () {}
+
+    type next () noexcept
+    {
+        return generate_uuid);
     }
-}
+};
 
-}} // namespace pfs::chat
-
+}}} // namespace pfs::net::chat

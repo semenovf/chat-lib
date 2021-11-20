@@ -4,21 +4,23 @@
 // This file is part of [chat-lib](https://github.com/semenovf/chat-lib) library.
 //
 // Changelog:
-//      2021.08.14 Initial version.
+//      2021.11.20 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
-#include "pfs/chat/timestamp.hpp"
-#include "pfs/fmt.hpp"
+#pragma once
+#include "pfs/emitter.hpp"
+#include "pfs/uuid.hpp"
 
 namespace pfs {
+namespace net {
 namespace chat {
 
-PFS_CHAT_DLL_API std::string to_string (timestamp_t const & t)
+class messenger_controller
 {
-    auto millis = to_millis(t).count() % 1000;
-    return fmt::format("{0:%F %H:%M:%S}.{1:03} {0:%z}", t, millis);
-}
+public: // signals
+    pfs::emitter_mt<std::string const &> failure;
+};
 
-}} // namespace pfs::chat
+}}} // namespace pfs::net::chat
 
 
 
