@@ -8,13 +8,20 @@
 #      2021.11.17 Updated.
 ################################################################################
 cmake_minimum_required (VERSION 3.11)
-project(chat-lib CXX)
+project(chat-lib C CXX)
 
 option(PFS_CHAT__ENABLE_ROCKSDB "Enable `RocksDb` library for persistent storage" OFF)
+option(PFS_CHAT__ENABLE_SQLITE  "Enable `sqlite` library for persistent storage" OFF)
 
 list(APPEND SOURCES
-#     ${CMAKE_CURRENT_LIST_DIR}/src/timestamp.cpp
-    )
+    ${CMAKE_CURRENT_LIST_DIR}/src/time_point.cpp)
+
+if (PFS_CHAT__ENABLE_SQLITE)
+    list(APPEND SOURCES
+        ${CMAKE_CURRENT_LIST_DIR}/src/persistent_storage/sqlite3/sqlite3.c
+        ${CMAKE_CURRENT_LIST_DIR}/src/persistent_storage/sqlite3/engine.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/src/persistent_storage/sqlite3/contact_list.cpp)
+endif()
 
 # Make object files for STATIC and SHARED targets
 add_library(${PROJECT_NAME}_OBJLIB OBJECT ${SOURCES})

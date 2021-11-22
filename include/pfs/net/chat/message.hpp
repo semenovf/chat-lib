@@ -8,6 +8,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 #include "message_status.hpp"
+#include "time_point.hpp"
 #include "pfs/uuid.hpp"
 
 namespace pfs {
@@ -33,9 +34,9 @@ enum class message_item_type
 
 struct message_header
 {
-    uuid_t message_id;
+    uuid_t id;
     uuid_t author_id;
-//     timestamp_t creation_time;
+    time_point creation_time;
 //     optional<timestamp_t> received_time;
 //     optional<timestamp_t> read_time;
 };

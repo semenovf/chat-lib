@@ -19,6 +19,7 @@ if (ENABLE_COVERAGE)
 endif()
 
 set(TEST_NAMES
+    contact_list
     time_point
 )
 

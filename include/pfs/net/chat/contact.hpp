@@ -7,19 +7,21 @@
 //      2021.11.20 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
+#include "time_point.hpp"
 #include "pfs/uuid.hpp"
+#include <string>
 
 namespace pfs {
 namespace net {
 namespace chat {
 
-using user_id = uuid_t;
+using contact_id = uuid_t;
 
-class contact
+struct contact
 {
-    uuid_t _uuid;
-
-public:
+    contact_id  id;
+    std::string name;
+    time_point  last_activity;
 };
 
 }}} // namespace pfs::net::chat
