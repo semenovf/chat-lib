@@ -11,9 +11,9 @@
 #include "pfs/filesystem.hpp"
 #include "pfs/fmt.hpp"
 #include "pfs/uuid.hpp"
+#include "pfs/time_point.hpp"
 #include "pfs/net/chat/contact.hpp"
-#include "pfs/net/chat/time_point.hpp"
-#include "pfs/net/chat/persistent_storage/sqlite3/contact_list.hpp"
+#include "pfs/net/chat/persistent_storage/contact_list.hpp"
 
 #if PFS_HAVE_STD_FILESYSTEM
 namespace filesystem = std::filesystem;
@@ -46,7 +46,7 @@ char const * NAMES[] = {
 
 TEST_CASE("contact_list") {
     using contact_t = pfs::net::chat::contact;
-    using contact_list_t = pfs::net::chat::sqlite3_ns::contact_list;
+    using contact_list_t = pfs::net::chat::contact_list;
 
     auto contact_list_path = filesystem::temp_directory_path() / "contact_list.db";
 
@@ -64,12 +64,19 @@ TEST_CASE("contact_list") {
         contact_t c;
         c.id = pfs::generate_uuid();
         c.name = name;
-        c.last_activity = pfs::net::chat::current_time_point();
+        c.last_activity = pfs::current_utc_time_point();
 
         REQUIRE(contact_list.save(c));
     }
 
     contact_list.end_transaction();
+
+    contact_list.for_each([] (contact_t const & c) {
+        fmt::print("{} | {:10} | {}\n"
+            , std::to_string(c.id)
+            , c.name
+            , to_string(c.last_activity));
+    });
+
     contact_list.close();
 }
-

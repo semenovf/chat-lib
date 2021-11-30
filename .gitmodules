@@ -7,3 +7,9 @@
 [submodule "3rdparty/rocksdb"]
 	path = 3rdparty/rocksdb
 	url = https://github.com/facebook/rocksdb
+[submodule "3rdparty/pfs/debby"]
+	path = 3rdparty/pfs/debby
+	url = git@github.com:semenovf/debby-lib.git
+[submodule "3rdparty/portable-target"]
+	path = 3rdparty/portable-target
+	url = git@github.com:semenovf/portable-target.git

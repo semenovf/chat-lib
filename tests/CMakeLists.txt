@@ -20,7 +20,6 @@ endif()
 
 set(TEST_NAMES
     contact_list
-    time_point
 )
 
 foreach (name ${TEST_NAMES})

@@ -15,6 +15,12 @@ option(PFS_CHAT__BUILD_TESTS "Build tests" OFF)
 option(PFS_CHAT__BUILD_DEMO "Build examples/demo" OFF)
 option(PFS_CHAT__ENABLE_COVERAGE "Build tests with coverage support" OFF)
 
+if (NOT PORTABLE_TARGET__ENABLED)
+    list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/3rdparty/portable-target/cmake/v2)
+    include(PortableTarget)
+    portable_target(SET ENABLE_TRACE ON)
+endif()
+
 message(STATUS "C++ compiler: ${CMAKE_CXX_COMPILER}")
 message(STATUS "C++ compiler version: ${CMAKE_CXX_COMPILER_VERSION}")
 
@@ -25,6 +31,10 @@ endif()
 
 if (NOT TARGET pfs::common)
     include(${CMAKE_CURRENT_LIST_DIR}/3rdparty/pfs/common/library.cmake)
+endif()
+
+if (NOT TARGET pfs::debby)
+    include(${CMAKE_CURRENT_LIST_DIR}/3rdparty/pfs/debby/library.cmake)
 endif()
 
 if (NOT TARGET pfs::net)

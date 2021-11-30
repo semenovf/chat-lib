@@ -3,13 +3,14 @@
 #
 # Changelog:
 #      2021.11.17 Initial version.
+#      2021.11.29 Renamed variables.
 ################################################################################
 cmake_minimum_required (VERSION 3.5)
 
 if (NOT TARGET rocksdb)
-    find_library(_ROCKSDB_LIBRARY rocksdb)
+    find_library(PFS_ROCKSDB__LIBRARY rocksdb)
 
-    if (NOT _ROCKSDB_LIBRARY AND EXISTS ${_ROCKSDB_ROOT}/CMakeLists.txt)
+    if (NOT PFS_ROCKSDB__LIBRARY AND EXISTS ${PFS_ROCKSDB__ROOT}/CMakeLists.txt)
 
         #
         # https://github.com/facebook/rocksdb/blob/main/INSTALL.md
@@ -28,11 +29,10 @@ if (NOT TARGET rocksdb)
             set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-maybe-uninitialized")
         endif()
 
-        add_subdirectory(${_ROCKSDB_ROOT} rocksdb)
-#         target_include_directories(${PROJECT_NAME} INTERFACE ${PFS_MODULUS2_LIB__ROCKSDB_ROOT}/include)
-        set(_ROCKSDB_LIBRARY rocksdb)
-        set(_ROCKSDB_INCLUDE ${_ROCKSDB_ROOT}/include)
+        add_subdirectory(${PFS_ROCKSDB__ROOT} rocksdb)
+        set(PFS_ROCKSDB__LIBRARY rocksdb)
+        set(PFS_ROCKSDB__INCLUDE ${PFS_ROCKSDB__ROOT}/include)
     endif()
 else()
-    set(_ROCKSDB_LIBRARY rocksdb)
+    set(PFS_ROCKSDB__LIBRARY rocksdb)
 endif()

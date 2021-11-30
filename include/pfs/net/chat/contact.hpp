@@ -7,7 +7,7 @@
 //      2021.11.20 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
-#include "time_point.hpp"
+#include "pfs/time_point.hpp"
 #include "pfs/uuid.hpp"
 #include <string>
 
@@ -21,7 +21,7 @@ struct contact
 {
     contact_id  id;
     std::string name;
-    time_point  last_activity;
+    utc_time_point last_activity;
 };
 
 }}} // namespace pfs::net::chat

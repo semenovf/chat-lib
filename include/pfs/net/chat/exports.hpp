@@ -6,21 +6,22 @@
 // Changelog:
 //      2021.08.14 Initial version.
 //      2021.11.17 Refactored.
+//      2021.11.29 Copied from `debby-lib` and fixed.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 
-#ifndef PFS_CHAT_LIB_STATIC
-#   ifndef PFS_CHAT_LIB_DLL_EXPORT
+#ifndef PFS_CHAT__STATIC
+#   ifndef PFS_CHAT__EXPORT
 #       if _MSC_VER
-#           if defined(PFS_CHAT_LIB_EXPORTS)
-#               define PFS_CHAT_LIB_DLL_EXPORT __declspec(dllexport)
+#           if defined(PFS_CHAT__EXPORTS)
+#               define PFS_CHAT__EXPORT __declspec(dllexport)
 #           else
-#               define PFS_CHAT_LIB_DLL_EXPORT __declspec(dllimport)
+#               define PFS_CHAT__EXPORT __declspec(dllimport)
 #           endif
 #       else
-#           define PFS_CHAT_LIB_DLL_EXPORT
+#           define PFS_CHAT__EXPORT
 #       endif
 #   endif
 #else
-#   define PFS_CHAT_LIB_DLL_EXPORT
-#endif // !PFS_NET_LIB_STATIC
+#   define PFS_CHAT__EXPORT
+#endif // !PFS_CHAT__STATIC
