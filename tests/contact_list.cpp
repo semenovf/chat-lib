@@ -10,10 +10,11 @@
 #include "doctest.h"
 #include "pfs/filesystem.hpp"
 #include "pfs/fmt.hpp"
+#include "pfs/iterator.hpp"
 #include "pfs/uuid.hpp"
 #include "pfs/time_point.hpp"
-#include "pfs/net/chat/contact.hpp"
-#include "pfs/net/chat/persistent_storage/contact_list.hpp"
+#include "pfs/chat/contact.hpp"
+#include "pfs/chat/persistent_storage/contact_list.hpp"
 
 #if PFS_HAVE_STD_FILESYSTEM
 namespace filesystem = std::filesystem;
@@ -44,9 +45,31 @@ char const * NAMES[] = {
     , "Garey"    , "Mirabel", "Eliot"   , "Mata"    , "Flemming"
 };
 
+struct forward_iterator : public pfs::iterator_facade<
+          pfs::forward_iterator_tag
+        , forward_iterator
+        , pfs::chat::contact, char const **, pfs::chat::contact>
+{
+    char const ** _p;
+    forward_iterator (char const ** p) : _p(p) {}
+
+    reference ref ()
+    {
+        pfs::chat::contact c;
+        c.id = pfs::generate_uuid();
+        c.name = *_p;
+        c.last_activity = pfs::current_utc_time_point();
+        return c;
+    }
+
+    pointer ptr () { return _p; }
+    void increment (difference_type) { ++_p; }
+    bool equals (forward_iterator const & rhs) const { return _p == rhs._p;}
+};
+
 TEST_CASE("contact_list") {
-    using contact_t = pfs::net::chat::contact;
-    using contact_list_t = pfs::net::chat::contact_list;
+    using contact_t = pfs::chat::contact;
+    using contact_list_t = pfs::chat::contact_list;
 
     auto contact_list_path = filesystem::temp_directory_path() / "contact_list.db";
 
@@ -58,20 +81,11 @@ TEST_CASE("contact_list") {
     REQUIRE(contact_list.open(contact_list_path));
 
     contact_list.wipe();
-    contact_list.begin_transaction();
 
-    for (auto name: NAMES) {
-        contact_t c;
-        c.id = pfs::generate_uuid();
-        c.name = name;
-        c.last_activity = pfs::current_utc_time_point();
+    REQUIRE(contact_list.save(forward_iterator{NAMES}
+        , forward_iterator{NAMES + sizeof(NAMES)/sizeof(NAMES[0])}));
 
-        REQUIRE(contact_list.save(c));
-    }
-
-    contact_list.end_transaction();
-
-    contact_list.for_each([] (contact_t const & c) {
+    contact_list.all_of([] (contact_t const & c) {
         fmt::print("{} | {:10} | {}\n"
             , std::to_string(c.id)
             , c.name

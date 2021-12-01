@@ -14,7 +14,6 @@
 #include "pfs/net/p2p/controller.hpp"
 
 namespace pfs {
-namespace net {
 namespace chat {
 
 template <
@@ -56,4 +55,4 @@ public:
     messenger & operator = (messenger &&) = delete;
 };
 
-}}} // namespace pfs::net::chat
+}} // namespace pfs::chat

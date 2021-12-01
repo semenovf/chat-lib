@@ -7,22 +7,21 @@
 //      2021.11.20 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
+#include "pfs/time_point.hpp"
+#include "pfs/uuid.hpp"
+#include <string>
 
 namespace pfs {
-namespace net {
 namespace chat {
 
-enum class mime_type
-{
-      // The default value for all other cases. An unknown file type should
-      // use this type.
-      application__octet_stream
+using contact_id = uuid_t;
 
-      // The default value for textual files.
-      // A textual file should be human-readable and must not contain binary data.
-    , text__plain
+struct contact
+{
+    contact_id  id;
+    std::string name;
+    utc_time_point last_activity;
 };
 
-}}} // namespace pfs::net::chat
-
+}} // namespace pfs::chat
 

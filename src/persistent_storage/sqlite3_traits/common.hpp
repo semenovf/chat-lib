@@ -12,7 +12,6 @@
 #include <string>
 
 namespace pfs {
-namespace net {
 namespace chat {
 namespace sqlite3 {
 
@@ -66,4 +65,4 @@ bool pull (debby::basic_result<ResultImpl> & res
     return success;
 }
 
-}}}} // namespace pfs::net::chat::sqlite3
+}}} // namespace pfs::chat::sqlite3

@@ -9,11 +9,10 @@
 #include "sqlite3_traits/uuid.hpp"
 #include "sqlite3_traits/string.hpp"
 #include "sqlite3_traits/time_point.hpp"
-#include "pfs/net/chat/persistent_storage/contact_list.hpp"
+#include "pfs/chat/persistent_storage/contact_list.hpp"
 #include <cassert>
 
 namespace pfs {
-namespace net {
 namespace chat {
 
 namespace {
@@ -53,21 +52,6 @@ namespace {
     };
 }
 
-PFS_CHAT__EXPORT bool contact_list::begin_transaction ()
-{
-    return _dbh.query("BEGIN TRANSACTION");
-}
-
-PFS_CHAT__EXPORT bool contact_list::end_transaction ()
-{
-    return _dbh.query("END TRANSACTION");
-}
-
-PFS_CHAT__EXPORT bool contact_list::rollback_transaction ()
-{
-    return _dbh.query("ROLLBACK TRANSACTION");
-}
-
 PFS_CHAT__EXPORT bool contact_list::open (filesystem::path const & path)
 {
     auto success = _dbh.open(path);
@@ -92,8 +76,6 @@ PFS_CHAT__EXPORT bool contact_list::open (filesystem::path const & path)
 
 PFS_CHAT__EXPORT void contact_list::close ()
 {
-    _insert_contact_stmt.clear();
-    _select_contact_stmt.clear();
     _dbh.close();
 }
 
@@ -101,26 +83,24 @@ PFS_CHAT__EXPORT bool contact_list::save (contact const & c)
 {
     bool success = true;
 
-    if (!_insert_contact_stmt) {
-        _insert_contact_stmt = _dbh.prepare(
-            fmt::format(INSERT_CONTACT, _table_name));
-        success = !!_insert_contact_stmt;
-    }
+    auto stmt = _dbh.prepare(fmt::format(INSERT_CONTACT, _table_name));
+
+    success = !!stmt;
 
     success = success
-        && _insert_contact_stmt.bind(":id", sqlite3::encode(c.id))
-        && _insert_contact_stmt.bind(":name", sqlite3::encode(c.name))
-        && _insert_contact_stmt.bind(":last_activity", sqlite3::encode(c.last_activity));
+        && stmt.bind(":id", sqlite3::encode(c.id))
+        && stmt.bind(":name", sqlite3::encode(c.name))
+        && stmt.bind(":last_activity", sqlite3::encode(c.last_activity));
 
     if (success) {
-        auto res = _insert_contact_stmt.exec();
+        auto res = stmt.exec();
 
         if (res.is_error()) {
             failure(fmt::format(SAVE_CONTACT_ERROR, res.last_error()));
             success = false;
         }
     } else {
-        failure(fmt::format(SAVE_CONTACT_ERROR, _insert_contact_stmt.last_error()));
+        failure(fmt::format(SAVE_CONTACT_ERROR, stmt.last_error()));
     }
 
     return success;
@@ -130,16 +110,14 @@ PFS_CHAT__EXPORT optional<contact> contact_list::load (contact_id id)
 {
     bool success = true;
 
-    if (!_select_contact_stmt) {
-        _select_contact_stmt = _dbh.prepare(
-            fmt::format(SELECT_CONTACT, _table_name));
-        success = !!_select_contact_stmt;
-    }
+    auto stmt = _dbh.prepare(fmt::format(SELECT_CONTACT, _table_name));
 
-    success = success && _select_contact_stmt.bind(":id", std::to_string(id));
+    success = !!stmt;
+
+    success = success && stmt.bind(":id", sqlite3::encode(id));
 
     if (success) {
-        auto res = _select_contact_stmt.exec();
+        auto res = stmt.exec();
 
         if (res.has_more()) {
             contact c;
@@ -162,7 +140,7 @@ PFS_CHAT__EXPORT optional<contact> contact_list::load (contact_id id)
             }
         }
     } else {
-        failure(fmt::format(LOAD_CONTACT_ERROR, _select_contact_stmt.last_error()));
+        failure(fmt::format(LOAD_CONTACT_ERROR, stmt.last_error()));
     }
 
     return optional<contact>{};
@@ -176,18 +154,15 @@ PFS_CHAT__EXPORT void contact_list::wipe ()
         failure(fmt::format(WIPE_CONTACT_LIST_ERROR, _dbh.last_error()));
 }
 
-PFS_CHAT__EXPORT void contact_list::for_each (std::function<void(contact const &)> visitor)
+PFS_CHAT__EXPORT void contact_list::all_of (std::function<void(contact const &)> visitor)
 {
     bool success = true;
 
-    if (!_select_all_contact_stmt) {
-        _select_all_contact_stmt = _dbh.prepare(
-            fmt::format(SELECT_ALL_CONTACTS, _table_name));
-        success = !!_select_all_contact_stmt;
-    }
+    auto stmt = _dbh.prepare(fmt::format(SELECT_ALL_CONTACTS, _table_name));
+    success = !!stmt;
 
     if (success) {
-        auto res = _select_all_contact_stmt.exec();
+        auto res = stmt.exec();
 
         for (; res.has_more(); res.next()) {
             contact c;
@@ -213,9 +188,9 @@ PFS_CHAT__EXPORT void contact_list::for_each (std::function<void(contact const &
             }
         }
     } else {
-        failure(fmt::format(LOAD_ALL_CONTACTS_ERROR, _select_all_contact_stmt.last_error()));
+        failure(fmt::format(LOAD_ALL_CONTACTS_ERROR, stmt.last_error()));
     }
 }
 
-}}} // namespace pfs::net::chat
+}} // namespace pfs::chat
 

@@ -7,20 +7,18 @@
 //      2021.11.20 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
-#include "pfs/emitter.hpp"
 #include "pfs/uuid.hpp"
 
 namespace pfs {
-namespace net {
 namespace chat {
 
-class messenger_controller
+class account
 {
-public: // signals
-    pfs::emitter_mt<std::string const &> failure;
+    uuid_t _uuid;
+
+public:
 };
 
-}}} // namespace pfs::net::chat
-
+}} // namespace pfs::chat
 
 

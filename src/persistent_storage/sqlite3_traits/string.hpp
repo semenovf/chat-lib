@@ -10,7 +10,6 @@
 #include <string>
 
 namespace pfs {
-namespace net {
 namespace chat {
 namespace sqlite3 {
 
@@ -36,6 +35,6 @@ inline bool decode (std::string const & orig, std::string * target)
     return true;
 }
 
-}}}} // namespace pfs::net::chat::sqlite3
+}}} // namespace pfs::chat::sqlite3
 
 

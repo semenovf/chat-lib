@@ -11,7 +11,6 @@
 #include "pfs/time_point.hpp"
 
 namespace pfs {
-namespace net {
 namespace chat {
 namespace sqlite3 {
 
@@ -37,6 +36,6 @@ inline bool decode (std::int64_t const & orig, utc_time_point * target)
     return true;
 }
 
-}}}} // namespace pfs::net::chat::sqlite3
+}}} // namespace pfs::chat::sqlite3
 
 
