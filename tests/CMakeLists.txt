@@ -20,6 +20,7 @@ endif()
 
 set(TEST_NAMES
     contact_list
+    message_store
 )
 
 foreach (name ${TEST_NAMES})

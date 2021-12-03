@@ -16,7 +16,16 @@ namespace chat {
 namespace sqlite3 {
 
 template <typename NativeType>
-std::string field_type ();
+struct field_type
+{
+    static std::string s ();
+};
+
+template <typename NativeType>
+struct field_type<optional<NativeType>>
+{
+    static std::string s () { return field_type<NativeType>::s(); }
+};
 
 template <typename NativeType>
 struct storage_type
@@ -25,44 +34,109 @@ struct storage_type
 };
 
 template <typename NativeType>
+struct storage_type<optional<NativeType>>
+{
+    using type = typename storage_type<NativeType>::type;
+};
+
+template <typename NativeType>
+struct codec
+{
+    static typename storage_type<NativeType>::type encode (NativeType const & orig)
+    {
+        static_assert(std::is_same<typename storage_type<NativeType>::type, NativeType>::value
+            , "Storage and native types are expected to be the same");
+        return orig;
+    }
+
+    static bool decode (typename storage_type<NativeType>::type const & orig, NativeType * target)
+    {
+        static_assert(std::is_same<typename storage_type<NativeType>::type, NativeType>::value
+            , "Storage and native types are expected to be the same");
+        *target = orig;
+        return true;
+    }
+};
+
+template <typename NativeType>
 inline typename storage_type<NativeType>::type encode (NativeType const & orig)
 {
-    static_assert(std::is_same<typename storage_type<NativeType>::type, NativeType>::value
-        , "Storage and native types are expected to be the same");
-    return orig;
+    return codec<NativeType>::encode(orig);
 }
 
 template <typename NativeType>
 inline bool decode (typename storage_type<NativeType>::type const & orig, NativeType * target)
 {
-    static_assert(std::is_same<typename storage_type<NativeType>::type, NativeType>::value
-        , "Storage and native types are expected to be the same");
-    *target = orig;
-    return true;
+    return codec<NativeType>::decode(orig, target);
 }
 
 template <typename ResultImpl
     , typename NativeType
     , typename FailureCallback>
-bool pull (debby::basic_result<ResultImpl> & res
+struct puller
+{
+    static bool pull (debby::basic_result<ResultImpl> & res
+        , std::string const & column_name
+        , NativeType * target
+        , FailureCallback failure_callback)
+    {
+        using storage_type = typename storage_type<NativeType>::type;
+
+        std::pair<storage_type, bool> x = res.template get<storage_type>(column_name
+            , storage_type{});
+
+        bool success = x.second;
+
+        if (success)
+            success = decode<NativeType>(x.first, target);
+
+        if (!success)
+            failure_callback(fmt::format("bad `{}` value", column_name));
+
+        return success;
+    }
+};
+
+template <typename ResultImpl
+    , typename NativeType
+    , typename FailureCallback>
+struct puller<ResultImpl, optional<NativeType>, FailureCallback>
+{
+    static bool pull (debby::basic_result<ResultImpl> & res
+        , std::string const & column_name
+        , optional<NativeType> * target
+        , FailureCallback failure_callback)
+    {
+//         using storage_type = typename storage_type<NativeType>::type;
+//
+//         std::pair<storage_type, bool> x = res.template get<storage_type>(column_name
+//             , storage_type{});
+//
+//         bool success = x.second;
+//
+//         if (success)
+//             success = decode<NativeType>(x.first, target);
+//
+//         if (!success)
+//             failure_callback(fmt::format("bad `{}` value", column_name));
+
+//         return success;
+        return false;
+    }
+};
+
+template <typename ResultImpl
+    , typename NativeType
+    , typename FailureCallback>
+inline bool pull (debby::basic_result<ResultImpl> & res
     , std::string const & column_name
     , NativeType * target
     , FailureCallback failure_callback)
 {
-    using storage_type = typename storage_type<NativeType>::type;
-
-    std::pair<storage_type, bool> x = res.template get<storage_type>(column_name
-        , storage_type{});
-
-    bool success = x.second;
-
-    if (success)
-        success = decode<NativeType>(x.first, target);
-
-    if (!success)
-        failure_callback(fmt::format("bad `{}` value", column_name));
-
-    return success;
+    return puller<ResultImpl, NativeType, FailureCallback>::pull(res
+        , column_name
+        , target
+        , failure_callback);
 }
 
 }}} // namespace pfs::chat::sqlite3

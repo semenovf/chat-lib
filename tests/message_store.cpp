@@ -1,0 +1,93 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright (c) 2021 Vladislav Trifochkin
+//
+// This file is part of [chat-lib](https://github.com/semenovf/chat-lib) library.
+//
+// Changelog:
+//      2021.12.03 Initial version.
+////////////////////////////////////////////////////////////////////////////////
+#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+#include "doctest.h"
+#include "pfs/filesystem.hpp"
+#include "pfs/fmt.hpp"
+// #include "pfs/iterator.hpp"
+// #include "pfs/uuid.hpp"
+// #include "pfs/time_point.hpp"
+// #include "pfs/chat/contact.hpp"
+#include "pfs/chat/persistent_storage/message_store.hpp"
+
+using message_store_t = pfs::chat::message::message_store;
+
+// char const * NAMES[] = {
+//       "Laurene"  , "Fred"   , "Rosita"  , "Valdemar", "Shaylyn"
+//     , "Maribelle", "Gwenore", "Willow"  , "Linda"   , "Bobbette"
+//     , "Kane"     , "Ricki"  , "Gun"     , "Laetitia", "Jaquenetta"
+//     , "Gray"     , "Stepha" , "Emili"   , "Gerrard" , "Elroy"
+//     , "Augusto"  , "Tate"   , "Bryana"  , "Moira"   , "Adrian"
+//     , "Thomasa"  , "Kile"   , "Martino" , "Rolf"    , "Emylee"
+//     , "Hercule"  , "Mile"   , "Boyce"   , "Lurette" , "Allyson"
+//     , "Imelda"   , "Gal"    , "Vikky"   , "Dody"    , "Cindee"
+//     , "Merrili"  , "Esteban", "Janet"   , "Tirrell" , "Malanie"
+//     , "Ester"    , "Wilbur" , "Mike"    , "Alden"   , "Gerri"
+//     , "Nicoline" , "Rozalie", "Patrizia", "Ursala"  , "Gene"
+//     , "Ancell"   , "Roxi"   , "Tamqrah" , "Billy"   , "Kitty"
+//     , "Rosette"  , "Gardy"  , "Bianca"  , "Amandie" , "Hew"
+//     , "Shelby"   , "Enrika" , "Emelia"  , "Ken"     , "Lotti"
+//     , "Cherey"   , "Efrem"  , "Eb"      , "Ezechiel", "Melody"
+//     , "Blane"    , "Fifi"   , "Graehme" , "Arnoldo" , "Brigit"
+//     , "Randee"   , "Bogart" , "Parke"   , "Ashla"   , "Wash"
+//     , "Karisa"   , "Trey"   , "Lorry"   , "Danielle", "Delly"
+//     , "Codie"    , "Timmy"  , "Velma"   , "Glynda"  , "Amara"
+//     , "Garey"    , "Mirabel", "Eliot"   , "Mata"    , "Flemming"
+// };
+//
+// struct forward_iterator : public pfs::iterator_facade<
+//           pfs::forward_iterator_tag
+//         , forward_iterator
+//         , pfs::chat::contact, char const **, pfs::chat::contact>
+// {
+//     char const ** _p;
+//     forward_iterator (char const ** p) : _p(p) {}
+//
+//     reference ref ()
+//     {
+//         pfs::chat::contact c;
+//         c.id = pfs::generate_uuid();
+//         c.name = *_p;
+//         c.last_activity = pfs::current_utc_time_point();
+//         return c;
+//     }
+//
+//     pointer ptr () { return _p; }
+//     void increment (difference_type) { ++_p; }
+//     bool equals (forward_iterator const & rhs) const { return _p == rhs._p;}
+// };
+
+TEST_CASE("message_store") {
+    auto message_store_path = pfs::filesystem::temp_directory_path() / "message_store.db";
+
+    auto dbh = message_store_t::make_handle();
+
+    REQUIRE(dbh->open(message_store_path));
+
+    message_store_t message_store {dbh, pfs::chat::message::route_enum::incoming};
+    message_store.failure.connect([] (std::string const & errstr) {
+        fmt::print(stderr, "ERROR: {}\n", errstr);
+    });
+
+    REQUIRE(message_store.open());
+
+    message_store.wipe();
+
+//     REQUIRE(contact_list.save_range(forward_iterator{NAMES}
+//         , forward_iterator{NAMES + sizeof(NAMES)/sizeof(NAMES[0])}));
+//
+//     contact_list.all_of([] (contact_t const & c) {
+//         fmt::print("{} | {:10} | {}\n"
+//             , std::to_string(c.id)
+//             , c.name
+//             , to_string(c.last_activity));
+//     });
+
+    message_store.close();
+}

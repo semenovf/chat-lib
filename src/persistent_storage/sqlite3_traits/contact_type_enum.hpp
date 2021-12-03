@@ -8,39 +8,42 @@
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 #include "common.hpp"
-#include "pfs/time_point.hpp"
+#include "pfs/chat/contact.hpp"
 
 namespace pfs {
 namespace chat {
 namespace sqlite3 {
 
 template <>
-struct field_type<utc_time_point>
+struct field_type<contact::type_enum>
 {
     static std::string s () { return "INTEGER"; };
 };
 
 template <>
-struct storage_type<utc_time_point>
+struct storage_type<contact::type_enum>
 {
-    using type = std::int64_t;
+    using type = int;
 };
 
 template <>
-struct codec<utc_time_point>
+struct codec<contact::type_enum>
 {
-    static typename storage_type<utc_time_point>::type encode (utc_time_point const & orig)
+    static typename storage_type<contact::type_enum>::type encode (contact::type_enum const & orig)
     {
-        return to_millis(orig).count();
+        return static_cast<storage_type<contact::type_enum>::type>(orig);
     }
 
-    static bool decode (typename storage_type<utc_time_point>::type const & orig, utc_time_point * target)
+    static bool decode (typename storage_type<contact::type_enum>::type const & orig, contact::type_enum * target)
     {
-        target->value = from_millis(std::chrono::milliseconds{orig});
-        return true;
+        auto res = contact::to_type_enum(orig);
+
+        if (res.has_value())
+            *target = *res;
+
+        return res.has_value();
     }
 };
 
 }}} // namespace pfs::chat::sqlite3
-
 

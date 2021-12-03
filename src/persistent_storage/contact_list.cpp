@@ -6,6 +6,7 @@
 // Changelog:
 //      2021.11.21 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
+#include "sqlite3_traits/contact_type_enum.hpp"
 #include "sqlite3_traits/uuid.hpp"
 #include "sqlite3_traits/string.hpp"
 #include "sqlite3_traits/time_point.hpp"
@@ -14,82 +15,78 @@
 
 namespace pfs {
 namespace chat {
+namespace contact {
 
 namespace {
     std::string const OPEN_CONTACT_LIST_ERROR { "open contact list failure: {}" };
     std::string const SAVE_CONTACT_ERROR      { "save contact failure: {}" };
     std::string const LOAD_CONTACT_ERROR      { "load contact failure: {}" };
     std::string const LOAD_ALL_CONTACTS_ERROR { "load contacts failure: {}" };
-    std::string const WIPE_CONTACT_LIST_ERROR { "wipe contact list failure: {}" };
+    std::string const WIPE_ERROR              { "wipe contact list failure: {}" };
+} // namespace
 
-    std::string const CREATE_TABLE {
-        "CREATE TABLE IF NOT EXISTS `{}` ("
-            "`id` {} NOT NULL UNIQUE"
-            ", `name` {} NOT NULL"
-            ", `last_activity` {} NOT NULL"
-            ", PRIMARY KEY(`id`))"
-    };
+PFS_CHAT__EXPORT contact_list::contact_list (database_handle dbh, std::string const & table_name)
+    : entity_storage(dbh, table_name)
+{}
 
-    std::string const CREATE_INDEX {
-        "CREATE UNIQUE INDEX IF NOT EXISTS `contact_id` ON `{}` (`id`)"
-    };
+namespace {
 
-    std::string const INSERT_CONTACT {
-        "INSERT INTO `{}` (`id`, `name`, `last_activity`)"
-        " VALUES (:id, :name, :last_activity)"
-    };
+std::string const CREATE_TABLE {
+    "CREATE TABLE IF NOT EXISTS `{}` ("
+        "`id` {} NOT NULL UNIQUE"
+        ", `name` {} NOT NULL"
+        ", `alias` {} NOT NULL"
+        ", `type` {} NOT NULL"
+        ", `last_activity` {} NOT NULL"
+        ", PRIMARY KEY(`id`)) WITHOUT ROWID"
+};
 
-    std::string const SELECT_CONTACT {
-        "SELECT `id`, `name`, `last_activity` FROM `{}` WHERE `id` = :id"
-    };
+std::string const CREATE_INDEX {
+    "CREATE UNIQUE INDEX IF NOT EXISTS `contact_id` ON `{}` (`id`)"
+};
 
-    std::string const SELECT_ALL_CONTACTS {
-        "SELECT `id`, `name`, `last_activity` FROM `{}`"
-    };
+} // namespace
 
-    std::string const WIPE_TABLE {
-        "DELETE FROM `{}`"
-    };
-}
-
-PFS_CHAT__EXPORT bool contact_list::open (filesystem::path const & path)
+PFS_CHAT__EXPORT bool contact_list::open_impl ()
 {
-    auto success = _dbh.open(path);
-
     auto sql = fmt::format(CREATE_TABLE
         , _table_name
-        , sqlite3::field_type<decltype(contact{}.id)>()
-        , sqlite3::field_type<decltype(contact{}.name)>()
-        , sqlite3::field_type<decltype(contact{}.last_activity)>());
+        , sqlite3::field_type<decltype(contact{}.id)>::s()
+        , sqlite3::field_type<decltype(contact{}.name)>::s()
+        , sqlite3::field_type<decltype(contact{}.alias)>::s()
+        , sqlite3::field_type<decltype(contact{}.type)>::s()
+        , sqlite3::field_type<decltype(contact{}.last_activity)>::s());
 
-    success = success
-        && _dbh.query(sql)
-        && _dbh.query(fmt::format(CREATE_INDEX, _table_name));
+    auto success = _dbh->query(sql)
+        && _dbh->query(fmt::format(CREATE_INDEX, _table_name));
 
     if (!success) {
-        failure(fmt::format(OPEN_CONTACT_LIST_ERROR, _dbh.last_error()));
+        failure(fmt::format(OPEN_CONTACT_LIST_ERROR, _dbh->last_error()));
         close();
     }
 
     return success;
 }
 
-PFS_CHAT__EXPORT void contact_list::close ()
-{
-    _dbh.close();
-}
+namespace {
+
+std::string const INSERT_CONTACT {
+    "INSERT INTO `{}` (`id`, `name`, `alias`, `type`, `last_activity`)"
+    " VALUES (:id, :name, :alias, :type, :last_activity)"
+};
+
+} // namespace
 
 PFS_CHAT__EXPORT bool contact_list::save (contact const & c)
 {
-    bool success = true;
-
-    auto stmt = _dbh.prepare(fmt::format(INSERT_CONTACT, _table_name));
-
-    success = !!stmt;
+    auto stmt = _dbh->prepare(fmt::format(INSERT_CONTACT, _table_name));
+    bool success = !!stmt;
 
     success = success
         && stmt.bind(":id", sqlite3::encode(c.id))
         && stmt.bind(":name", sqlite3::encode(c.name))
+        && stmt.bind(":alias", sqlite3::encode(c.alias))
+        && stmt.bind(":type", sqlite3::encode(c.type))
         && stmt.bind(":last_activity", sqlite3::encode(c.last_activity));
 
     if (success) {
@@ -106,13 +103,18 @@ PFS_CHAT__EXPORT bool contact_list::save (contact const & c)
     return success;
 }
 
+namespace {
+
+std::string const SELECT_CONTACT {
+    "SELECT `id`, `name`, `alias`, `type`, `last_activity` FROM `{}` WHERE `id` = :id"
+};
+
+} // namespace
+
 PFS_CHAT__EXPORT optional<contact> contact_list::load (contact_id id)
 {
-    bool success = true;
-
-    auto stmt = _dbh.prepare(fmt::format(SELECT_CONTACT, _table_name));
-
-    success = !!stmt;
+    auto stmt = _dbh->prepare(fmt::format(SELECT_CONTACT, _table_name));
+    bool success = !!stmt;
 
     success = success && stmt.bind(":id", sqlite3::encode(id));
 
@@ -127,10 +129,12 @@ PFS_CHAT__EXPORT optional<contact> contact_list::load (contact_id id)
 
             success = sqlite3::pull(res, "id", & c.id, failure_callback)
                 && sqlite3::pull(res, "name", & c.name, failure_callback)
+                && sqlite3::pull(res, "alias", & c.alias, failure_callback)
+                && sqlite3::pull(res, "type", & c.type, failure_callback)
                 && sqlite3::pull(res, "last_activity", & c.last_activity, failure_callback);
 
             if (success)
-                return optional<contact>{std::move(c)};
+                return std::move(c);
         } else {
             // Error or not found;
             success = false;
@@ -143,23 +147,37 @@ PFS_CHAT__EXPORT optional<contact> contact_list::load (contact_id id)
         failure(fmt::format(LOAD_CONTACT_ERROR, stmt.last_error()));
     }
 
-    return optional<contact>{};
+    return nullopt;
 }
 
-PFS_CHAT__EXPORT void contact_list::wipe ()
+namespace {
+
+std::string const WIPE_TABLE {
+    "DELETE FROM `{}`"
+};
+
+} // namespace
+
+PFS_CHAT__EXPORT void contact_list::wipe_impl ()
 {
-    auto success = _dbh.query(fmt::format(WIPE_TABLE, _table_name));
+    auto success = _dbh->query(fmt::format(WIPE_TABLE, _table_name));
 
     if (!success)
-        failure(fmt::format(WIPE_CONTACT_LIST_ERROR, _dbh.last_error()));
+        failure(fmt::format(WIPE_ERROR, _dbh->last_error()));
 }
 
-PFS_CHAT__EXPORT void contact_list::all_of (std::function<void(contact const &)> visitor)
-{
-    bool success = true;
+namespace {
 
-    auto stmt = _dbh.prepare(fmt::format(SELECT_ALL_CONTACTS, _table_name));
-    success = !!stmt;
+std::string const SELECT_ALL_CONTACTS {
+    "SELECT `id`, `name`, `alias`, `type`, `last_activity` FROM `{}`"
+};
+
+} // namespace
+
+PFS_CHAT__EXPORT void contact_list::all_of (std::function<void(contact const &)> f)
+{
+    auto stmt = _dbh->prepare(fmt::format(SELECT_ALL_CONTACTS, _table_name));
+    auto success = !!stmt;
 
     if (success) {
         auto res = stmt.exec();
@@ -173,10 +191,12 @@ PFS_CHAT__EXPORT void contact_list::all_of (std::function<void(contact const &)>
 
             success = sqlite3::pull(res, "id", & c.id, failure_callback)
                 && sqlite3::pull(res, "name", & c.name, failure_callback)
+                && sqlite3::pull(res, "alias", & c.alias, failure_callback)
+                && sqlite3::pull(res, "type", & c.type, failure_callback)
                 && sqlite3::pull(res, "last_activity", & c.last_activity, failure_callback);
 
             if (success)
-                visitor(c);
+                f(c);
         }
 
         if (res.is_error()) {
@@ -192,5 +212,4 @@ PFS_CHAT__EXPORT void contact_list::all_of (std::function<void(contact const &)>
     }
 }
 
-}} // namespace pfs::chat
-
+}}} // namespace pfs::chat::contact

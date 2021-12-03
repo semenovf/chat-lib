@@ -7,89 +7,46 @@
 //      2021.11.21 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
+#include "entity_storage.hpp"
 #include "pfs/chat/contact.hpp"
 #include "pfs/chat/exports.hpp"
-#include "pfs/emitter.hpp"
-#include "pfs/filesystem.hpp"
-#include "pfs/uuid.hpp"
-#include "pfs/debby/sqlite3/database.hpp"
-#include "pfs/debby/sqlite3/result.hpp"
-#include "pfs/debby/sqlite3/statement.hpp"
 #include <functional>
 #include <string>
 
 namespace pfs {
 namespace chat {
+namespace contact {
 
-PFS_CHAT__EXPORT class contact_list
+PFS_CHAT__EXPORT class contact_list: public entity_storage<contact_list>
 {
-    using database_type  = debby::sqlite3::database;
-    using result_type    = debby::sqlite3::result;
-    using statement_type = debby::sqlite3::statement;
+    friend class entity_storage<contact_list>;
 
-    std::string _table_name {"contacts"};
-    database_type _dbh;
+    using database_handle = entity_storage<contact_list>::database_handle;
+
+protected:
+    bool open_impl ();
+    void close_impl () {};
+
+    // Wipe data from database
+    void wipe_impl ();
 
 public:
-    emitter_mt<std::string const &> failure;
-
-public:
-    contact_list (std::string const & table_name = "contacts")
-        : _table_name(table_name)
-    {}
-
-    ~contact_list () = default;
-
-    contact_list (contact_list const &) = delete;
-    contact_list & operator = (contact_list const &) = delete;
-
-    contact_list (contact_list && other) = default;
-    contact_list & operator = (contact_list && other) = default;
-
-    /**
-     * Open contact list database.
-     */
-    bool open (filesystem::path const & path);
-
-    /**
-     * Close contact list database.
-     */
-    void close ();
+    contact_list (database_handle dbh, std::string const & table_name = "contacts");
 
     /**
      * Save contact into database.
      */
     bool save (contact const & c);
 
-    template <typename ForwardIt>
-    bool save (ForwardIt first, ForwardIt last)
-    {
-        bool success = _dbh.begin();
-
-        if (success) {
-            for (int i = 0; first != last; ++first, i++)
-                success = save(*first);
-                //fmt::print("[{}]: [{}]\n", i, (*first).name);
-        }
-
-        if (success) {
-            _dbh.commit();
-        } else {
-            _dbh.rollback();
-        }
-
-        return success;
-    }
-
     /**
      * Load contact specified by @a id from database.
      */
     optional<contact> load (contact_id id);
 
-    // Wipe contacts from database
-    void wipe ();
-
-    void all_of (std::function<void(contact const &)>);
+    /**
+     * Fetch all contacts from database and process them by @a f
+     */
+    void all_of (std::function<void(contact const &)> f);
 };
 
-}} // namespace pfs::chat
+}}} // namespace pfs::chat::contact

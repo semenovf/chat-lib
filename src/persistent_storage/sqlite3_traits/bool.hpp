@@ -4,43 +4,43 @@
 // This file is part of [chat-lib](https://github.com/semenovf/chat-lib) library.
 //
 // Changelog:
-//      2021.11.30 Initial version.
+//      2021.12.03 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 #include "common.hpp"
-#include "pfs/time_point.hpp"
 
 namespace pfs {
 namespace chat {
 namespace sqlite3 {
 
 template <>
-struct field_type<utc_time_point>
+struct field_type<bool>
 {
     static std::string s () { return "INTEGER"; };
 };
 
 template <>
-struct storage_type<utc_time_point>
+struct storage_type<bool>
 {
-    using type = std::int64_t;
+    using type = int;
 };
 
 template <>
-struct codec<utc_time_point>
+struct codec<bool>
 {
-    static typename storage_type<utc_time_point>::type encode (utc_time_point const & orig)
+    static typename storage_type<bool>::type encode (bool const & orig)
     {
-        return to_millis(orig).count();
+        return orig ? 1 : 0;
     }
 
-    static bool decode (typename storage_type<utc_time_point>::type const & orig, utc_time_point * target)
+    static bool decode (typename storage_type<bool>::type const & orig, bool * target)
     {
-        target->value = from_millis(std::chrono::milliseconds{orig});
+        *target = *target == 0 ? false : true;
         return true;
     }
 };
 
 }}} // namespace pfs::chat::sqlite3
+
 
 

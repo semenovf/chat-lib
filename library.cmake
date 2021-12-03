@@ -15,7 +15,9 @@ option(PFS_CHAT__ENABLE_ROCKSDB "Enable `RocksDb` library for persistent storage
 
 portable_target(LIBRARY ${PROJECT_NAME} ALIAS pfs::chat)
 portable_target(SOURCES ${PROJECT_NAME}
-    ${CMAKE_CURRENT_LIST_DIR}/src/persistent_storage/contact_list.cpp)
+    ${CMAKE_CURRENT_LIST_DIR}/src/persistent_storage/contact.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/src/persistent_storage/contact_list.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/src/persistent_storage/message_store.cpp)
 
 portable_target(INCLUDE_DIRS ${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_LIST_DIR}/include)
 portable_target(LINK ${PROJECT_NAME} PUBLIC pfs::debby pfs::common)
@@ -28,18 +30,16 @@ if (PFS_CHAT__ENABLE_ROCKSDB AND NOT PFS_CHAT__ROCKSDB_ROOT)
 endif()
 
 if (PFS_CHAT__ENABLE_ROCKSDB)
-    set(PFS_ROCKSDB__ROOT ${PFS_CHAT__ROCKSDB_ROOT})
-    include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/RocksDB.cmake")
+    include(FindRocksDB)
 
     if (PFS_ROCKSDB__LIBRARY)
-        portable_target(${PROJECT_NAME} PRIVATE ${PFS_ROCKSDB__LIBRARY})
+        target_link_libraries(${PROJECT_NAME} PRIVATE ${PFS_ROCKSDB__LIBRARY})
+        target_compile_definitions(${PROJECT_NAME} PRIVATE "-DPFS_CHAT__ROCKSDB_ENABLED=1")
 
-        if (PFS_ROCKSDB__INCLUDE)
-            portable_target(INCLUDE_DIRS ${PROJECT_NAME} PRIVATE ${PFS_ROCKSDB__INCLUDE})
+        if (PFS_ROCKSDB__INCLUDE_DIR)
+            target_include_directories(${PROJECT_NAME} PRIVATE ${PFS_ROCKSDB__INCLUDE_DIR})
         endif()
 
         message(STATUS "`RocksDB` backend enabled")
-    else()
-        message(WARNING "Unable to enable `RocksDB` backend")
     endif()
 endif()

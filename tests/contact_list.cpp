@@ -16,12 +16,6 @@
 #include "pfs/chat/contact.hpp"
 #include "pfs/chat/persistent_storage/contact_list.hpp"
 
-#if PFS_HAVE_STD_FILESYSTEM
-namespace filesystem = std::filesystem;
-#else
-namespace filesystem = pfs::filesystem;
-#endif
-
 char const * NAMES[] = {
       "Laurene"  , "Fred"   , "Rosita"  , "Valdemar", "Shaylyn"
     , "Maribelle", "Gwenore", "Willow"  , "Linda"   , "Bobbette"
@@ -45,19 +39,24 @@ char const * NAMES[] = {
     , "Garey"    , "Mirabel", "Eliot"   , "Mata"    , "Flemming"
 };
 
+using contact_t = pfs::chat::contact::contact;
+using contact_list_t = pfs::chat::contact::contact_list;
+
 struct forward_iterator : public pfs::iterator_facade<
           pfs::forward_iterator_tag
         , forward_iterator
-        , pfs::chat::contact, char const **, pfs::chat::contact>
+        , contact_t, char const **, contact_t>
 {
     char const ** _p;
     forward_iterator (char const ** p) : _p(p) {}
 
     reference ref ()
     {
-        pfs::chat::contact c;
+        contact_t c;
         c.id = pfs::generate_uuid();
         c.name = *_p;
+        c.alias = *_p;
+        c.type = pfs::chat::contact::type_enum::person;
         c.last_activity = pfs::current_utc_time_point();
         return c;
     }
@@ -68,27 +67,31 @@ struct forward_iterator : public pfs::iterator_facade<
 };
 
 TEST_CASE("contact_list") {
-    using contact_t = pfs::chat::contact;
-    using contact_list_t = pfs::chat::contact_list;
+    auto contact_list_path = pfs::filesystem::temp_directory_path() / "contact_list.db";
 
-    auto contact_list_path = filesystem::temp_directory_path() / "contact_list.db";
+    auto dbh = contact_list_t::make_handle();
 
-    contact_list_t contact_list;
+    REQUIRE(dbh->open(contact_list_path));
+
+    contact_list_t contact_list {dbh};
     contact_list.failure.connect([] (std::string const & errstr) {
         fmt::print(stderr, "ERROR: {}\n", errstr);
+        REQUIRE(false);
     });
 
-    REQUIRE(contact_list.open(contact_list_path));
+    REQUIRE(contact_list.open());
 
     contact_list.wipe();
 
-    REQUIRE(contact_list.save(forward_iterator{NAMES}
+    REQUIRE(contact_list.save_range(forward_iterator{NAMES}
         , forward_iterator{NAMES + sizeof(NAMES)/sizeof(NAMES[0])}));
 
     contact_list.all_of([] (contact_t const & c) {
-        fmt::print("{} | {:10} | {}\n"
+        fmt::print("{} | {:10} | {:10} | {:10} | {}\n"
             , std::to_string(c.id)
             , c.name
+            , c.alias
+            , std::to_string(c.type)
             , to_string(c.last_activity));
     });
 

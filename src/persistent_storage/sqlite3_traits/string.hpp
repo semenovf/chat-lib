@@ -14,26 +14,16 @@ namespace chat {
 namespace sqlite3 {
 
 template <>
-inline std::string field_type<std::string> () { return "TEXT"; };
+struct field_type<std::string>
+{
+    static std::string s () { return "TEXT"; };
+};
 
 template <>
 struct storage_type<std::string>
 {
     using type = std::string;
 };
-
-template <>
-inline storage_type<std::string>::type encode (std::string const & orig)
-{
-    return orig;
-}
-
-template <>
-inline bool decode (std::string const & orig, std::string * target)
-{
-    *target = orig;
-    return true;
-}
 
 }}} // namespace pfs::chat::sqlite3
 
