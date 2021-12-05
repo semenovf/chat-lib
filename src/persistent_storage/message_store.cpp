@@ -24,19 +24,11 @@ namespace {
     std::string const UNIQUE_KEYWORD {"UNIQUE"};
     std::string const WITHOUT_ROWID_KEYWORD {"WITHOUT ROWID"};
 
-    std::string const OPEN_MESSAGE_STORE_ERROR { "open message store failure: {}" };
-    std::string const SAVE_CREDENTIALS_ERROR   { "save message credentials failure: {}" };
-    std::string const LOAD_CREDENTIALS_ERROR   { "load message credentials failure: {}" };
-//     std::string const LOAD_ALL_CONTACTS_ERROR { "load contacts failure: {}" };
-    std::string const WIPE_ERROR { "wipe message store failure: {}" };
-
-//     std::string const SELECT_ALL_CONTACTS {
-//         "SELECT `id`, `name`, `last_activity` FROM `{}`"
-//     };
-
-    std::string const WIPE_TABLE {
-        "DELETE FROM `{}`"
-    };
+    std::string const OPEN_MESSAGE_STORE_ERROR   { "open message store failure: {}" };
+    std::string const SAVE_CREDENTIALS_ERROR     { "save message credentials failure: {}" };
+    std::string const LOAD_CREDENTIALS_ERROR     { "load message credentials failure: {}" };
+    std::string const LOAD_ALL_CREDENTIALS_ERROR { "load messages credentials failure: {}" };
+    std::string const WIPE_ERROR                 { "wipe message store failure: {}" };
 }
 
 message_store::message_store (database_handle dbh, route_enum route)
@@ -114,12 +106,14 @@ PFS_CHAT__EXPORT bool message_store::open_helper (route_enum route)
 }
 
 namespace {
-    std::string const INSERT_CREDENTIALS {
-        "INSERT INTO `{}` (`id`, `deleted`, `contact_id`, `creation_time`"
-        ", `received_time`, `read_time` )"
-        " VALUES (:id, :deleted, :contact_id, :creation_time"
-        ", :received_time, :read_time)"
-    };
+
+std::string const INSERT_CREDENTIALS {
+    "INSERT INTO `{}` (`id`, `deleted`, `contact_id`, `creation_time`"
+    ", `received_time`, `read_time` )"
+    " VALUES (:id, :deleted, :contact_id, :creation_time"
+    ", :received_time, :read_time)"
+};
+
 } // namespace
 
 PFS_CHAT__EXPORT bool message_store::save (message::credentials const & m)
@@ -159,11 +153,12 @@ PFS_CHAT__EXPORT bool message_store::save (message::credentials const & m)
 
 namespace {
 
-    std::string const SELECT_CREDENTIALS {
-        "SELECT `id`, `deleted`, `contact_id`, `creation_time`"
-        ", `received_time`, `read_time`"
-        " FROM `{}` WHERE `id` = :id"
-    };
+std::string const SELECT_CREDENTIALS {
+    "SELECT `id`, `deleted`, `contact_id`, `creation_time`"
+    ", `received_time`, `read_time`"
+    " FROM `{}` WHERE `id` = :id"
+};
+
 } // namespace
 
 PFS_CHAT__EXPORT std::vector<message::credentials> message_store::load (message_id id)
@@ -205,6 +200,14 @@ PFS_CHAT__EXPORT std::vector<message::credentials> message_store::load (message_
     return result;
 }
 
+namespace {
+
+std::string const WIPE_TABLE {
+    "DELETE FROM `{}`"
+};
+
+} // namespace
+
 PFS_CHAT__EXPORT void message_store::wipe_impl ()
 {
     auto success = _dbh->query(fmt::format(WIPE_TABLE, _table_name));
@@ -213,42 +216,49 @@ PFS_CHAT__EXPORT void message_store::wipe_impl ()
         failure(fmt::format(WIPE_ERROR, _dbh->last_error()));
 }
 
+namespace {
+
+std::string const SELECT_ALL_CREDENTIALS {
+    "SELECT `id`, `deleted`, `contact_id`, `creation_time`"
+    ", `received_time` , `read_time` FROM `{}`"
+};
+
+} // namespace
+
 PFS_CHAT__EXPORT void message_store::all_of (std::function<void(message::credentials const &)> f)
 {
-//     bool success = true;
+    auto stmt = _dbh->prepare(fmt::format(SELECT_ALL_CREDENTIALS, _table_name));
+    bool success = !!stmt;
 
-//     auto stmt = _dbh->prepare(fmt::format(SELECT_ALL_CONTACTS, _table_name));
-//     success = !!stmt;
-//
-//     if (success) {
-//         auto res = stmt.exec();
-//
-//         for (; res.has_more(); res.next()) {
-//             contact c;
-//
-//             auto failure_callback = [this] (std::string const & error) {
-//                 failure(error);
-//             };
-//
-//             success = sqlite3::pull(res, "id", & c.id, failure_callback)
-//                 && sqlite3::pull(res, "name", & c.name, failure_callback)
-//                 && sqlite3::pull(res, "last_activity", & c.last_activity, failure_callback);
-//
-//             if (success)
-//                 f(c);
-//         }
-//
-//         if (res.is_error()) {
-//             // Error or not found;
-//             success = false;
-//
-//             if (res.is_error()) {
-//                 failure(fmt::format(LOAD_ALL_CONTACTS_ERROR, res.last_error()));
-//             }
-//         }
-//     } else {
-//         failure(fmt::format(LOAD_ALL_CONTACTS_ERROR, stmt.last_error()));
-//     }
+    if (success) {
+        auto res = stmt.exec();
+
+        for (; res.has_more(); res.next()) {
+            message::credentials m;
+
+            auto failure_callback = [this] (std::string const & error) {
+                failure(error);
+            };
+
+            success = sqlite3::pull(res, "id", & m.id, failure_callback)
+                && sqlite3::pull(res, "deleted", & m.deleted, failure_callback)
+                && sqlite3::pull(res, "contact_id", & m.contact_id, failure_callback)
+                && sqlite3::pull(res, "creation_time", & m.creation_time, failure_callback)
+                && sqlite3::pull(res, "received_time", & m.received_time, failure_callback)
+                && sqlite3::pull(res, "read_time", & m.read_time, failure_callback);
+
+            if (success)
+                f(m);
+        }
+
+        if (res.is_error()) {
+            // Error or not found;
+            success = false;
+        }
+    }
+
+    if (!success)
+        failure(fmt::format(LOAD_ALL_CREDENTIALS_ERROR, stmt.last_error()));
 }
 
 }}} // namespace pfs::chat::message

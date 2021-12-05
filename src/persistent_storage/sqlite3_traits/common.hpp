@@ -82,13 +82,11 @@ struct puller
     {
         using storage_type = typename storage_type<NativeType>::type;
 
-        std::pair<storage_type, bool> x = res.template get<storage_type>(column_name
-            , storage_type{});
-
-        bool success = x.second;
+        auto expected_value = res.template get<storage_type>(column_name);
+        bool success = !!expected_value;
 
         if (success)
-            success = decode<NativeType>(x.first, target);
+            success = decode<NativeType>(*expected_value, target);
 
         if (!success)
             failure_callback(fmt::format("bad `{}` value", column_name));
@@ -107,21 +105,29 @@ struct puller<ResultImpl, optional<NativeType>, FailureCallback>
         , optional<NativeType> * target
         , FailureCallback failure_callback)
     {
-//         using storage_type = typename storage_type<NativeType>::type;
-//
-//         std::pair<storage_type, bool> x = res.template get<storage_type>(column_name
-//             , storage_type{});
-//
-//         bool success = x.second;
-//
-//         if (success)
-//             success = decode<NativeType>(x.first, target);
-//
-//         if (!success)
-//             failure_callback(fmt::format("bad `{}` value", column_name));
+        using storage_type = typename storage_type<NativeType>::type;
 
-//         return success;
-        return false;
+        auto expected_value = res.template get<storage_type>(column_name);
+        bool success = !!expected_value;
+
+        if (success) {
+            NativeType t;
+            success = decode<NativeType>(* expected_value, & t);
+
+            if (success)
+                *target = std::move(t);
+        } else {
+            // Column contains `null` value
+            if (!expected_value.error()) {
+                *target = nullopt;
+                success = true;
+            }
+        }
+
+        if (!success)
+           failure_callback(fmt::format("bad `{}` value", column_name));
+
+        return success;
     }
 };
 
