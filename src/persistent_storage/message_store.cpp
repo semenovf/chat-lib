@@ -6,16 +6,17 @@
 // Changelog:
 //      2021.11.21 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
-#include "sqlite3_traits/bool.hpp"
-#include "sqlite3_traits/string.hpp"
-#include "sqlite3_traits/time_point.hpp"
-#include "sqlite3_traits/uuid.hpp"
 #include "pfs/chat/persistent_storage/message_store.hpp"
+#include "pfs/debby/sqlite3/input_record.hpp"
+#include "pfs/debby/sqlite3/time_point_traits.hpp"
+#include "pfs/debby/sqlite3/uuid_traits.hpp"
 #include <cassert>
 
 namespace pfs {
 namespace chat {
 namespace message {
+
+using namespace pfs::debby::sqlite3;
 
 namespace {
     std::string const INCOMING_TABLE_NAME {"incoming_messages"};
@@ -60,7 +61,7 @@ std::string const CREATE_MESSAGES_TABLE {
 };
 
 std::string const CREATE_OUTGOING_MESSAGES_INDEX {
-    "CREATE UNIQUE INDEX IF NOT EXISTS `message_id` ON `{}` (`id`)"
+    "CREATE UNIQUE INDEX IF NOT EXISTS `{}_message_id` ON `{}` (`id`)"
 };
 
 } // namespace
@@ -83,19 +84,19 @@ PFS_CHAT__EXPORT bool message_store::open_helper (route_enum route)
 
     auto sql = fmt::format(*sql_format
         , _table_name
-        , sqlite3::field_type<decltype(credentials{}.id)>::s()
+        , affinity_traits<decltype(credentials{}.id)>::name()
         , *unique_keyword
-        , sqlite3::field_type<decltype(credentials{}.deleted)>::s()
-        , sqlite3::field_type<decltype(credentials{}.contact_id)>::s()
-        , sqlite3::field_type<decltype(credentials{}.creation_time)>::s()
-        , sqlite3::field_type<decltype(credentials{}.received_time)>::s()
-        , sqlite3::field_type<decltype(credentials{}.read_time)>::s()
+        , affinity_traits<decltype(credentials{}.deleted)>::name()
+        , affinity_traits<decltype(credentials{}.contact_id)>::name()
+        , affinity_traits<decltype(credentials{}.creation_time)>::name()
+        , affinity_traits<decltype(credentials{}.received_time)>::name()
+        , affinity_traits<decltype(credentials{}.read_time)>::name()
         , *withot_rowid_keyword);
 
     success = _dbh->query(sql);
 
     if (success && !sql_index_format->empty())
-        success = _dbh->query(fmt::format(*sql_index_format, _table_name));
+        success = _dbh->query(fmt::format(*sql_index_format, _table_name, _table_name));
 
     if (!success) {
         failure(fmt::format(OPEN_MESSAGE_STORE_ERROR, _dbh->last_error()));
@@ -116,24 +117,24 @@ std::string const INSERT_CREDENTIALS {
 
 } // namespace
 
-PFS_CHAT__EXPORT bool message_store::save (message::credentials const & m)
+PFS_CHAT__EXPORT bool message_store::save (credentials const & m)
 {
     auto stmt = _dbh->prepare(fmt::format(INSERT_CREDENTIALS, _table_name));
     bool success = !!stmt;
 
     success = success
-        && stmt.bind(":id", sqlite3::encode(m.id))
-        && stmt.bind(":deleted", sqlite3::encode(m.deleted))
-        && stmt.bind(":contact_id", sqlite3::encode(m.contact_id))
-        && stmt.bind(":creation_time", sqlite3::encode(m.creation_time));
+        && stmt.bind(":id", to_storage(m.id))
+        && stmt.bind(":deleted", to_storage(m.deleted))
+        && stmt.bind(":contact_id", to_storage(m.contact_id))
+        && stmt.bind(":creation_time", to_storage(m.creation_time));
 
     if (m.received_time.has_value())
-        success = success && stmt.bind(":received_time", sqlite3::encode(*m.received_time));
+        success = success && stmt.bind(":received_time", to_storage(*m.received_time));
     else
         success = success && stmt.bind(":received_time", nullptr);
 
     if (m.received_time.has_value())
-        success = success && stmt.bind(":read_time", sqlite3::encode(*m.read_time));
+        success = success && stmt.bind(":read_time", to_storage(*m.read_time));
     else
         success = success && stmt.bind(":read_time", nullptr);
 
@@ -161,31 +162,28 @@ std::string const SELECT_CREDENTIALS {
 
 } // namespace
 
-PFS_CHAT__EXPORT std::vector<message::credentials> message_store::load (message_id id)
+PFS_CHAT__EXPORT std::vector<credentials> message_store::load (message_id id)
 {
-    std::vector<message::credentials> result;
+    std::vector<credentials> result;
 
     auto stmt = _dbh->prepare(fmt::format(SELECT_CREDENTIALS, _table_name));
     bool success = !!stmt;
 
-    success = success && stmt.bind(":id", sqlite3::encode(id));
+    success = success && stmt.bind(":id", to_storage(id));
 
     if (success) {
         auto res = stmt.exec();
 
         while (success && res.has_more()) {
-            message::credentials m;
+            credentials m;
+            input_record in {res};
 
-            auto failure_callback = [this] (std::string const & error) {
-                failure(error);
-            };
-
-            success = sqlite3::pull(res, "id", & m.id, failure_callback)
-                && sqlite3::pull(res, "deleted", & m.deleted, failure_callback)
-                && sqlite3::pull(res, "contact_id", & m.contact_id, failure_callback)
-                && sqlite3::pull(res, "creation_time", & m.creation_time, failure_callback)
-                && sqlite3::pull(res, "received_time", & m.received_time, failure_callback)
-                && sqlite3::pull(res, "read_time", & m.read_time, failure_callback);
+            success = in.assign("id").to(m.id)
+                && in.assign("deleted").to(m.deleted)
+                && in.assign("contact_id").to(m.contact_id)
+                && in.assign("creation_time").to(m.creation_time)
+                && in.assign("received_time").to(m.received_time)
+                && in.assign("read_time").to(m.read_time);
 
             if (success)
                 result.push_back(std::move(m));
@@ -225,7 +223,7 @@ std::string const SELECT_ALL_CREDENTIALS {
 
 } // namespace
 
-PFS_CHAT__EXPORT void message_store::all_of (std::function<void(message::credentials const &)> f)
+PFS_CHAT__EXPORT void message_store::all_of (std::function<void(credentials const &)> f)
 {
     auto stmt = _dbh->prepare(fmt::format(SELECT_ALL_CREDENTIALS, _table_name));
     bool success = !!stmt;
@@ -234,18 +232,15 @@ PFS_CHAT__EXPORT void message_store::all_of (std::function<void(message::credent
         auto res = stmt.exec();
 
         for (; res.has_more(); res.next()) {
-            message::credentials m;
+            credentials m;
+            input_record in {res};
 
-            auto failure_callback = [this] (std::string const & error) {
-                failure(error);
-            };
-
-            success = sqlite3::pull(res, "id", & m.id, failure_callback)
-                && sqlite3::pull(res, "deleted", & m.deleted, failure_callback)
-                && sqlite3::pull(res, "contact_id", & m.contact_id, failure_callback)
-                && sqlite3::pull(res, "creation_time", & m.creation_time, failure_callback)
-                && sqlite3::pull(res, "received_time", & m.received_time, failure_callback)
-                && sqlite3::pull(res, "read_time", & m.read_time, failure_callback);
+            success = in.assign("id").to(m.id)
+                && in.assign("deleted").to(m.deleted)
+                && in.assign("contact_id").to(m.contact_id)
+                && in.assign("creation_time").to(m.creation_time)
+                && in.assign("received_time").to(m.received_time)
+                && in.assign("read_time").to(m.read_time);
 
             if (success)
                 f(m);

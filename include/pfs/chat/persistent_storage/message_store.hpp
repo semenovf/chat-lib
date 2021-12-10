@@ -46,7 +46,7 @@ public:
     /**
      * Save message credentials into database.
      */
-    bool save (message::credentials const & m);
+    bool save (credentials const & m);
 
     /**
      * Load message credentials specified by @a id from database.
@@ -56,12 +56,12 @@ public:
      *          For outgoing group message loads message credentials for group
      *          message and appropriate individual messages.
      */
-    std::vector<message::credentials> load (message_id id);
+    std::vector<credentials> load (message_id id);
 
     /**
      * Fetch all contacts from database and process them by @a f
      */
-    void all_of (std::function<void(message::credentials const &)> f);
+    void all_of (std::function<void(credentials const &)> f);
 };
 
 }}} // namespace pfs::chat::message

@@ -7,43 +7,34 @@
 //      2021.11.30 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
-#include "common.hpp"
 #include "pfs/chat/contact.hpp"
+#include "pfs/debby/sqlite3/affinity_traits.hpp"
+#include "pfs/debby/sqlite3/cast_traits.hpp"
 
 namespace pfs {
-namespace chat {
+namespace debby {
 namespace sqlite3 {
 
-template <>
-struct field_type<contact::type_enum>
-{
-    static std::string s () { return "INTEGER"; };
-};
+using namespace pfs::chat;
 
 template <>
-struct storage_type<contact::type_enum>
-{
-    using type = int;
-};
+struct affinity_traits<contact::type_enum> : integral_affinity_traits
+{};
 
 template <>
-struct codec<contact::type_enum>
+struct cast_traits<contact::type_enum>
 {
-    static typename storage_type<contact::type_enum>::type encode (contact::type_enum const & orig)
+    using storage_type = typename affinity_traits<contact::type_enum>::storage_type;
+
+    static storage_type to_storage (contact::type_enum const & value)
     {
-        return static_cast<storage_type<contact::type_enum>::type>(orig);
+        return static_cast<storage_type>(value);
     }
 
-    static bool decode (typename storage_type<contact::type_enum>::type const & orig, contact::type_enum * target)
+    static optional<contact::type_enum> to_native (storage_type const & value)
     {
-        auto res = contact::to_type_enum(orig);
-
-        if (res.has_value())
-            *target = *res;
-
-        return res.has_value();
+        return contact::to_type_enum(value);
     }
 };
 
-}}} // namespace pfs::chat::sqlite3
-
+}}} // namespace pfs::debby::sqlite3

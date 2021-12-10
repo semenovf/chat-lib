@@ -17,6 +17,7 @@ portable_target(LIBRARY ${PROJECT_NAME} ALIAS pfs::chat)
 portable_target(SOURCES ${PROJECT_NAME}
     ${CMAKE_CURRENT_LIST_DIR}/src/persistent_storage/contact.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/persistent_storage/contact_list.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/src/persistent_storage/file_cache.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/persistent_storage/message_store.cpp)
 
 portable_target(INCLUDE_DIRS ${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_LIST_DIR}/include)

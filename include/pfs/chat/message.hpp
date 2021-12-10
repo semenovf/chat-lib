@@ -103,8 +103,16 @@ struct credentials
 //
 // using text_plain = std::string;
 // using text_html  = std::string;
-// using file_spec  = std::pair<std::string, std::size_t>;
-//
+
+struct file_credentials
+{
+    message_id msg_id; // Message id
+    bool deleted;          // Deleted message flag
+    std::string name;      // File name (for incoming message)/path (for outgoing message)
+    std::size_t size;      // File size
+    std::string sha256;    // File SHA-256 checksum
+};
+
 // struct content
 // {
 //     mime_enum mime;

@@ -7,15 +7,17 @@
 //      2021.11.21 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
 #include "sqlite3_traits/contact_type_enum.hpp"
-#include "sqlite3_traits/uuid.hpp"
-#include "sqlite3_traits/string.hpp"
-#include "sqlite3_traits/time_point.hpp"
 #include "pfs/chat/persistent_storage/contact_list.hpp"
+#include "pfs/debby/sqlite3/input_record.hpp"
+#include "pfs/debby/sqlite3/time_point_traits.hpp"
+#include "pfs/debby/sqlite3/uuid_traits.hpp"
 #include <cassert>
 
 namespace pfs {
 namespace chat {
 namespace contact {
+
+using namespace pfs::debby::sqlite3;
 
 namespace {
     std::string const OPEN_CONTACT_LIST_ERROR { "open contact list failure: {}" };
@@ -51,11 +53,11 @@ PFS_CHAT__EXPORT bool contact_list::open_impl ()
 {
     auto sql = fmt::format(CREATE_TABLE
         , _table_name
-        , sqlite3::field_type<decltype(contact{}.id)>::s()
-        , sqlite3::field_type<decltype(contact{}.name)>::s()
-        , sqlite3::field_type<decltype(contact{}.alias)>::s()
-        , sqlite3::field_type<decltype(contact{}.type)>::s()
-        , sqlite3::field_type<decltype(contact{}.last_activity)>::s());
+        , affinity_traits<decltype(contact{}.id)>::name()
+        , affinity_traits<decltype(contact{}.name)>::name()
+        , affinity_traits<decltype(contact{}.alias)>::name()
+        , affinity_traits<decltype(contact{}.type)>::name()
+        , affinity_traits<decltype(contact{}.last_activity)>::name());
 
     auto success = _dbh->query(sql)
         && _dbh->query(fmt::format(CREATE_INDEX, _table_name));
@@ -83,11 +85,11 @@ PFS_CHAT__EXPORT bool contact_list::save (contact const & c)
     bool success = !!stmt;
 
     success = success
-        && stmt.bind(":id", sqlite3::encode(c.id))
-        && stmt.bind(":name", sqlite3::encode(c.name))
-        && stmt.bind(":alias", sqlite3::encode(c.alias))
-        && stmt.bind(":type", sqlite3::encode(c.type))
-        && stmt.bind(":last_activity", sqlite3::encode(c.last_activity));
+        && stmt.bind(":id", to_storage(c.id))
+        && stmt.bind(":name", to_storage(c.name))
+        && stmt.bind(":alias", to_storage(c.alias))
+        && stmt.bind(":type", to_storage(c.type))
+        && stmt.bind(":last_activity", to_storage(c.last_activity));
 
     if (success) {
         auto res = stmt.exec();
@@ -116,22 +118,20 @@ PFS_CHAT__EXPORT optional<contact> contact_list::load (contact_id id)
     auto stmt = _dbh->prepare(fmt::format(SELECT_CONTACT, _table_name));
     bool success = !!stmt;
 
-    success = success && stmt.bind(":id", sqlite3::encode(id));
+    success = success && stmt.bind(":id", to_storage(id));
 
     if (success) {
         auto res = stmt.exec();
 
         if (res.has_more()) {
             contact c;
-            auto failure_callback = [this] (std::string const & error) {
-                failure(error);
-            };
+            input_record in {res};
 
-            success = sqlite3::pull(res, "id", & c.id, failure_callback)
-                && sqlite3::pull(res, "name", & c.name, failure_callback)
-                && sqlite3::pull(res, "alias", & c.alias, failure_callback)
-                && sqlite3::pull(res, "type", & c.type, failure_callback)
-                && sqlite3::pull(res, "last_activity", & c.last_activity, failure_callback);
+            success = in.assign("id").to(c.id)
+                && in.assign("name").to(c.name)
+                && in.assign("alias").to(c.alias)
+                && in.assign("type").to(c.type)
+                && in.assign("last_activity").to(c.last_activity);
 
             if (success)
                 return std::move(c);
@@ -184,16 +184,13 @@ PFS_CHAT__EXPORT void contact_list::all_of (std::function<void(contact const &)>
 
         for (; res.has_more(); res.next()) {
             contact c;
+            input_record in {res};
 
-            auto failure_callback = [this] (std::string const & error) {
-                failure(error);
-            };
-
-            success = sqlite3::pull(res, "id", & c.id, failure_callback)
-                && sqlite3::pull(res, "name", & c.name, failure_callback)
-                && sqlite3::pull(res, "alias", & c.alias, failure_callback)
-                && sqlite3::pull(res, "type", & c.type, failure_callback)
-                && sqlite3::pull(res, "last_activity", & c.last_activity, failure_callback);
+            success = in.assign("id").to(c.id)
+                && in.assign("name").to(c.name)
+                && in.assign("alias").to(c.alias)
+                && in.assign("type").to(c.type)
+                && in.assign("last_activity").to(c.last_activity);
 
             if (success)
                 f(c);
