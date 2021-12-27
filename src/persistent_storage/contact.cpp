@@ -8,11 +8,10 @@
 ////////////////////////////////////////////////////////////////////////////////
 #include "pfs/chat/contact.hpp"
 
-namespace pfs {
 namespace chat {
 namespace contact {
 
-PFS_CHAT__EXPORT optional<type_enum> to_type_enum (int n)
+CHAT__EXPORT pfs::optional<type_enum> to_type_enum (int n)
 {
     switch (n) {
         case static_cast<int>(type_enum::person):
@@ -23,7 +22,7 @@ PFS_CHAT__EXPORT optional<type_enum> to_type_enum (int n)
             break;
     }
 
-    return nullopt;
+    return pfs::nullopt;
 }
 
-}}} // namespace pfs::chat::contact
+}} // namespace chat::contact

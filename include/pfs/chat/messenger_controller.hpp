@@ -10,16 +10,19 @@
 #include "pfs/emitter.hpp"
 #include "pfs/uuid.hpp"
 
-namespace pfs {
 namespace chat {
 
+template <template <typename ...> class EmitterType>
 class messenger_controller
 {
+    template <typename ...Args>
+    using emitter_type = EmitterType<Args...>;
+
 public: // signals
-    pfs::emitter_mt<std::string const &> failure;
+    emitter_type<std::string const &> failure;
 };
 
-}} // namespace pfs::chat
+using messenger_controller_st = messenger_controller<pfs::emitter>;
+using messenger_controller_mt = messenger_controller<pfs::emitter_mt>;
 
-
-
+} // namespace chat

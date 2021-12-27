@@ -4,18 +4,12 @@
 // This file is part of [chat-lib](https://github.com/semenovf/chat-lib) library.
 //
 // Changelog:
-//      2021.11.20 Initial version.
+//      2021.12.13 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
-#pragma once
-#include "pfs/uuid.hpp"
+#include "MessengerProxyForQml.hpp"
 
-namespace chat {
-
-class account
-{
-    uuid_t _uuid;
-
-public:
-};
-
-} // namespace chat
+MessengerProxyForQml::MessengerProxyForQml (std::shared_ptr<ContactModel> contactModel
+    , QObject * parent)
+    : QObject(parent)
+    , _contactModel(contactModel)
+{}

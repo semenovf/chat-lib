@@ -5,6 +5,7 @@
 //
 // Changelog:
 //      2021.12.03 Initial version.
+//      2021.12.13 `message_store` splitted into `incoming_message_store` and `outgoing_message_store`.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 #include "entity_storage.hpp"
@@ -14,54 +15,41 @@
 #include <string>
 #include <vector>
 
-namespace pfs {
 namespace chat {
-namespace message {
+namespace persistent_storage {
+namespace sqlite3 {
 
-PFS_CHAT__EXPORT class message_store: public entity_storage<message_store>
+CHAT__EXPORT class outgoing_message_store: public entity_storage<outgoing_message_store>
 {
-    friend class entity_storage<message_store>;
-    using database_handle = entity_storage<message_store>::database_handle;
-
-private:
-    route_enum _route {route_enum::incoming};
+    friend class entity_storage<outgoing_message_store>;
+    using database_handle = entity_storage<outgoing_message_store>::database_handle;
 
 protected:
-    bool open_helper (route_enum route);
-
-    bool open_impl ()
-    {
-        return open_helper(_route);
-    }
-
-    void close_impl () {};
-
-    // Wipe data from database
+    bool open_impl (database_handle dbh, std::string const & table_name);
+    void close_impl ();
     void wipe_impl ();
 
 public:
-    message_store (database_handle dbh, route_enum route);
-    message_store (database_handle dbh, route_enum route, std::string const & table_name);
+    outgoing_message_store ();
 
     /**
      * Save message credentials into database.
      */
-    bool save (credentials const & m);
+    bool save (message::credentials const & m);
 
     /**
      * Load message credentials specified by @a id from database.
      *
-     * @details For incoming messages and individual outgoing messages loads
-     *          unique message credentials.
+     * @details For individual outgoing messages loads unique message credentials.
      *          For outgoing group message loads message credentials for group
      *          message and appropriate individual messages.
      */
-    std::vector<credentials> load (message_id id);
+    std::vector<message::credentials> load (message::message_id id);
 
     /**
      * Fetch all contacts from database and process them by @a f
      */
-    void all_of (std::function<void(credentials const &)> f);
+    void all_of (std::function<void(message::credentials const &)> f);
 };
 
-}}} // namespace pfs::chat::message
+}}} // namespace chat::persistent_storage::sqlite3

@@ -13,11 +13,10 @@
 #include "pfs/uuid.hpp"
 #include <string>
 
-namespace pfs {
 namespace chat {
 namespace contact {
 
-using contact_id = uuid_t;
+using contact_id = pfs::uuid_t;
 
 enum class type_enum
 {
@@ -31,27 +30,23 @@ struct contact
     std::string name;
     std::string alias;
     type_enum   type;
-    utc_time_point last_activity;
+    pfs::utc_time_point last_activity;
 };
 
-PFS_CHAT__EXPORT optional<type_enum> to_type_enum (int n);
+CHAT__EXPORT pfs::optional<type_enum> to_type_enum (int n);
 
-}}} // namespace pfs::chat::contact
-
-namespace std {
-
-inline string to_string (pfs::chat::contact::type_enum type)
+inline std::string to_string (type_enum type)
 {
     switch (type) {
-        case pfs::chat::contact::type_enum::person:
-            return string{"person"};
-        case pfs::chat::contact::type_enum::group:
-            return string{"group"};
+        case type_enum::person:
+            return std::string{"person"};
+        case type_enum::group:
+            return std::string{"group"};
         default:
             break;
     }
 
-    return string{};
+    return std::string{};
 }
 
-} // namespace std
+}} // namespace chat::contact

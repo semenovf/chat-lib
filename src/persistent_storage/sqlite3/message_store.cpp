@@ -4,27 +4,21 @@
 // This file is part of [chat-lib](https://github.com/semenovf/chat-lib) library.
 //
 // Changelog:
-//      2021.11.21 Initial version.
+//      2021.12.13 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
-#include "pfs/chat/persistent_storage/message_store.hpp"
+#include "message_store.hpp"
 #include "pfs/debby/sqlite3/input_record.hpp"
 #include "pfs/debby/sqlite3/time_point_traits.hpp"
 #include "pfs/debby/sqlite3/uuid_traits.hpp"
 #include <cassert>
 
-namespace pfs {
 namespace chat {
-namespace message {
+namespace persistent_storage {
+namespace sqlite3 {
 
-using namespace pfs::debby::sqlite3;
+using namespace debby::sqlite3;
 
 namespace {
-    std::string const INCOMING_TABLE_NAME {"incoming_messages"};
-    std::string const OUTGOING_TABLE_NAME {"outgoing_messages"};
-    std::string const EMPTY_STRING {};
-    std::string const UNIQUE_KEYWORD {"UNIQUE"};
-    std::string const WITHOUT_ROWID_KEYWORD {"WITHOUT ROWID"};
-
     std::string const OPEN_MESSAGE_STORE_ERROR   { "open message store failure: {}" };
     std::string const SAVE_CREDENTIALS_ERROR     { "save message credentials failure: {}" };
     std::string const LOAD_CREDENTIALS_ERROR     { "load message credentials failure: {}" };
@@ -32,32 +26,28 @@ namespace {
     std::string const WIPE_ERROR                 { "wipe message store failure: {}" };
 }
 
-message_store::message_store (database_handle dbh, route_enum route)
-    : message_store(dbh
-        , route
-        , route == route_enum::incoming
-            ? INCOMING_TABLE_NAME
-            : OUTGOING_TABLE_NAME)
-{}
-
-PFS_CHAT__EXPORT message_store::message_store (database_handle dbh
-        , route_enum route
-        , std::string const & table_name)
-    : entity_storage(dbh, table_name)
-    , _route(route)
-{}
-
 namespace {
 
-std::string const CREATE_MESSAGES_TABLE {
+std::string const CREATE_INCOMING_MESSAGES_TABLE {
     "CREATE TABLE IF NOT EXISTS `{}` ("
-    "`id` {} NOT NULL {}"            // Unique message id (must be unique for outgoing messages)
+    "`id` {} NOT NULL"               // Message id (must be not unique)
     ", `deleted` {} NOT NULL"        // Deleted message flag
     ", `contact_id` {} NOT NULL"     // Author (outgoing)/ addressee (incoming) contact ID
     ", `creation_time` {} NOT NULL"  // Message creation time (UTC)
     ", `received_time` {}"           // Message received time (UTC)
     ", `read_time` {}"               // Message read time (UTC)
-    ", PRIMARY KEY(`id`)) {}"        // 'WITHOUT ROWID' (optional)
+    ", PRIMARY KEY(`id`))"
+};
+
+std::string const CREATE_OUTGOING_MESSAGES_TABLE {
+    "CREATE TABLE IF NOT EXISTS `{}` ("
+    "`id` {} NOT NULL UNIQUE"        // Unique message id
+    ", `deleted` {} NOT NULL"        // Deleted message flag
+    ", `contact_id` {} NOT NULL"     // Author (outgoing)/ addressee (incoming) contact ID
+    ", `creation_time` {} NOT NULL"  // Message creation time (UTC)
+    ", `received_time` {}"           // Message received time (UTC)
+    ", `read_time` {}"               // Message read time (UTC)
+    ", PRIMARY KEY(`id`)) WITHOUT ROWID"
 };
 
 std::string const CREATE_OUTGOING_MESSAGES_INDEX {
@@ -66,37 +56,41 @@ std::string const CREATE_OUTGOING_MESSAGES_INDEX {
 
 } // namespace
 
-PFS_CHAT__EXPORT bool message_store::open_helper (route_enum route)
+bool message_store::open_incoming ()
 {
-    bool success = true;
-
-    std::array<std::string const *, 10> replacements {
-          & CREATE_MESSAGES_TABLE, & EMPTY_STRING, & EMPTY_STRING, & EMPTY_STRING
-        , & CREATE_MESSAGES_TABLE, & UNIQUE_KEYWORD, & CREATE_OUTGOING_MESSAGES_INDEX, & WITHOUT_ROWID_KEYWORD
-    };
-
-    int base_index = (static_cast<int>(route) - 1) * 4;
-
-    auto sql_format           = replacements[base_index + 0];
-    auto unique_keyword       = replacements[base_index + 1];
-    auto sql_index_format     = replacements[base_index + 2];
-    auto withot_rowid_keyword = replacements[base_index + 3];
-
-    auto sql = fmt::format(*sql_format
+    auto sql = fmt::format(CREATE_INCOMING_MESSAGES_TABLE
         , _table_name
-        , affinity_traits<decltype(credentials{}.id)>::name()
-        , *unique_keyword
-        , affinity_traits<decltype(credentials{}.deleted)>::name()
-        , affinity_traits<decltype(credentials{}.contact_id)>::name()
-        , affinity_traits<decltype(credentials{}.creation_time)>::name()
-        , affinity_traits<decltype(credentials{}.received_time)>::name()
-        , affinity_traits<decltype(credentials{}.read_time)>::name()
-        , *withot_rowid_keyword);
+        , affinity_traits<decltype(message::credentials{}.id)>::name()
+        , affinity_traits<decltype(message::credentials{}.deleted)>::name()
+        , affinity_traits<decltype(message::credentials{}.contact_id)>::name()
+        , affinity_traits<decltype(message::credentials{}.creation_time)>::name()
+        , affinity_traits<decltype(message::credentials{}.received_time)>::name()
+        , affinity_traits<decltype(message::credentials{}.read_time)>::name());
 
-    success = _dbh->query(sql);
+    auto success = _dbh->query(sql);
 
-    if (success && !sql_index_format->empty())
-        success = _dbh->query(fmt::format(*sql_index_format, _table_name, _table_name));
+    if (!success) {
+        failure(fmt::format(OPEN_MESSAGE_STORE_ERROR, _dbh->last_error()));
+        close();
+    }
+
+    return success;
+}
+
+bool message_store::open_outgoing ()
+{
+    auto sql = fmt::format(CREATE_OUTGOING_MESSAGES_TABLE
+        , _table_name
+        , affinity_traits<decltype(message::credentials{}.id)>::name()
+        , affinity_traits<decltype(message::credentials{}.deleted)>::name()
+        , affinity_traits<decltype(message::credentials{}.contact_id)>::name()
+        , affinity_traits<decltype(message::credentials{}.creation_time)>::name()
+        , affinity_traits<decltype(message::credentials{}.received_time)>::name()
+        , affinity_traits<decltype(message::credentials{}.read_time)>::name());
+
+    auto success = _dbh->query(sql);
+    success = success && _dbh->query(fmt::format(CREATE_OUTGOING_MESSAGES_INDEX
+        , _table_name, _table_name));
 
     if (!success) {
         failure(fmt::format(OPEN_MESSAGE_STORE_ERROR, _dbh->last_error()));
@@ -117,7 +111,7 @@ std::string const INSERT_CREDENTIALS {
 
 } // namespace
 
-PFS_CHAT__EXPORT bool message_store::save (credentials const & m)
+bool message_store::save (message::credentials const & m)
 {
     auto stmt = _dbh->prepare(fmt::format(INSERT_CREDENTIALS, _table_name));
     bool success = !!stmt;
@@ -141,13 +135,12 @@ PFS_CHAT__EXPORT bool message_store::save (credentials const & m)
     if (success) {
         auto res = stmt.exec();
 
-        if (res.is_error()) {
-            failure(fmt::format(SAVE_CREDENTIALS_ERROR, res.last_error()));
+        if (res.is_error())
             success = false;
-        }
-    } else {
-        failure(fmt::format(SAVE_CREDENTIALS_ERROR, stmt.last_error()));
     }
+
+    if (!success)
+        failure(fmt::format(SAVE_CREDENTIALS_ERROR, stmt.last_error()));
 
     return success;
 }
@@ -162,9 +155,9 @@ std::string const SELECT_CREDENTIALS {
 
 } // namespace
 
-PFS_CHAT__EXPORT std::vector<credentials> message_store::load (message_id id)
+std::vector<message::credentials> message_store::load (message::message_id id)
 {
-    std::vector<credentials> result;
+    std::vector<message::credentials> result;
 
     auto stmt = _dbh->prepare(fmt::format(SELECT_CREDENTIALS, _table_name));
     bool success = !!stmt;
@@ -175,15 +168,15 @@ PFS_CHAT__EXPORT std::vector<credentials> message_store::load (message_id id)
         auto res = stmt.exec();
 
         while (success && res.has_more()) {
-            credentials m;
+            message::credentials m;
             input_record in {res};
 
-            success = in.assign("id").to(m.id)
-                && in.assign("deleted").to(m.deleted)
-                && in.assign("contact_id").to(m.contact_id)
-                && in.assign("creation_time").to(m.creation_time)
-                && in.assign("received_time").to(m.received_time)
-                && in.assign("read_time").to(m.read_time);
+            success = in["id"]         >> m.id
+                && in["deleted"]       >> m.deleted
+                && in["contact_id"]    >> m.contact_id
+                && in["creation_time"] >> m.creation_time
+                && in["received_time"] >> m.received_time
+                && in["read_time"]     >> m.read_time;
 
             if (success)
                 result.push_back(std::move(m));
@@ -206,7 +199,7 @@ std::string const WIPE_TABLE {
 
 } // namespace
 
-PFS_CHAT__EXPORT void message_store::wipe_impl ()
+void message_store::wipe ()
 {
     auto success = _dbh->query(fmt::format(WIPE_TABLE, _table_name));
 
@@ -223,7 +216,7 @@ std::string const SELECT_ALL_CREDENTIALS {
 
 } // namespace
 
-PFS_CHAT__EXPORT void message_store::all_of (std::function<void(credentials const &)> f)
+void message_store::all_of (std::function<void(message::credentials const &)> f)
 {
     auto stmt = _dbh->prepare(fmt::format(SELECT_ALL_CREDENTIALS, _table_name));
     bool success = !!stmt;
@@ -232,28 +225,26 @@ PFS_CHAT__EXPORT void message_store::all_of (std::function<void(credentials cons
         auto res = stmt.exec();
 
         for (; res.has_more(); res.next()) {
-            credentials m;
+            message::credentials m;
             input_record in {res};
 
-            success = in.assign("id").to(m.id)
-                && in.assign("deleted").to(m.deleted)
-                && in.assign("contact_id").to(m.contact_id)
-                && in.assign("creation_time").to(m.creation_time)
-                && in.assign("received_time").to(m.received_time)
-                && in.assign("read_time").to(m.read_time);
+            success = in["id"]         >> m.id
+                && in["deleted"]       >> m.deleted
+                && in["contact_id"]    >> m.contact_id
+                && in["creation_time"] >> m.creation_time
+                && in["received_time"] >> m.received_time
+                && in["read_time"]     >> m.read_time;
 
             if (success)
                 f(m);
         }
 
-        if (res.is_error()) {
-            // Error or not found;
+        if (res.is_error())
             success = false;
-        }
     }
 
     if (!success)
         failure(fmt::format(LOAD_ALL_CREDENTIALS_ERROR, stmt.last_error()));
 }
 
-}}} // namespace pfs::chat::message
+}}} // namespace chat::persistent_storage::sqlite3

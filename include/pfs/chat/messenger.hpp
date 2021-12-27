@@ -7,52 +7,48 @@
 //      2021.11.17 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
-#include "account.hpp"
-#include "contact.hpp"
-#include "message_id_generator.hpp"
-#include "messenger_controller.hpp"
-#include "pfs/net/p2p/controller.hpp"
+#include <memory>
 
-namespace pfs {
 namespace chat {
 
 template <
-      typename DispatchDeliveryController
-    , typename PersistentStorageAPI>
+      typename ControllerBuilder
+    , typename ContactListBuilder>
 class messenger
 {
-    using dispatch_delivery_controller = DispatchDeliveryController;
-    using contact_list_type    = typename PersistentStorageAPI::contact_list_type;
-    using icon_library_type    = typename PersistentStorageAPI::icon_library_type;
-    using message_storage_type = typename PersistentStorageAPI::message_storage_type;
-    using media_cache_type     = typename PersistentStorageAPI::media_cache_type;
+public:
+    using controller_type   = typename ControllerBuilder::type;
+    using contact_list_type = typename ContactListBuilder::type;
+//     using icon_library_type    = typename PersistentStorageAPI::icon_library_type;
+//     using message_storage_type = typename PersistentStorageAPI::message_storage_type;
+//     using media_cache_type     = typename PersistentStorageAPI::media_cache_type;
 
 private:
-    messenger_controller * _pmc {nullptr};
-    dispatch_delivery_controller * _pddc {nullptr};
+    std::unique_ptr<controller_type>   _controller;
+    std::shared_ptr<contact_list_type> _contact_list;
 
 public:
-    static bool startup ()
+    messenger ()
     {
-        return PersistentStorageAPI::startup();
+        ControllerBuilder build_controller;
+        _controller = build_controller();
+
+        ContactListBuilder build_contact_list;
+        _contact_list = build_contact_list();
     }
 
-    static void cleanup ()
-    {
-        PersistentStorageAPI::cleanup();
-    }
-
-public:
-    messenger (messenger_controller & mc, dispatch_delivery_controller & ddc)
-        : _pmc(& mc)
-        , _pddc(& ddc)
-    {}
+    ~messenger () = default;
 
     messenger (messenger const &) = delete;
     messenger & operator = (messenger const &) = delete;
 
     messenger (messenger &&) = delete;
     messenger & operator = (messenger &&) = delete;
+
+    std::shared_ptr<contact_list_type> contact_list_shared () const noexcept
+    {
+        return _contact_list;
+    }
 };
 
-}} // namespace pfs::chat
+} // namespace chat

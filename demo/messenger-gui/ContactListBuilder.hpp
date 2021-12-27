@@ -1,21 +1,17 @@
 ////////////////////////////////////////////////////////////////////////////////
 // Copyright (c) 2021 Vladislav Trifochkin
 //
-// This file is part of [chat-lib](https://github.com/semenovf/chat-lib) library.
+// This file is part of `chat-lib`
 //
 // Changelog:
-//      2021.11.20 Initial version.
+//      2021.12.26 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
-#include "pfs/uuid.hpp"
+#include "ContactList.hpp"
+#include <memory>
 
-namespace chat {
-
-class account
+struct ContactListBuilder
 {
-    uuid_t _uuid;
-
-public:
+    using type = ContactList;
+    std::shared_ptr<ContactList> operator () ();
 };
-
-} // namespace chat

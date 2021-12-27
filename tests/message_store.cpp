@@ -11,9 +11,9 @@
 #include "pfs/filesystem.hpp"
 #include "pfs/fmt.hpp"
 #include "pfs/chat/message.hpp"
-#include "pfs/chat/persistent_storage/message_store.hpp"
+#include "pfs/chat/persistent_storage/sqlite3/incoming_message_store.hpp"
 
-using message_store_t = pfs::chat::message::message_store;
+using message_store_t = pfs::chat::persistent_storage::sqlite3::incoming_message_store;
 using message_t       = pfs::chat::message::credentials;
 
 TEST_CASE("message_store") {
@@ -23,12 +23,12 @@ TEST_CASE("message_store") {
 
     REQUIRE(dbh->open(message_store_path));
 
-    message_store_t message_store {dbh, pfs::chat::message::route_enum::incoming};
+    message_store_t message_store;
     message_store.failure.connect([] (std::string const & errstr) {
         fmt::print(stderr, "ERROR: {}\n", errstr);
     });
 
-    REQUIRE(message_store.open());
+    REQUIRE(message_store.open(dbh, message_store_path));
 
     message_store.wipe();
 

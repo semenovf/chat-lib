@@ -1,0 +1,9 @@
+<RCC>
+    <qresource prefix="/">
+        <!-- file alias="MainApplication.qml"   >Mobile/Qml/MainApplication.qml</file -->
+    </qresource>
+
+    <qresource prefix="/common">
+        <!-- file alias="CustomStyle.qml"         >Mobile/Qml/CustomStyle.qml</file -->
+    </qresource>
+</RCC>

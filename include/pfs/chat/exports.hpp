@@ -10,18 +10,18 @@
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 
-#ifndef PFS_CHAT__STATIC
-#   ifndef PFS_CHAT__EXPORT
+#ifndef CHAT__STATIC
+#   ifndef CHAT__EXPORT
 #       if _MSC_VER
-#           if defined(PFS_CHAT__EXPORTS)
-#               define PFS_CHAT__EXPORT __declspec(dllexport)
+#           if defined(CHAT__EXPORTS)
+#               define CHAT__EXPORT __declspec(dllexport)
 #           else
-#               define PFS_CHAT__EXPORT __declspec(dllimport)
+#               define CHAT__EXPORT __declspec(dllimport)
 #           endif
 #       else
-#           define PFS_CHAT__EXPORT
+#           define CHAT__EXPORT
 #       endif
 #   endif
 #else
-#   define PFS_CHAT__EXPORT
-#endif // !PFS_CHAT__STATIC
+#   define CHAT__EXPORT
+#endif // !CHAT__STATIC

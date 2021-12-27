@@ -1,0 +1,18 @@
+<RCC>
+    <qresource prefix="/">
+        <!-- file alias="Init.qml"            >Common/Qml/Init.qml</file -->
+    </qresource>
+
+    <qresource prefix="/common">
+        <!-- file alias="Battery.qml"           >Common/Qml/Battery.qml</file -->
+    </qresource>
+
+    <qresource prefix="/images">
+        <!-- file alias="STC-loading.svg" >Common/Images/STC-loading.svg</file -->
+    </qresource>
+
+    <!-- Icons -->
+    <qresource prefix="/icons">
+        <!-- file alias="12px.svg"                  >Common/Icons/12px.svg</file -->
+    </qresource>
+</RCC>

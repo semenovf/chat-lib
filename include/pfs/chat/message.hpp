@@ -14,16 +14,10 @@
 #include "pfs/variant.hpp"
 #include <memory>
 
-namespace pfs {
 namespace chat {
 namespace message {
 
-using message_id = uuid_t;
-
-enum class route_enum {
-      incoming = 1
-    , outgoing = 2
-};
+using message_id = pfs::uuid_t;
 
 enum class status_enum
 {
@@ -62,7 +56,7 @@ public:
 
     type next () noexcept
     {
-        return generate_uuid();
+        return pfs::generate_uuid();
     }
 };
 
@@ -81,12 +75,12 @@ struct content;
 
 struct credentials
 {
-    message_id id;                          // Unique message id
-    bool deleted;                           // Deleted message flag
-    contact::contact_id contact_id;         // Author (outgoing)/ addressee (incoming) contact ID
-    utc_time_point creation_time;           // Message creation time (UTC)
-    optional<utc_time_point> received_time; // Message received time (UTC)
-    optional<utc_time_point> read_time;     // Message read time (UTC)
+    message_id id;                                    // Unique message id
+    bool deleted;                                     // Deleted message flag
+    contact::contact_id contact_id;                   // Author (outgoing)/ addressee (incoming) contact ID
+    pfs::utc_time_point creation_time;                // Message creation time (UTC)
+    pfs::optional<pfs::utc_time_point> received_time; // Message received time (UTC)
+    pfs::optional<pfs::utc_time_point> read_time;     // Message read time (UTC)
 };
 
 // struct message : header
@@ -122,4 +116,4 @@ struct file_credentials
 //     > data;
 // };
 
-}}} // namespace pfs::chat::message
+}} // namespace chat::message

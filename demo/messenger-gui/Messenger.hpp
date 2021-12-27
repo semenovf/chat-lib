@@ -4,18 +4,16 @@
 // This file is part of [chat-lib](https://github.com/semenovf/chat-lib) library.
 //
 // Changelog:
-//      2021.11.20 Initial version.
+//      2021.12.13 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
-#include "pfs/uuid.hpp"
+#include "ContactListBuilder.hpp"
+#include "ControllerBuilder.hpp"
+#include "pfs/chat/messenger.hpp"
+#include <memory>
 
-namespace chat {
+using Messenger = chat::messenger<
+      ControllerBuilder
+    , ContactListBuilder>;
 
-class account
-{
-    uuid_t _uuid;
-
-public:
-};
-
-} // namespace chat
+using SharedMessenger = std::shared_ptr<Messenger>;

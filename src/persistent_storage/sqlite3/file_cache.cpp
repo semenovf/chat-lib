@@ -6,21 +6,21 @@
 // Changelog:
 //      2021.12.06 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
-#include "pfs/chat/persistent_storage/file_cache.hpp"
+#include "pfs/chat/persistent_storage/sqlite3/file_cache.hpp"
 #include "pfs/debby/sqlite3/input_record.hpp"
 #include "pfs/debby/sqlite3/time_point_traits.hpp"
 #include "pfs/debby/sqlite3/uuid_traits.hpp"
 #include <cassert>
 
-namespace pfs {
 namespace chat {
-namespace message {
+namespace persistent_storage {
+namespace sqlite3 {
 
 using namespace pfs::debby::sqlite3;
 
 namespace {
-    std::string const INCOMING_TABLE_NAME {"incoming_files"};
-    std::string const OUTGOING_TABLE_NAME {"outgoing_files"};
+//     std::string const INCOMING_TABLE_NAME {"incoming_files"};
+//     std::string const OUTGOING_TABLE_NAME {"outgoing_files"};
 
     std::string const OPEN_ERROR             { "open file cache failure: {}" };
     std::string const SAVE_CREDENTIALS_ERROR { "save file credentials failure: {}" };
@@ -29,19 +29,8 @@ namespace {
     std::string const WIPE_ERROR                 { "wipe file cache failure: {}" };
 }
 
-file_cache::file_cache (database_handle dbh, message::route_enum route)
-    : file_cache(dbh
-        , route
-        , route == route_enum::incoming
-            ? INCOMING_TABLE_NAME
-            : OUTGOING_TABLE_NAME)
-{}
-
-PFS_CHAT__EXPORT file_cache::file_cache (database_handle dbh
-        , message::route_enum route
-        , std::string const & table_name)
-    : entity_storage(dbh, table_name)
-    , _route(route)
+CHAT__EXPORT file_cache::file_cache ()
+    : entity_storage()
 {}
 
 namespace {
@@ -61,19 +50,18 @@ std::string const CREATE_TABLE {
 
 } // namespace
 
-PFS_CHAT__EXPORT bool file_cache::open_helper (message::route_enum route)
+bool file_cache::open_impl (database_handle dbh
+    , std::string const & table_name)
 {
-    bool success = true;
-
     auto sql = fmt::format(CREATE_TABLE
         , _table_name
-        , affinity_traits<decltype(file_credentials{}.msg_id)>::name()
-        , affinity_traits<decltype(file_credentials{}.deleted)>::name()
-        , affinity_traits<decltype(file_credentials{}.name)>::name()
-        , affinity_traits<decltype(file_credentials{}.size)>::name()
-        , affinity_traits<decltype(file_credentials{}.sha256)>::name());
+        , affinity_traits<decltype(message::file_credentials{}.msg_id)>::name()
+        , affinity_traits<decltype(message::file_credentials{}.deleted)>::name()
+        , affinity_traits<decltype(message::file_credentials{}.name)>::name()
+        , affinity_traits<decltype(message::file_credentials{}.size)>::name()
+        , affinity_traits<decltype(message::file_credentials{}.sha256)>::name());
 
-    success = _dbh->query(sql);
+    auto success = _dbh->query(sql);
     success = success &&  _dbh->query(fmt::format(CREATE_INDEX, _table_name, _table_name));
 
     if (!success) {
@@ -93,7 +81,7 @@ std::string const INSERT_CREDENTIALS {
 
 } // namespace
 
-PFS_CHAT__EXPORT bool file_cache::save (file_credentials const & f)
+CHAT__EXPORT bool file_cache::save (message::file_credentials const & f)
 {
     auto stmt = _dbh->prepare(fmt::format(INSERT_CREDENTIALS, _table_name));
     bool success = !!stmt;
@@ -128,9 +116,9 @@ std::string const SELECT_CREDENTIALS {
 
 } // namespace
 
-PFS_CHAT__EXPORT std::vector<file_credentials> file_cache::load (message_id msg_id)
+CHAT__EXPORT std::vector<message::file_credentials> file_cache::load (message::message_id msg_id)
 {
-    std::vector<file_credentials> result;
+    std::vector<message::file_credentials> result;
 
     auto stmt = _dbh->prepare(fmt::format(SELECT_CREDENTIALS, _table_name));
     bool success = !!stmt;
@@ -141,14 +129,14 @@ PFS_CHAT__EXPORT std::vector<file_credentials> file_cache::load (message_id msg_
         auto res = stmt.exec();
 
         while (success && res.has_more()) {
-            file_credentials c;
+            message::file_credentials c;
             input_record in {res};
 
-            success = in.assign("message_id").to(c.msg_id)
-                && in.assign("deleted").to(c.deleted)
-                && in.assign("name").to(c.name)
-                && in.assign("size").to(c.size)
-                && in.assign("sha256").to(c.sha256);
+            success = in["message_id"] >> c.msg_id
+                && in["deleted"]       >> c.deleted
+                && in["name"]          >> c.name
+                && in["size"]          >> c.size
+                && in["sha256"]        >> c.sha256;
 
             if (success)
                 result.push_back(std::move(c));
@@ -171,7 +159,7 @@ std::string const WIPE_TABLE {
 
 } // namespace
 
-PFS_CHAT__EXPORT void file_cache::wipe_impl ()
+CHAT__EXPORT void file_cache::wipe_impl ()
 {
     // TODO
     // Wipe files from cache directory (for incoming files)
@@ -190,7 +178,7 @@ std::string const SELECT_ALL_CREDENTIALS {
 
 } // namespace
 
-PFS_CHAT__EXPORT void file_cache::all_of (std::function<void(file_credentials const &)> f)
+CHAT__EXPORT void file_cache::all_of (std::function<void(message::file_credentials const &)> f)
 {
     auto stmt = _dbh->prepare(fmt::format(SELECT_ALL_CREDENTIALS, _table_name));
     bool success = !!stmt;
@@ -199,27 +187,25 @@ PFS_CHAT__EXPORT void file_cache::all_of (std::function<void(file_credentials co
         auto res = stmt.exec();
 
         for (; res.has_more(); res.next()) {
-            file_credentials c;
+            message::file_credentials c;
             input_record in {res};
-            success = in.assign("message_id").to(c.msg_id)
-                && in.assign("deleted").to(c.deleted)
-                && in.assign("name").to(c.name)
-                && in.assign("size").to(c.size)
-                && in.assign("sha256").to(c.sha256);
+
+            success = in["message_id"] >> c.msg_id
+                && in["deleted"]       >> c.deleted
+                && in["name"]          >> c.name
+                && in["size"]          >> c.size
+                && in["sha256"]        >> c.sha256;
 
             if (success)
                 f(c);
         }
 
-        if (res.is_error()) {
-            // Error or not found;
+        if (res.is_error())
             success = false;
-        }
     }
 
     if (!success)
         failure(fmt::format(LOAD_ALL_CREDENTIALS_ERROR, stmt.last_error()));
 }
 
-}}} // namespace pfs::chat::message
-
+}}} // namespace chat::persistent_storage::sqlite3
