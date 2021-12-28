@@ -8,8 +8,9 @@
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 #include "database_traits.hpp"
-#include "pfs/chat/basic_contact_list.hpp"
+#include "pfs/chat/basic_contact_manager.hpp"
 #include "pfs/chat/contact.hpp"
+#include "pfs/chat/exports.hpp"
 #include <functional>
 #include <map>
 #include <string>
@@ -27,32 +28,34 @@ namespace sqlite3 {
 //     using statement_type  = debby::sqlite3::statement;
 // };
 
-class contact_list: public basic_contact_manager<contact_manager>
+class contact_manager: public basic_contact_manager<contact_manager>
 {
-//     friend class basic_contact_manager<contact_manager>;
-//
-//     using base_class = basic_contact_manager<contact_manager>;
-//     using failure_handler_type = typename base_class::failure_handler_type;
-//
-//     struct in_memory_cache
-//     {
-//         int offset;
-//         int limit;
-//         bool dirty;
-//         std::vector<contact::contact_credentials> data;
-//         std::map<contact::contact_id, std::size_t> map;
-//     };
+    friend class basic_contact_manager<contact_manager>;
+
+    using base_class = basic_contact_manager<contact_manager>;
+    using failure_handler_type = typename base_class::failure_handler_type;
+
+    struct in_memory_cache
+    {
+        int offset;
+        int limit;
+        bool dirty;
+        std::vector<contact::contact_credentials> data;
+        std::map<contact::contact_id, std::size_t> map;
+    };
 
 private:
-//     database_handle_t _dbh;
-//     std::string _table_name;
+    database_handle_t _dbh;
+    std::string _contacts_table_name;
+    std::string _members_table_name;
+    std::string _followers_table_name;
 //     in_memory_cache _cache;
 
 protected:
-//     operator bool () const noexcept
-//     {
-//         return !!_dbh;
-//     }
+    bool ready () const noexcept
+    {
+        return !!_dbh;
+    }
 
 //     std::size_t count_impl () const;
 //     int add_impl (contact::contact_credentials const & c);
@@ -61,8 +64,8 @@ protected:
 //     pfs::optional<contact::contact_credentials> get_impl (contact::contact_id id);
 //     pfs::optional<contact::contact_credentials> get_impl (int offset);
 //     bool all_of_impl (std::function<void(contact::contact_credentials const &)> f);
-//     bool wipe_impl ();
-//
+    bool wipe_impl ();
+
 //     bool fill_contact (result_t * res, contact::contact_credentials * c);
 //     void invalidate_cache ();
 //     int prefetch (int offset, int limit);
@@ -109,12 +112,14 @@ public:
         this->~contact_manager();
         on_failure = std::move(other.on_failure);
         _dbh = std::move(other._dbh);
-        _table_name = std::move(other._table_name);
-        _cache = std::move(other._cache);
+        _contacts_table_name  = std::move(other._contacts_table_name);
+        _members_table_name   = std::move(other._members_table_name);
+        _followers_table_name = std::move(other._followers_table_name);
+        // FIXME
+        //_cache = std::move(other._cache);
         other.~contact_manager();
         return *this;
     }
 };
 
 }}} // namespace chat::persistent_storage::sqlite3
-

@@ -19,7 +19,6 @@ ContactModel::ContactModel (std::shared_ptr<ContactList> contactList, QObject * 
 int ContactModel::rowCount (QModelIndex const & parent) const
 {
     Q_UNUSED(parent);
-    qDebug() << "Row count:" << _contactList->count();
     return _contactList->count();
 }
 
@@ -37,12 +36,7 @@ QVariant ContactModel::data (QModelIndex const & index, int role) const
         switch (role) {
             case Qt::DisplayRole:
             case AliasRole:
-                qDebug() << "Contact found by row:" << index.row() << QString::fromStdString(opt->alias);
                 return QString::fromStdString(opt->alias);
-            case NameRole:
-                return QString::fromStdString(opt->name);
-            case LastActivityRole:
-                return QString::fromStdString(to_string(opt->last_activity));
 
             default:
                 break;
@@ -57,8 +51,6 @@ QVariant ContactModel::data (QModelIndex const & index, int role) const
 QHash<int, QByteArray> ContactModel::roleNames () const
 {
     QHash<int, QByteArray> names;
-    names[NameRole]         = "name";
-    names[AliasRole]        = "alias";
-    names[LastActivityRole] = "lastActivity";
+    names[AliasRole] = "alias";
     return names;
 }

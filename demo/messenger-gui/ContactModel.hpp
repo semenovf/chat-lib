@@ -14,9 +14,7 @@
 class ContactModel : public QAbstractTableModel
 {
     enum Role {
-          NameRole = Qt::UserRole
-        , AliasRole
-        , LastActivityRole
+        AliasRole = Qt::UserRole
     };
 
 private:

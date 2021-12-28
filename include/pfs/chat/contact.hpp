@@ -18,35 +18,37 @@ namespace contact {
 
 using contact_id = pfs::uuid_t;
 
+// There are three exchange modes
+//      1. One-to-one   (individual)
+//      2. Many-to-many (group)
+//      3. One-to-many  (channel)
 enum class type_enum
 {
       person = 1
     , group
+    , channel
 };
 
-struct contact
+struct contact_credentials
 {
     contact_id  id;
-    std::string name;
     std::string alias;
     type_enum   type;
-    pfs::utc_time_point last_activity;
 };
 
+// struct group_credentials
+// {
+//     contact_id id;
+//     std::vector<contact_id> members;
+// };
+//
+// struct channel_credentials
+// {
+//     contact_id id;
+//     std::vector<contact_id> followers;
+// };
+
 CHAT__EXPORT pfs::optional<type_enum> to_type_enum (int n);
-
-inline std::string to_string (type_enum type)
-{
-    switch (type) {
-        case type_enum::person:
-            return std::string{"person"};
-        case type_enum::group:
-            return std::string{"group"};
-        default:
-            break;
-    }
-
-    return std::string{};
-}
+CHAT__EXPORT std::string to_string (type_enum type);
 
 }} // namespace chat::contact

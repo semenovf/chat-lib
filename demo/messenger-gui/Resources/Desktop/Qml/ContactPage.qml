@@ -24,17 +24,17 @@ Page {
     ListView {
         id: listView
         anchors.fill: parent
-        topMargin: 48
-        leftMargin: 48
-        bottomMargin: 48
-        rightMargin: 48
-        spacing: 20
+        topMargin: 0 // 48
+        leftMargin:  0 // 48
+        bottomMargin: 0 // 48
+        rightMargin: 0 // 48
+        spacing: 0 // Spacing between items (0 - default)
         model: messengerProxyForQml.contactModel
 
         delegate: ItemDelegate {
             text: model.alias //model.display
             width: listView.width - listView.leftMargin - listView.rightMargin
-            height: 48 //avatar.implicitHeight
+//             height: 48 //avatar.implicitHeight
 //             leftPadding: avatar.implicitWidth + 32
 //             onClicked: root.StackView.view.push("qrc:/ConversationPage.qml", { inConversationWith: model.display })
 

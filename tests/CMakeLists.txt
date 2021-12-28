@@ -10,7 +10,7 @@
 project(chat-lib-TESTS CXX C)
 
 set(TESTS
-    contact_list
+    contact_manager
 #     file_cache
 #     message_store
     )

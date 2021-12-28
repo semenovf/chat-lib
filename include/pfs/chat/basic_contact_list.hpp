@@ -7,12 +7,14 @@
 //      2021.12.24 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
+#include "basic_channel.hpp"
+#include "basic_contact_list.hpp"
+#include "basic_group.hpp"
 #include "pfs/optional.hpp"
 #include "pfs/chat/contact.hpp"
 #include <functional>
 
 namespace chat {
-namespace persistent_storage {
 
 template <typename Impl>
 class basic_contact_list
@@ -50,12 +52,12 @@ public:
     }
 
     /**
-     * Adds contact
+     * Adds contact.
      *
      * @return @c 1 if contact successfully added or @c 0 if contact already
      *         exists with @c contact_id or @c -1 on error.
      */
-    int add (contact::contact const & c)
+    int add (contact::contact_credentials const & c)
     {
         return static_cast<Impl *>(this)->add_impl(c);
     }
@@ -66,7 +68,7 @@ public:
      * @return @c 1 if contact successfully added or @c 0 if contact already
      *         exists with @c contact_id or @c -1 on error.
      */
-    int add (contact::contact && c)
+    int add (contact::contact_credentials && c)
     {
         return static_cast<Impl *>(this)->add_impl(std::move(c));
     }
@@ -86,7 +88,7 @@ public:
      * @return @c 1 if contact successfully updated or @c 0 if contact not found
      *         with @c contact_id or @c -1 on error.
      */
-    int update (contact::contact const & c)
+    int update (contact::contact_credentials const & c)
     {
         return static_cast<Impl *>(this)->update_impl(c);
     }
@@ -94,7 +96,7 @@ public:
     /**
      * Get contact by @a id.
      */
-    pfs::optional<contact::contact> get (contact::contact_id id)
+    pfs::optional<contact::contact_credentials> get (contact::contact_id id)
     {
         return static_cast<Impl *>(this)->get_impl(id);
     }
@@ -102,7 +104,7 @@ public:
     /**
      * Get contact by @a id.
      */
-    pfs::optional<contact::contact> get (int offset)
+    pfs::optional<contact::contact_credentials> get (int offset)
     {
         return static_cast<Impl *>(this)->get_impl(offset);
     }
@@ -110,13 +112,13 @@ public:
     /**
      * Fetch all contacts and process them by @a f
      */
-    void all_of (std::function<void(contact::contact const &)> f)
+    void all_of (std::function<void(contact::contact_credentials const &)> f)
     {
         static_cast<Impl *>(this)->all_of_impl(f);
     }
 
     /**
-     * Wipes contact list (erase all contacts).
+     * Wipes (erase all contacts) contact list.
      */
     bool wipe ()
     {
@@ -124,5 +126,5 @@ public:
     }
 };
 
-}} // namespace chat::persistent_storage
+} // namespace chat
 

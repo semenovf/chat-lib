@@ -41,7 +41,7 @@ endif()
 portable_target(LIBRARY ${PROJECT_NAME} ALIAS pfs::chat)
 portable_target(SOURCES ${PROJECT_NAME}
     ${CMAKE_CURRENT_LIST_DIR}/src/persistent_storage/contact.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/src/persistent_storage/sqlite3/contact_list.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/src/persistent_storage/sqlite3/contact_manager.cpp
 #     ${CMAKE_CURRENT_LIST_DIR}/src/persistent_storage/sqlite3/file_cache.cpp
 #     ${CMAKE_CURRENT_LIST_DIR}/src/persistent_storage/sqlite3/message_store.cpp
 #     ${CMAKE_CURRENT_LIST_DIR}/src/persistent_storage/sqlite3/incoming_message_store.cpp

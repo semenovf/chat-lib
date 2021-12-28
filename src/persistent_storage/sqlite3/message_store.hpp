@@ -33,11 +33,7 @@ public:
         , _table_name(table_name)
     {}
 
-    bool open_incoming ();
-    bool open_outgoing ();
-
     void close () {}
-    bool save (message::credentials const & m);
 
     // For incoming messages and individual outgoing messages loads
     // unique message credentials.
@@ -45,7 +41,6 @@ public:
     // message and appropriate individual messages.
     std::vector<message::credentials> load (message::message_id id);
 
-    void wipe ();
     void all_of (std::function<void(message::credentials const &)> f);
 };
 

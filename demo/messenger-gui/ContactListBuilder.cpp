@@ -123,19 +123,17 @@ namespace {
 struct forward_iterator : public pfs::iterator_facade<
           pfs::forward_iterator_tag
         , forward_iterator
-        , chat::contact::contact, sample_data_t *, chat::contact::contact>
+        , chat::contact::contact_credentials, sample_data_t *, chat::contact::contact_credentials>
 {
     sample_data_t * _p;
     forward_iterator (sample_data_t * p) : _p(p) {}
 
     reference ref ()
     {
-        chat::contact::contact c;
+        chat::contact::contact_credentials c;
         c.id    = pfs::generate_uuid();
-        c.name  = _p->first_name;
         c.alias = _p->last_name;
         c.type  = chat::contact::type_enum::person;
-        c.last_activity = pfs::from_iso8601(_p->last_activity).value_or(pfs::utc_time_point{});
         return c;
     }
 
@@ -185,23 +183,6 @@ std::shared_ptr<ContactList> ContactListBuilder::operator () ()
 
     if (!success)
         return nullptr;
-
-//     for (int i = 0, count = sizeof(SAMPLE_DATA) / sizeof(SAMPLE_DATA[0]); i < count; i++) {
-//         chat::contact::contact c;
-//         c.id    = pfs::generate_uuid();
-//         c.name  = SAMPLE_DATA[i].first_name;
-//         c.alias = SAMPLE_DATA[i].last_name;
-//         c.type  = chat::contact::type_enum::person;
-//         c.last_activity = pfs::from_iso8601(SAMPLE_DATA[i].last_activity)
-//             .value_or(pfs::utc_time_point{});
-//
-// //         fmt::print("name: {}; alias: {}; last_activity: {}\n"
-// //             , c.name
-// //             , c.alias
-// //             , to_string(c.last_activity));
-//
-//         contactList.add(std::move(c));
-//     }
 
     return std::make_shared<ContactList>(std::move(contactList));
 }
