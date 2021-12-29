@@ -1,15 +1,13 @@
 ////////////////////////////////////////////////////////////////////////////////
 // Copyright (c) 2021 Vladislav Trifochkin
 //
-// This file is part of [chat-lib](https://github.com/semenovf/chat-lib) library.
+// This file is part of `chat-lib`.
 //
 // Changelog:
 //      2021.12.24 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
-#include "basic_channel.hpp"
-#include "basic_contact_list.hpp"
-#include "basic_group.hpp"
+#include "contact.hpp"
 #include "pfs/optional.hpp"
 #include "pfs/chat/contact.hpp"
 #include <functional>
@@ -22,33 +20,15 @@ class basic_contact_list
 protected:
     using failure_handler_type = std::function<void(std::string const &)>;
 
-protected:
-    basic_contact_list (failure_handler_type f)
-        : on_failure(f)
-    {}
-
-    basic_contact_list () = default;
-    ~basic_contact_list () = default;
-    basic_contact_list (basic_contact_list const &) = delete;
-    basic_contact_list & operator = (basic_contact_list const &) = delete;
-    basic_contact_list (basic_contact_list && other) = default;
-    basic_contact_list & operator = (basic_contact_list && other) = default;
-
-protected:
-    failure_handler_type on_failure;
-
 public:
-    /**
-     * Checks if contact list is open.
-     */
-    operator bool () const noexcept
-    {
-        return static_cast<Impl const *>(this)->is_opened();
-    }
-
     std::size_t count () const
     {
         return static_cast<Impl const *>(this)->count_impl();
+    }
+
+    std::size_t count (contact::type_enum type) const
+    {
+        return static_cast<Impl const *>(this)->count_impl(type);
     }
 
     /**
@@ -57,7 +37,7 @@ public:
      * @return @c 1 if contact successfully added or @c 0 if contact already
      *         exists with @c contact_id or @c -1 on error.
      */
-    int add (contact::contact_credentials const & c)
+    int add (contact::contact const & c)
     {
         return static_cast<Impl *>(this)->add_impl(c);
     }
@@ -68,7 +48,7 @@ public:
      * @return @c 1 if contact successfully added or @c 0 if contact already
      *         exists with @c contact_id or @c -1 on error.
      */
-    int add (contact::contact_credentials && c)
+    int add (contact::contact && c)
     {
         return static_cast<Impl *>(this)->add_impl(std::move(c));
     }
@@ -85,18 +65,49 @@ public:
     }
 
     /**
+     * Adds group.
+     *
+     * @return @c 1 if group successfully added or @c 0 if contact already
+     *         exists with @c contact_id or @c -1 on error.
+     */
+    int add (contact::group const & g)
+    {
+        return static_cast<Impl *>(this)->add_impl(g);
+    }
+
+    /**
+     * Adds group.
+     *
+     * @return @c 1 if group successfully added or @c 0 if group already
+     *         exists with @c contact_id or @c -1 on error.
+     */
+    int add (contact::group && g)
+    {
+        return static_cast<Impl *>(this)->add_impl(std::move(g));
+    }
+
+    /**
      * @return @c 1 if contact successfully updated or @c 0 if contact not found
      *         with @c contact_id or @c -1 on error.
      */
-    int update (contact::contact_credentials const & c)
+    int update (contact::contact const & c)
     {
         return static_cast<Impl *>(this)->update_impl(c);
     }
 
     /**
+     * @return @c 1 if group successfully updated or @c 0 if group not found
+     *     with @c contact_id or @c -1 on error.
+     */
+    int update (contact::group const & g)
+    {
+        return static_cast<Impl *>(this)->update_impl(g);
+    }
+
+    /**
      * Get contact by @a id.
      */
-    pfs::optional<contact::contact_credentials> get (contact::contact_id id)
+    pfs::optional<contact::contact> get (contact::contact_id id)
     {
         return static_cast<Impl *>(this)->get_impl(id);
     }
@@ -104,7 +115,7 @@ public:
     /**
      * Get contact by @a id.
      */
-    pfs::optional<contact::contact_credentials> get (int offset)
+    pfs::optional<contact::contact> get (int offset)
     {
         return static_cast<Impl *>(this)->get_impl(offset);
     }
@@ -112,17 +123,9 @@ public:
     /**
      * Fetch all contacts and process them by @a f
      */
-    void all_of (std::function<void(contact::contact_credentials const &)> f)
+    void all_of (std::function<void(contact::contact const &)> f)
     {
         static_cast<Impl *>(this)->all_of_impl(f);
-    }
-
-    /**
-     * Wipes (erase all contacts) contact list.
-     */
-    bool wipe ()
-    {
-        return static_cast<Impl *>(this)->wipe_impl();
     }
 };
 

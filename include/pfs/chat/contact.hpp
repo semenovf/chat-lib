@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 // Copyright (c) 2021 Vladislav Trifochkin
 //
-// This file is part of [chat-lib](https://github.com/semenovf/chat-lib) library.
+// This file is part of `chat-lib`.
 //
 // Changelog:
 //      2021.11.20 Initial version.
@@ -29,24 +29,24 @@ enum class type_enum
     , channel
 };
 
-struct contact_credentials
+struct contact
 {
     contact_id  id;
     std::string alias;
     type_enum   type;
 };
 
-// struct group_credentials
-// {
-//     contact_id id;
-//     std::vector<contact_id> members;
-// };
-//
-// struct channel_credentials
-// {
-//     contact_id id;
-//     std::vector<contact_id> followers;
-// };
+struct group
+{
+    contact_id  id;
+    std::string alias;
+};
+
+struct channel
+{
+    contact_id  id;
+    std::string alias;
+};
 
 CHAT__EXPORT pfs::optional<type_enum> to_type_enum (int n);
 CHAT__EXPORT std::string to_string (type_enum type);

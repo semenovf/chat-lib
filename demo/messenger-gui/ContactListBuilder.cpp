@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 // Copyright (c) 2021 Vladislav Trifochkin
 //
-// This file is part of `chat-lib`
+// This file is part of `chat-lib`.
 //
 // Changelog:
 //      2021.12.27 Initial version.
@@ -123,14 +123,14 @@ namespace {
 struct forward_iterator : public pfs::iterator_facade<
           pfs::forward_iterator_tag
         , forward_iterator
-        , chat::contact::contact_credentials, sample_data_t *, chat::contact::contact_credentials>
+        , chat::contact::contact, sample_data_t *, chat::contact::contact>
 {
     sample_data_t * _p;
     forward_iterator (sample_data_t * p) : _p(p) {}
 
     reference ref ()
     {
-        chat::contact::contact_credentials c;
+        chat::contact::contact c;
         c.id    = pfs::generate_uuid();
         c.alias = _p->last_name;
         c.type  = chat::contact::type_enum::person;

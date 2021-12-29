@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 // Copyright (c) 2021 Vladislav Trifochkin
 //
-// This file is part of `chat-lib`
+// This file is part of `chat-lib`.
 //
 // Changelog:
 //      2021.12.26 Initial version.
