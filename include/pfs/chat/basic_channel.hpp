@@ -15,6 +15,3 @@ class basic_channel
 {};
 
 } // namespace chat
-
-
-

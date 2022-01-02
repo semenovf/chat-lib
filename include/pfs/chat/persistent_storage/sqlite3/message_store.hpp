@@ -9,76 +9,62 @@
 //      2021.11.21 Refactored.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
+#include "conversation.hpp"
 #include "database_traits.hpp"
 #include "pfs/chat/basic_message_store.hpp"
 #include "pfs/chat/exports.hpp"
+#include <map>
 #include <string>
 
 namespace chat {
 namespace persistent_storage {
 namespace sqlite3 {
 
-class message_store: public basic_message_store<message_store>
+struct message_store_traits
 {
-    friend class basic_message_store<message_store>;
+    using database_handle_type = database_handle_t;
+    using conversation_type    = conversation;
+};
 
-    using base_class = basic_message_store<message_store>;
+class message_store final
+    : public basic_message_store<message_store, message_store_traits>
+{
+    friend class basic_message_store<message_store, message_store_traits>;
+
+    using base_class = basic_message_store<message_store, message_store_traits>;
     using failure_handler_type = typename base_class::failure_handler_type;
-
-public:
-    enum class route_enum {
-          incoming = 1
-        , outgoing
-    };
 
 private:
     database_handle_t _dbh;
-    std::string _table_name;
-    route_enum _route {route_enum::incoming};
+    std::map<contact::contact_id, conversation> _conversation_cache;
 
 protected:
-    bool is_opened () const noexcept
+    auto ready () const noexcept -> bool
     {
         return !!_dbh;
     }
 
-//     std::size_t count_impl () const;
-    int add_impl (message::credentials const & m);
-    int add_impl (message::credentials && m);
-//     int update_impl (contact::contact const & c);
-    std::vector<message::credentials> get_impl (message::message_id id);
-//     pfs::optional<contact::contact> get_impl (int offset);
-//     bool all_of_impl (std::function<void(contact::contact const &)> f);
-    bool wipe_impl ();
+    auto begin_conversation_impl (contact::contact_id c) -> strict_ptr_wrapper<conversation_type>;
 
-    bool fill_credentials (result_t * res, message::credentials * m);
-//     int prefetch (int offset, int limit);
+    auto wipe_impl () -> bool
+    {
+        return conversation::wipe_all(_dbh, this->on_failure);
+    }
 
+private:
+    message_store () = delete;
+    message_store (message_store const & other) = delete;
+    message_store & operator = (message_store const & other) = delete;
+    message_store (message_store && other) = delete;
+    message_store & operator = (message_store && other) = delete;
 
 public:
-    message_store (route_enum route
-        , database_handle_t dbh
-        , std::function<void(std::string const &)> f);
+    message_store (database_handle_t dbh, failure_handler_type f);
 
     ~message_store ()
     {
         database_handle_t empty;
         _dbh.swap(empty);
-    }
-
-    message_store (message_store && other)
-    {
-        *this = std::move(other);
-    }
-
-    message_store & operator = (message_store && other)
-    {
-        this->~message_store();
-        on_failure = std::move(other.on_failure);
-        _dbh = std::move(other._dbh);
-        _table_name = std::move(other._table_name);
-        other.~message_store();
-        return *this;
     }
 };
 

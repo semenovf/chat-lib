@@ -9,17 +9,12 @@
 #pragma once
 #include "contact.hpp"
 #include "pfs/optional.hpp"
-#include "pfs/chat/contact.hpp"
-#include <functional>
 
 namespace chat {
 
 template <typename Impl>
 class basic_contact_list
 {
-protected:
-    using failure_handler_type = std::function<void(std::string const &)>;
-
 public:
     std::size_t count () const
     {

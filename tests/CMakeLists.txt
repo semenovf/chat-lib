@@ -12,8 +12,7 @@ project(chat-lib-TESTS CXX C)
 set(TESTS
     contact_manager
 #     file_cache
-#     message_store
-    )
+    message_store)
 
 foreach (t ${TESTS})
     portable_target(ADD_TEST ${t}

@@ -18,6 +18,20 @@ namespace contact {
 
 using contact_id = pfs::uuid_t;
 
+class id_generator
+{
+public:
+    using type = contact_id;
+
+public:
+    id_generator () {}
+
+    type next () noexcept
+    {
+        return pfs::generate_uuid();
+    }
+};
+
 // There are three exchange modes
 //      1. One-to-one   (individual)
 //      2. Many-to-many (group)

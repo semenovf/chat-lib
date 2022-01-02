@@ -72,7 +72,7 @@ protected:
         return strict_ptr_wrapper<group_list const>(_groups);
     }
 
-public:
+private:
     contact_manager () = delete;
     contact_manager (contact_manager const & other) = delete;
     contact_manager & operator = (contact_manager const & other) = delete;

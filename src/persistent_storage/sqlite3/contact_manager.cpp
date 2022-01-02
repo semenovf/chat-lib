@@ -9,6 +9,7 @@
 #include "contact_type_enum.hpp"
 #include "pfs/chat/persistent_storage/sqlite3/contact_manager.hpp"
 #include "pfs/debby/sqlite3/uuid_traits.hpp"
+#include <array>
 #include <cassert>
 
 namespace chat {
@@ -115,28 +116,20 @@ contact_manager::contact_manager (database_handle_t dbh
     }
 }
 
-namespace {
-
-std::string const WIPE_TABLE {
-    "DELETE FROM `{}`"
-};
-
-} // namespace
-
 bool contact_manager::wipe_impl ()
 {
-    std::array<std::string, 3> sqls = {
-          fmt::format(WIPE_TABLE, _contacts_table_name)
-        , fmt::format(WIPE_TABLE, _members_table_name)
-        , fmt::format(WIPE_TABLE, _followers_table_name)
+    std::array<std::string, 3> tables = {
+          _contacts_table_name
+        , _members_table_name
+        , _followers_table_name
     };
 
     debby::error err;
     auto success = _dbh->begin();
 
     if (success) {
-        for (auto const & sql: sqls) {
-            success = success && _dbh->query(sql, & err);
+        for (auto const & t: tables) {
+            success = success && _dbh->clear(t, & err);
         }
     }
 

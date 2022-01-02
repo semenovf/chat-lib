@@ -25,6 +25,11 @@ public:
     basic_strict_ptr_wrapper & operator = (basic_strict_ptr_wrapper const & ) = delete;
     basic_strict_ptr_wrapper (basic_strict_ptr_wrapper && ) = default;
     basic_strict_ptr_wrapper & operator = (basic_strict_ptr_wrapper && ) = delete;
+
+    operator bool ()
+    {
+        return _p != nullptr;
+    }
 };
 
 template <typename T>
@@ -48,4 +53,3 @@ public:
 };
 
 } // namespace chat
-

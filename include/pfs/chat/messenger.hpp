@@ -7,25 +7,30 @@
 //      2021.11.17 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
+#include "strict_ptr_wrapper.hpp"
 #include <memory>
 
 namespace chat {
 
 template <
       typename ControllerBuilder
-    , typename ContactListBuilder>
+    , typename ContactManagerBuilder
+    , typename MessageStoreBuilder
+    , typename DeliveryBuilder>
 class messenger
 {
 public:
-    using controller_type   = typename ControllerBuilder::type;
-    using contact_list_type = typename ContactListBuilder::type;
+    using controller_type      = typename ControllerBuilder::type;
+    using contact_manager_type = typename ContactManagerBuilder::type;
+    using message_store_type   = typename MessageStoreBuilder::type;
 //     using icon_library_type    = typename PersistentStorageAPI::icon_library_type;
 //     using message_storage_type = typename PersistentStorageAPI::message_storage_type;
 //     using media_cache_type     = typename PersistentStorageAPI::media_cache_type;
 
 private:
-    std::unique_ptr<controller_type>   _controller;
-    std::shared_ptr<contact_list_type> _contact_list;
+    std::unique_ptr<controller_type>      _controller;
+    std::unique_ptr<contact_manager_type> _contact_manager;
+    std::unique_ptr<message_store_type>   _message_store;
 
 public:
     messenger ()
@@ -33,8 +38,8 @@ public:
         ControllerBuilder build_controller;
         _controller = build_controller();
 
-        ContactListBuilder build_contact_list;
-        _contact_list = build_contact_list();
+        ContactManagerBuilder build_contact_manager;
+        _contact_manager = build_contact_manager();
     }
 
     ~messenger () = default;
@@ -45,9 +50,24 @@ public:
     messenger (messenger &&) = delete;
     messenger & operator = (messenger &&) = delete;
 
-    std::shared_ptr<contact_list_type> contact_list_shared () const noexcept
+    strict_ptr_wrapper<contact_manager_type const> contact_manager () const noexcept
     {
-        return _contact_list;
+        return strict_ptr_wrapper<contact_manager_type const>(*_contact_manager);
+    }
+
+    strict_ptr_wrapper<contact_manager_type> contact_manager () noexcept
+    {
+        return strict_ptr_wrapper<contact_manager_type>(*_contact_manager);
+    }
+
+    strict_ptr_wrapper<message_store_type const> message_store () const noexcept
+    {
+        return strict_ptr_wrapper<message_store_type const>(*_message_store);
+    }
+
+    strict_ptr_wrapper<message_store_type> message_store () noexcept
+    {
+        return strict_ptr_wrapper<message_store_type>(*_message_store);
     }
 };
 

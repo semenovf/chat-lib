@@ -100,7 +100,13 @@ TEST_CASE("initialization") {
     contact_manager_t contact_manager{dbh, on_failure};
 
     REQUIRE(contact_manager);
-    REQUIRE(contact_manager.wipe());
+
+    auto contacts = contact_manager.contacts();
+
+    if (contacts->count() > 0)
+        REQUIRE(contact_manager.wipe());
+
+    REQUIRE_EQ(contacts->count(), 0);
 }
 
 TEST_CASE("contacts") {

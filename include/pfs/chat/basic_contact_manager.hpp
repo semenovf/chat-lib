@@ -8,8 +8,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 #include "pfs/chat/strict_ptr_wrapper.hpp"
-#include "pfs/optional.hpp"
-#include "pfs/chat/contact.hpp"
 #include <functional>
 
 namespace chat {
@@ -44,29 +42,29 @@ public:
     /**
      * Wipes (erase all contacts, groups and channels) contact database.
      */
-    bool wipe ()
+    auto wipe () -> bool
     {
         return static_cast<Impl *>(this)->wipe_impl();
     }
 
-    strict_ptr_wrapper<contact_list_type> contacts () noexcept
+    auto contacts () noexcept -> strict_ptr_wrapper<contact_list_type>
     {
         return static_cast<Impl *>(this)->contacts_impl();
     }
 
-    strict_ptr_wrapper<contact_list_type const> contacts () const noexcept
+    auto contacts () const noexcept -> strict_ptr_wrapper<contact_list_type const>
     {
-        return static_cast<Impl *>(this)->contacts_impl();
+        return static_cast<Impl const *>(this)->contacts_impl();
     }
 
-    strict_ptr_wrapper<group_list_type> groups () noexcept
+    auto groups () noexcept -> strict_ptr_wrapper<group_list_type>
     {
         return static_cast<Impl *>(this)->groups_impl();
     }
 
-    strict_ptr_wrapper<group_list_type const> groups () const noexcept
+    auto groups () const noexcept -> strict_ptr_wrapper<group_list_type const>
     {
-        return static_cast<Impl *>(this)->groups_impl();
+        return static_cast<Impl const *>(this)->groups_impl();
     }
 };
 
