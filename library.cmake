@@ -28,14 +28,14 @@ if (NOT TARGET pfs::debby)
         ${CMAKE_CURRENT_LIST_DIR}/3rdparty/pfs/debby/library.cmake)
 endif()
 
-if (NOT TARGET pfs::net)
+if (NOT TARGET pfs::netty)
     portable_target(INCLUDE_PROJECT
-        ${CMAKE_CURRENT_LIST_DIR}/3rdparty/pfs/net/library.cmake)
+        ${CMAKE_CURRENT_LIST_DIR}/3rdparty/pfs/netty/library.cmake)
 endif()
 
-if (NOT TARGET pfs::net::p2p)
+if (NOT TARGET pfs::netty::p2p)
     portable_target(INCLUDE_PROJECT
-        ${CMAKE_CURRENT_LIST_DIR}/3rdparty/pfs/net/library-p2p.cmake)
+        ${CMAKE_CURRENT_LIST_DIR}/3rdparty/pfs/netty/library-p2p.cmake)
 endif()
 
 portable_target(LIBRARY ${PROJECT_NAME} ALIAS pfs::chat)
@@ -52,7 +52,7 @@ portable_target(SOURCES ${PROJECT_NAME}
 
 portable_target(INCLUDE_DIRS ${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_LIST_DIR}/include)
 portable_target(LINK ${PROJECT_NAME} PUBLIC pfs::debby pfs::common)
-portable_target(LINK ${PROJECT_NAME} PRIVATE pfs::net::p2p pfs::net )
+portable_target(LINK ${PROJECT_NAME} PRIVATE pfs::netty::p2p pfs::netty )
 portable_target(EXPORTS ${PROJECT_NAME} CHAT__EXPORTS CHAT__STATIC)
 
 if (CHAT__ENABLE_ROCKSDB)
