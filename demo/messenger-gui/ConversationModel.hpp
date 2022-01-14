@@ -7,31 +7,28 @@
 //      2021.12.12 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
+#include "Messenger.hpp"
 #include <QAbstractTableModel>
-#include <QByteArray>
 #include <QHash>
+#include <QVariant>
+
+namespace ui {
+namespace qt {
 
 class ConversationModel : public QAbstractTableModel
 {
-    Q_OBJECT
-//     Q_PROPERTY(QString recipient READ recipient WRITE setRecipient NOTIFY recipientChanged)
+private:
+    SharedMessenger _messenger;
 
 public:
-    ConversationModel (QObject * parent = nullptr);
-
-//     QString recipient() const;
-//     void setRecipient(const QString &recipient);
+    ConversationModel (SharedMessenger messenger, QObject * parent = nullptr);
 
     Q_INVOKABLE int rowCount (QModelIndex const & parent = QModelIndex()) const override;
     Q_INVOKABLE int columnCount (QModelIndex const & parent = QModelIndex()) const override;
     Q_INVOKABLE QVariant data (QModelIndex const & index, int role) const override;
     Q_INVOKABLE QHash<int, QByteArray> roleNames () const override;
-
-//     Q_INVOKABLE void sendMessage(const QString &recipient, const QString &message);
-
-public:
-//     Q_SIGNAL recipientChanged();
-
-private:
-//     QString m_recipient;
 };
+
+}} // namespace ui::qt
+
+//Q_DECLARE_METATYPE(ui::qt::ConversationModel*)

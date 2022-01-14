@@ -8,8 +8,14 @@
 ////////////////////////////////////////////////////////////////////////////////
 #include "MessengerProxyForQml.hpp"
 
-MessengerProxyForQml::MessengerProxyForQml (std::shared_ptr<ContactModel> contactModel
+namespace ui {
+namespace qt {
+
+MessengerProxyForQml::MessengerProxyForQml (SharedMessenger messenger
     , QObject * parent)
     : QObject(parent)
-    , _contactModel(contactModel)
+    , _contactModel(messenger)
+    , _conversationModel(messenger)
 {}
+
+}} // namespace ui::qt

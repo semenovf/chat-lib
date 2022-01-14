@@ -9,24 +9,36 @@
 #pragma once
 #include <QObject>
 #include "ContactModel.hpp"
+#include "ConversationModel.hpp"
 #include <memory>
+
+namespace ui {
+namespace qt {
 
 class MessengerProxyForQml : public QObject
 {
     Q_OBJECT
 
     Q_PROPERTY(ContactModel * contactModel READ contactModel CONSTANT)
+    Q_PROPERTY(ConversationModel * conversationModel READ conversationModel CONSTANT)
 
 private:
     ContactModel * contactModel ()
     {
-        return & *_contactModel;
+        return & _contactModel;
+    }
+
+    ConversationModel * conversationModel ()
+    {
+        return & _conversationModel;
     }
 
 private:
-    std::shared_ptr<ContactModel> _contactModel;
+    ContactModel      _contactModel;
+    ConversationModel _conversationModel;
 
 public:
-    MessengerProxyForQml (std::shared_ptr<ContactModel> contactModel
-        , QObject * parent = nullptr);
+    MessengerProxyForQml (SharedMessenger messenger, QObject * parent = nullptr);
 };
+
+}} // namespace ui::qt

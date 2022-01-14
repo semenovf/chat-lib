@@ -8,6 +8,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 #include "database_traits.hpp"
+#include "editor.hpp"
 #include "pfs/chat/basic_conversation.hpp"
 #include "pfs/chat/contact.hpp"
 #include "pfs/chat/message.hpp"
@@ -18,12 +19,17 @@ namespace sqlite3 {
 
 class message_store;
 
-class conversation final: public basic_conversation<conversation>
+struct conversation_store_traits
 {
-    friend class basic_conversation<conversation>;
+    using editor_type = editor;
+};
+
+class conversation final: public basic_conversation<conversation, conversation_store_traits>
+{
+    friend class basic_conversation<conversation, conversation_store_traits>;
     friend class message_store;
 
-    using base_class = basic_conversation<conversation>;
+    using base_class = basic_conversation<conversation, conversation_store_traits>;
 
 private:
     contact::contact_id _contact_id;
@@ -37,7 +43,7 @@ protected:
         return !!_dbh;
     }
 
-    auto create_impl (contact::contact_id addressee_id) -> message::message_id;
+    auto create_impl (contact::contact_id addressee_id) -> editor;
     auto count_impl () const -> std::size_t;
     auto wipe_impl () -> bool;
 

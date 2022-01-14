@@ -101,12 +101,12 @@ TEST_CASE("initialization") {
 
     REQUIRE(contact_manager);
 
-    auto contacts = contact_manager.contacts();
+    auto & contacts = contact_manager.contacts();
 
-    if (contacts->count() > 0)
+    if (contacts.count() > 0)
         REQUIRE(contact_manager.wipe());
 
-    REQUIRE_EQ(contacts->count(), 0);
+    REQUIRE_EQ(contacts.count(), 0);
 }
 
 TEST_CASE("contacts") {
@@ -119,20 +119,20 @@ TEST_CASE("contacts") {
 
     REQUIRE(contact_manager);
 
-    auto contacts = contact_manager.contacts();
+    auto & contacts = contact_manager.contacts();
 
-    REQUIRE_EQ(contacts->add(forward_iterator{NAMES}
+    REQUIRE_EQ(contacts.add(forward_iterator{NAMES}
             , forward_iterator{NAMES + sizeof(NAMES)/sizeof(NAMES[0])})
         , sizeof(NAMES) / sizeof(NAMES[0]));
 
     {
-        auto count = contacts->count();
+        auto count = contacts.count();
         REQUIRE_EQ(count, sizeof(NAMES) / sizeof(NAMES[0]));
     }
 
     std::vector<chat::contact::contact> all_contacts;
 
-    contacts->all_of([& all_contacts] (contact_t const & c) {
+    contacts.all_of([& all_contacts] (contact_t const & c) {
 //         fmt::print("{} | {:10} | {}\n"
 //             , to_string(c.id)
 //             , c.alias
@@ -142,7 +142,7 @@ TEST_CASE("contacts") {
 
     // No new contacts added as they already exist.
     {
-        auto count = contacts->add(all_contacts.cbegin(), all_contacts.cend());
+        auto count = contacts.add(all_contacts.cbegin(), all_contacts.cend());
         REQUIRE_EQ(count, 0);
     }
 
@@ -151,7 +151,7 @@ TEST_CASE("contacts") {
         auto c = all_contacts[0];
         c.alias = "NewAlias";
 
-        auto count = contacts->update(c);
+        auto count = contacts.update(c);
         REQUIRE_EQ(count, 1);
     }
 
@@ -162,13 +162,13 @@ TEST_CASE("contacts") {
         c.alias = "Noname";
         c.type = chat::contact::type_enum::person;
 
-        auto count = contacts->update(c);
+        auto count = contacts.update(c);
         REQUIRE_EQ(count, 0);
     }
 
     // Get contact by id
     {
-        auto c = contacts->get(all_contacts[1].id);
+        auto c = contacts.get(all_contacts[1].id);
         REQUIRE(c);
         REQUIRE_EQ(c->alias, all_contacts[1].alias);
         REQUIRE_EQ(c->type, all_contacts[1].type);
@@ -176,7 +176,7 @@ TEST_CASE("contacts") {
 
     // Get contact by offset
     {
-        auto c = contacts->get(1);
+        auto c = contacts.get(1);
         REQUIRE(c);
         REQUIRE_EQ(c->alias, all_contacts[1].alias);
         REQUIRE_EQ(c->type, all_contacts[1].type);
@@ -184,7 +184,7 @@ TEST_CASE("contacts") {
 
     // Attempt to get non-existent contact
     {
-        auto c = contacts->get(pfs::generate_uuid());
+        auto c = contacts.get(pfs::generate_uuid());
         REQUIRE(!c);
     }
 }
@@ -200,20 +200,20 @@ TEST_CASE("groups") {
 
     REQUIRE(contact_manager);
 
-    auto contacts = contact_manager.contacts();
-    auto groups = contact_manager.groups();
+    auto & contacts = contact_manager.contacts();
+    auto & groups = contact_manager.groups();
 
     {
         group_t g;
         g.alias = "Group 0";
         g.id = pfs::generate_uuid();
 
-        REQUIRE_EQ(groups->add(g), 1);
+        REQUIRE_EQ(groups.add(g), 1);
 
         // No new group added as it already exist
-        REQUIRE_EQ(groups->add(g), 0);
+        REQUIRE_EQ(groups.add(g), 0);
 
-        REQUIRE_EQ(groups->count(), 1);
+        REQUIRE_EQ(groups.count(), 1);
     }
 
     chat::contact::contact_id sample_id;
@@ -224,13 +224,13 @@ TEST_CASE("groups") {
         g.alias = "Group 1";
         g.id = pfs::generate_uuid();
 
-        REQUIRE_EQ(groups->add(g), 1);
+        REQUIRE_EQ(groups.add(g), 1);
 
         g.alias = sample_alias;
 
-        REQUIRE_EQ(groups->update(g), 1);
+        REQUIRE_EQ(groups.update(g), 1);
 
-        REQUIRE_EQ(groups->count(), 2);
+        REQUIRE_EQ(groups.count(), 2);
 
         sample_id = g.id;
     }
@@ -241,12 +241,12 @@ TEST_CASE("groups") {
         g.id = pfs::generate_uuid();
         g.alias = "Noname";
 
-        REQUIRE_EQ(groups->update(g), 0);
+        REQUIRE_EQ(groups.update(g), 0);
     }
 
     // Get contact by id
     {
-        auto g = groups->get(sample_id);
+        auto g = groups.get(sample_id);
         REQUIRE(g.has_value());
         REQUIRE(g);
         REQUIRE_EQ(g->alias, sample_alias);
@@ -254,7 +254,7 @@ TEST_CASE("groups") {
 
     // Attempt to get non-existent contact
     {
-        auto g = groups->get(pfs::generate_uuid());
+        auto g = groups.get(pfs::generate_uuid());
         REQUIRE(!g);
     }
 
@@ -264,22 +264,22 @@ TEST_CASE("groups") {
         g.alias = "Group 3";
         g.id = pfs::generate_uuid();
 
-        REQUIRE_EQ(groups->add(g), 1);
-        REQUIRE_EQ(groups->count(), 3);
+        REQUIRE_EQ(groups.add(g), 1);
+        REQUIRE_EQ(groups.count(), 3);
 
         contact_t c1;
         c1.id = pfs::generate_uuid();
         c1.alias = "Contact 1 for " + g.alias;
         c1.type = chat::contact::type_enum::person;
 
-        REQUIRE_EQ(contacts->add(c1), 1);
+        REQUIRE_EQ(contacts.add(c1), 1);
 
         contact_t c2;
         c2.id = pfs::generate_uuid();
         c2.alias = "Contact 2 for " + g.alias;
         c2.type = chat::contact::type_enum::person;
 
-        REQUIRE_EQ(contacts->add(c2), 1);
+        REQUIRE_EQ(contacts.add(c2), 1);
 
         // Only person can be added to group now.
         // NOTE This behavior is subject to change in the future.
@@ -288,13 +288,13 @@ TEST_CASE("groups") {
         c3.alias = "Contact 3 for " + g.alias;
         c3.type = chat::contact::type_enum::group;
 
-        REQUIRE_EQ(contacts->add(c3), 1);
+        REQUIRE_EQ(contacts.add(c3), 1);
 
-        REQUIRE(groups->add_member(g.id, c1.id));
-        REQUIRE(groups->add_member(g.id, c2.id));
-        REQUIRE_FALSE(groups->add_member(g.id, c3.id));
+        REQUIRE(groups.add_member(g.id, c1.id));
+        REQUIRE(groups.add_member(g.id, c2.id));
+        REQUIRE_FALSE(groups.add_member(g.id, c3.id));
 
-        auto memebers = groups->members(g.id);
+        auto memebers = groups.members(g.id);
         REQUIRE(memebers.size() == 2);
 
         REQUIRE_EQ(memebers[0].alias, c1.alias);

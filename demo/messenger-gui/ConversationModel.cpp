@@ -13,6 +13,9 @@
 // #include <QSqlRecord>
 // #include <QSqlQuery>
 
+namespace ui {
+namespace qt {
+
 // static const char *conversationsTableName = "Conversations";
 
 // static void createTable()
@@ -44,8 +47,9 @@
 //                "Hvor mange timer har du brukt på den?')");
 // }
 
-ConversationModel::ConversationModel (QObject * parent)
+ConversationModel::ConversationModel (SharedMessenger messenger, QObject * parent)
     : QAbstractTableModel(parent)
+    , _messenger(messenger)
 {
 //     createTable();
 //     setTable(conversationsTableName);
@@ -120,3 +124,5 @@ QHash<int, QByteArray> ConversationModel::roleNames () const
 //
 //     submitAll();
 // }
+
+}} // namespace ui::qt

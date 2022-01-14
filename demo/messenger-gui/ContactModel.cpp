@@ -11,15 +11,20 @@
 
 #include <QDebug>
 
-ContactModel::ContactModel (std::shared_ptr<ContactList> contactList, QObject * parent)
+namespace ui {
+namespace qt {
+
+ContactModel::ContactModel (SharedMessenger messenger, QObject * parent)
     : QAbstractTableModel(parent)
-    , _contactList(contactList)
+    , _messenger(messenger)
 {}
 
 int ContactModel::rowCount (QModelIndex const & parent) const
 {
     Q_UNUSED(parent);
-    return _contactList->count();
+
+    auto const & contactList = _messenger->contact_manager().contacts();
+    return contactList.count();
 }
 
 int ContactModel::columnCount (QModelIndex const & parent) const
@@ -30,12 +35,14 @@ int ContactModel::columnCount (QModelIndex const & parent) const
 
 QVariant ContactModel::data (QModelIndex const & index, int role) const
 {
-    auto opt = _contactList->get(index.row());
+    auto const & contactList = _messenger->contact_manager().contacts();
+    auto opt = contactList.get(index.row());
 
     if (opt) {
         switch (role) {
             case Qt::DisplayRole:
             case AliasRole:
+                qDebug() << "ROLE:" << role << ":" << QString::fromStdString(opt->alias);
                 return QString::fromStdString(opt->alias);
 
             default:
@@ -54,3 +61,5 @@ QHash<int, QByteArray> ContactModel::roleNames () const
     names[AliasRole] = "alias";
     return names;
 }
+
+}} // namespace ui::qt

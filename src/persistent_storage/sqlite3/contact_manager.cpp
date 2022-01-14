@@ -72,8 +72,8 @@ contact_manager::contact_manager (database_handle_t dbh
     , _contacts_table_name(DEFAULT_CONTACTS_TABLE_NAME)
     , _members_table_name(DEFAULT_MEMBERS_TABLE_NAME)
     , _followers_table_name(DEFAULT_FOLLOWERS_TABLE_NAME)
-    , _contacts(dbh, _contacts_table_name, on_failure)
-    , _groups(dbh, _contacts, _contacts_table_name, _members_table_name, on_failure)
+    , _contacts(dbh, _contacts_table_name)
+    , _groups(dbh, _contacts, _contacts_table_name, _members_table_name)
 {
     std::array<std::string, 6> sqls = {
           fmt::format(CREATE_CONTACTS_TABLE

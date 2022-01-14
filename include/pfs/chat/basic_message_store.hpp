@@ -7,7 +7,6 @@
 //      2021.12.27 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
-#include "pfs/chat/strict_ptr_wrapper.hpp"
 #include "pfs/optional.hpp"
 #include "pfs/chat/message.hpp"
 #include <functional>
@@ -54,7 +53,7 @@ public:
      * @brief This method initializes/opens data storage for conversation messages
      * associated with specified contact.
      */
-    auto begin_conversation (contact::contact_id c) -> strict_ptr_wrapper<conversation_type>
+    auto begin_conversation (contact::contact_id c) -> conversation_type &
     {
         return static_cast<Impl *>(this)->begin_conversation_impl(c);
     }

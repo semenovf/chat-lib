@@ -27,9 +27,9 @@ public:
      * @return @c 1 if group successfully added or @c 0 if contact already
      *         exists with @c contact_id or @c -1 on error.
      */
-    int add (contact::group const & g)
+    int add (contact::group const & g, error * perr = nullptr)
     {
-        return static_cast<Impl *>(this)->add_impl(g);
+        return static_cast<Impl *>(this)->add_impl(g, perr);
     }
 
     /**
@@ -38,26 +38,26 @@ public:
      * @return @c 1 if group successfully added or @c 0 if group already
      *         exists with @c contact_id or @c -1 on error.
      */
-    int add (contact::group && g)
+    int add (contact::group && g, error * perr = nullptr)
     {
-        return static_cast<Impl *>(this)->add_impl(std::move(g));
+        return static_cast<Impl *>(this)->add_impl(std::move(g), perr);
     }
 
     /**
      * @return @c 1 if group successfully updated or @c 0 if group not found
      *     with @c contact_id or @c -1 on error.
      */
-    int update (contact::group const & g)
+    int update (contact::group const & g, error * perr = nullptr)
     {
-        return static_cast<Impl *>(this)->update_impl(g);
+        return static_cast<Impl *>(this)->update_impl(g, perr);
     }
 
     /**
      * Get group by @a id.
      */
-    pfs::optional<contact::group> get (contact::contact_id id)
+    pfs::optional<contact::group> get (contact::contact_id id, error * perr = nullptr) const
     {
-        return static_cast<Impl *>(this)->get_impl(id);
+        return static_cast<Impl const *>(this)->get_impl(id, perr);
     }
 
     /**
@@ -66,17 +66,20 @@ public:
      * @return @c false on error or @c true if contact added was successfully
      *         or it is already a member of the specified group.
      */
-    bool add_member (contact::contact_id group_id, contact::contact_id member_id)
+    bool add_member (contact::contact_id group_id
+        , contact::contact_id member_id
+        , error * perr = nullptr)
     {
-        return static_cast<Impl *>(this)->add_member_impl(group_id, member_id);
+        return static_cast<Impl *>(this)->add_member_impl(group_id, member_id, perr);
     }
 
     /**
      * Get members of the specified group.
      */
-    std::vector<contact::contact> members (contact::contact_id group_id) const
+    std::vector<contact::contact> members (contact::contact_id group_id
+        , error * perr = nullptr) const
     {
-        return static_cast<Impl const *>(this)->members_impl(group_id);
+        return static_cast<Impl const *>(this)->members_impl(group_id, perr);
     }
 };
 

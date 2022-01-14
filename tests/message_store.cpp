@@ -67,13 +67,20 @@ TEST_CASE("outgoing messages") {
     message_store.wipe();
 
     auto addressee_id = chat::contact::id_generator{}.next();
-    auto conversation = message_store.begin_conversation(addressee_id);
+    auto & conversation = message_store.begin_conversation(addressee_id);
 
-    for (int i = 0; i < 5; i++)
-        REQUIRE_NE(conversation->create(addressee_id), chat::message::message_id{});
+    for (int i = 0; i < 5; i++) {
+        auto ed = conversation.create(addressee_id);
+        REQUIRE(ed);
 
-//     pfs::chat::message::id_generator message_id_generator;
-//
+        CHECK(ed.add_text("Hello"));
+        CHECK(ed.add_text(", World!"));
+        CHECK(ed.add_emoji("emoticon"));
+        CHECK(ed.attach(pfs::filesystem::path{"data/attachment1.bin"}));
+        CHECK(ed.attach(pfs::filesystem::path{"data/attachment2.bin"}));
+        CHECK(ed.attach(pfs::filesystem::path{"data/attachment3.bin"}));
+    }
+
 //     for (int i = 0; i < 1; i++) {
 //         message_t m;
 //         m.id = message_id_generator.next();

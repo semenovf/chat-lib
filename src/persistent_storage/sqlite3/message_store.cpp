@@ -27,13 +27,10 @@ message_store::message_store (database_handle_t dbh, failure_handler_type f)
 {}
 
 auto message_store::begin_conversation_impl (contact::contact_id c)
-    -> strict_ptr_wrapper<conversation_type>
+    -> conversation_type &
 {
     auto res = _conversation_cache.emplace(c, conversation_type{c, _dbh, on_failure});
-    //conversation_type conv{c, _dbh, on_failure};
-    //_conversation_cache[c] = std::move(conv);
-    return strict_ptr_wrapper<conversation_type>(res.first->second);
-    //return strict_ptr_wrapper<conversation_type>(conv);
+    return res.first->second;
 }
 
 }}} // namespace chat::persistent_storage::sqlite3

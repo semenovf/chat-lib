@@ -8,3 +8,4 @@
 ################################################################################
 add_subdirectory(messenger)
 add_subdirectory(messenger-gui)
+add_subdirectory(qml)

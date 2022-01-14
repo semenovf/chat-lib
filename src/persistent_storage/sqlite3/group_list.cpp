@@ -17,29 +17,19 @@ namespace sqlite3 {
 
 using namespace debby::sqlite3;
 
-namespace {
-std::string const GROUP_NOT_FOUND    { "group not found by id: #{}" };
-std::string const CONTACT_NOT_FOUND  { "contact not found by id: #{}" };
-std::string const UNSUITABLE_MEMBER_ERROR { "member must be a person to add to group" };
-std::string const ADD_MEMBER_ERROR   { "add member failure: #{} to #{}: {}" };
-std::string const FETCH_MEMBER_ERROR { "fetch members failure for group: #{}: {}" };
-} // namespace
-
 group_list::group_list (database_handle_t dbh
     , contact_list & contacts
     , std::string const & contacts_table_name
-    , std::string const & members_table_name
-    , failure_handler_t & f)
+    , std::string const & members_table_name)
     : _dbh(dbh)
     , _contacts(contacts)
     , _contacts_table_name(contacts_table_name)
     , _members_table_name(members_table_name)
-    , _on_failure(f)
 {}
 
-pfs::optional<contact::group> group_list::get_impl (contact::contact_id id)
+pfs::optional<contact::group> group_list::get_impl (contact::contact_id id, error * perr) const
 {
-    auto opt = _contacts.get(id);
+    auto opt = _contacts.get(id, perr);
 
     if (opt && opt->type == contact::type_enum::group)
         return contact::group{opt->id, opt->alias};
@@ -55,47 +45,66 @@ std::string const INSERT_MEMBER {
 } // namespace
 
 bool group_list::add_member_impl(contact::contact_id group_id
-    , contact::contact_id member_id)
+    , contact::contact_id member_id
+    , error * perr)
 {
-    auto g = get_impl(group_id);
+    error err;
+    auto g = get_impl(group_id, & err);
 
-    if (!g) {
-        _on_failure(fmt::format(GROUP_NOT_FOUND, to_string(group_id)));
+    if (err) {
+        if (perr) *perr = err; else CHAT__THROW(err);
         return false;
     }
 
-    auto c = _contacts.get(member_id);
+    if (!g) {
+        auto err = error{errc::group_not_found, to_string(group_id)};
+        if (perr) *perr = err; else CHAT__THROW(err);
+        return false;
+    }
+
+    auto c = _contacts.get(member_id, & err);
+
+    if (err) {
+        if (perr) *perr = err; else CHAT__THROW(err);
+        return false;
+    }
 
     if (!c) {
-        _on_failure(fmt::format(CONTACT_NOT_FOUND, to_string(group_id)));
+        auto err = error{errc::contact_not_found, to_string(member_id)};
+        if (perr) *perr = err; else CHAT__THROW(err);
         return false;
     }
 
     if (c->type != contact::type_enum::person) {
-        _on_failure(UNSUITABLE_MEMBER_ERROR);
+        auto err = error{errc::unsuitable_member
+            , to_string(member_id)
+            , "member must be a person to add to group"};
+        if (perr) *perr = err; else CHAT__THROW(err);
         return false;
     }
 
-    debby::error err;
-    auto stmt = _dbh->prepare(fmt::format(INSERT_MEMBER, _members_table_name), true, & err);
+    debby::error storage_err;
+    auto stmt = _dbh->prepare(fmt::format(INSERT_MEMBER, _members_table_name), true, & storage_err);
     bool success = !!stmt;
 
     success = success
-        && stmt.bind(":group_id" , to_storage(g->id), false, & err)
-        && stmt.bind(":member_id", to_storage(c->id), false, & err);
+        && stmt.bind(":group_id" , to_storage(g->id), false, & storage_err)
+        && stmt.bind(":member_id", to_storage(c->id), false, & storage_err);
 
     if (success) {
-        auto res = stmt.exec(& err);
+        auto res = stmt.exec(& storage_err);
 
         if (res.is_error())
             success = false;
     }
 
     if (!success) {
-        _on_failure(fmt::format(ADD_MEMBER_ERROR
-            , to_string(c->id)
-            , to_string(g->id)
-            , err.what()));
+        auto err = error{errc::storage_error
+            , fmt::format("add member failure: #{} to #{}"
+                , to_string(c->id)
+                , to_string(g->id))
+            , storage_err.what()};
+        if (perr) *perr = err; else CHAT__THROW(err);
         return false;
     }
 
@@ -112,20 +121,21 @@ std::string const SELECT_MEMBERS {
 };
 } // namespace
 
-std::vector<contact::contact> group_list::members_impl (contact::contact_id group_id) const
+std::vector<contact::contact> group_list::members_impl (contact::contact_id group_id
+    , error * perr) const
 {
-    debby::error err;
+    debby::error storage_err;
     auto stmt = _dbh->prepare(fmt::format(SELECT_MEMBERS
-        , _members_table_name, _contacts_table_name), true, & err);
+        , _members_table_name, _contacts_table_name), true, & storage_err);
     bool success = !!stmt;
 
     success = success
-        && stmt.bind(":group_id", to_storage(group_id), false, & err);
+        && stmt.bind(":group_id", to_storage(group_id), false, & storage_err);
 
     std::vector<contact::contact> members;
 
     if (success) {
-        auto res = stmt.exec(& err);
+        auto res = stmt.exec(& storage_err);
 
         while (res.has_more()) {
             contact::contact c;
@@ -146,7 +156,11 @@ std::vector<contact::contact> group_list::members_impl (contact::contact_id grou
     }
 
     if (!success) {
-        _on_failure(fmt::format(FETCH_MEMBER_ERROR, to_string(group_id), err.what()));
+        auto err = error{errc::storage_error
+            , fmt::format("fetch members failure for group: #{}"
+                , to_string(group_id))
+            , storage_err.what()};
+        if (perr) *perr = err; else CHAT__THROW(err);
         return std::vector<contact::contact>{};
     }
 

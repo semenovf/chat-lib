@@ -21,20 +21,12 @@ using namespace debby::sqlite3;
 
 namespace {
     constexpr std::size_t CACHE_WINDOW_SIZE = 100;
-
-    std::string const ADD_CONTACT_ERROR       { "add contact failure: {}" };
-    std::string const UPDATE_CONTACT_ERROR    { "update contact failure: {}" };
-    std::string const LOAD_CONTACT_ERROR      { "load contact failure: {}" };
-    std::string const LOAD_ALL_CONTACTS_ERROR { "load contacts failure: {}" };
-    std::string const CACHE_CONTACTS_ERROR    { "cache contacts failure: {}"};
 } // namespace
 
 contact_list::contact_list (database_handle_t dbh
-    , std::string const & table_name
-    , failure_handler_t & f)
+    , std::string const & table_name)
     : _dbh(dbh)
     , _table_name(table_name)
-    , _on_failure(f)
 {
     invalidate_cache();
 }
@@ -74,7 +66,7 @@ std::size_t contact_list::count_impl (contact::type_enum type) const
             success = false;
     }
 
-    return count;
+    return success ? count : 0;
 }
 
 namespace {
@@ -84,30 +76,35 @@ std::string const INSERT_CONTACT {
 };
 } // namespace
 
-int contact_list::add_impl (contact::contact const & c)
+int contact_list::add_impl (contact::contact const & c, error * perr)
 {
     invalidate_cache();
 
-    debby::error err;
-    auto stmt = _dbh->prepare(fmt::format(INSERT_CONTACT, _table_name), true, & err);
+    debby::error storage_err;
+    auto stmt = _dbh->prepare(fmt::format(INSERT_CONTACT, _table_name), true, & storage_err);
     bool success = !!stmt;
 
     success = success
-        && stmt.bind(":id"   , to_storage(c.id), false, & err)
-        && stmt.bind(":alias", to_storage(c.alias), false, & err)
-        && stmt.bind(":type" , to_storage(c.type), & err);
+        && stmt.bind(":id"   , to_storage(c.id), false, & storage_err)
+        && stmt.bind(":alias", to_storage(c.alias), false, & storage_err)
+        && stmt.bind(":type" , to_storage(c.type), & storage_err);
 
     if (success) {
-        auto res = stmt.exec(& err);
+        auto res = stmt.exec(& storage_err);
 
         if (res.is_error())
             success = false;
     }
 
-    if (!success)
-        _on_failure(fmt::format(ADD_CONTACT_ERROR, err.what()));
+    if (!success) {
+        auto err = error{errc::storage_error
+            , fmt::format("add contact failure: #{}", to_string(c.id))
+            , storage_err.what()};
+        if (perr) *perr = err; else CHAT__THROW(err);
+        return -1;
+    }
 
-    return success ? stmt.rows_affected() : -1;
+    return stmt.rows_affected();
 }
 
 namespace {
@@ -119,30 +116,35 @@ std::string const UPDATE_CONTACT {
 
 } // namespace
 
-int contact_list::update_impl (contact::contact const & c)
+int contact_list::update_impl (contact::contact const & c, error * perr)
 {
     invalidate_cache();
 
-    debby::error err;
-    auto stmt = _dbh->prepare(fmt::format(UPDATE_CONTACT, _table_name), true, & err);
+    debby::error storage_err;
+    auto stmt = _dbh->prepare(fmt::format(UPDATE_CONTACT, _table_name), true, & storage_err);
     bool success = !!stmt;
 
     success = success
-        && stmt.bind(":alias", to_storage(c.alias), false, & err)
-        && stmt.bind(":id", to_storage(c.id), false, & err)
-        && stmt.bind(":type", to_storage(c.type), & err);
+        && stmt.bind(":alias", to_storage(c.alias), false, & storage_err)
+        && stmt.bind(":id", to_storage(c.id), false, & storage_err)
+        && stmt.bind(":type", to_storage(c.type), & storage_err);
 
     if (success) {
-        auto res = stmt.exec(& err);
+        auto res = stmt.exec(& storage_err);
 
         if (res.is_error())
             success = false;
     }
 
-    if (!success)
-        _on_failure(fmt::format(UPDATE_CONTACT_ERROR, err.what()));
+    if (!success) {
+        auto err = error{errc::storage_error
+            , fmt::format("update contact failure: #{}", to_string(c.id))
+            , storage_err.what()};
+        if (perr) *perr = err; else CHAT__THROW(err);
+        return -1;
+    }
 
-    return success ? stmt.rows_affected() : -1;
+    return stmt.rows_affected();
 }
 
 namespace {
@@ -151,7 +153,7 @@ std::string const SELECT_CONTACT {
 };
 } // namespace
 
-bool contact_list::fill_contact (result_t * res, contact::contact * c)
+bool contact_list::fill_contact (result_t * res, contact::contact * c) const
 {
     input_record in {*res};
 
@@ -162,7 +164,8 @@ bool contact_list::fill_contact (result_t * res, contact::contact * c)
     return success;
 }
 
-pfs::optional<contact::contact> contact_list::get_impl (contact::contact_id id)
+pfs::optional<contact::contact> contact_list::get_impl (contact::contact_id id
+    , error * perr) const
 {
     // Check cache
     if (!_cache.dirty) {
@@ -173,14 +176,14 @@ pfs::optional<contact::contact> contact_list::get_impl (contact::contact_id id)
         }
     }
 
-    debby::error err;
-    auto stmt = _dbh->prepare(fmt::format(SELECT_CONTACT, _table_name), true, & err);
+    debby::error storage_err;
+    auto stmt = _dbh->prepare(fmt::format(SELECT_CONTACT, _table_name), true, & storage_err);
     bool success = !!stmt;
 
-    success = success && stmt.bind(":id", to_storage(id), false, & err);
+    success = success && stmt.bind(":id", to_storage(id), false, & storage_err);
 
     if (success) {
-        auto res = stmt.exec(& err);
+        auto res = stmt.exec(& storage_err);
 
         if (res.has_more()) {
             contact::contact c;
@@ -194,13 +197,17 @@ pfs::optional<contact::contact> contact_list::get_impl (contact::contact_id id)
             success = false;
     }
 
-    if (!success)
-        _on_failure(fmt::format(LOAD_CONTACT_ERROR, err.what()));
+    if (!success) {
+        auto err = error{errc::storage_error
+            , fmt::format("load contact failure: #{}", to_string(id))
+            , storage_err.what()};
+        if (perr) *perr = err; else CHAT__THROW(err);
+    }
 
     return pfs::nullopt;
 }
 
-pfs::optional<contact::contact> contact_list::get_impl (int offset)
+pfs::optional<contact::contact> contact_list::get_impl (int offset, error * perr) const
 {
     bool force_populate_cache = _cache.dirty;
 
@@ -210,7 +217,7 @@ pfs::optional<contact::contact> contact_list::get_impl (int offset)
 
     // Populate cache if dirty
     if (force_populate_cache) {
-        auto success = prefetch(offset, CACHE_WINDOW_SIZE);
+        auto success = prefetch(offset, CACHE_WINDOW_SIZE, perr);
 
         if (!success)
             return pfs::nullopt;
@@ -230,14 +237,16 @@ std::string const SELECT_ALL_CONTACTS {
 
 } // namespace
 
-bool contact_list::all_of_impl (std::function<void(contact::contact const &)> f)
+bool contact_list::all_of_impl (std::function<void(contact::contact const &)> f
+    , error * perr)
 {
-    debby::error err;
-    auto stmt = _dbh->prepare(fmt::format(SELECT_ALL_CONTACTS, _table_name), true, & err);
+    debby::error storage_err;
+    auto stmt = _dbh->prepare(fmt::format(SELECT_ALL_CONTACTS, _table_name)
+        , true, & storage_err);
     auto success = !!stmt;
 
     if (success) {
-        auto res = stmt.exec(& err);
+        auto res = stmt.exec(& storage_err);
 
         for (; success && res.has_more(); res.next()) {
             contact::contact c;
@@ -251,8 +260,12 @@ bool contact_list::all_of_impl (std::function<void(contact::contact const &)> f)
             success = false;
     }
 
-    if (!success)
-        _on_failure(fmt::format(LOAD_ALL_CONTACTS_ERROR, err.what()));
+    if (!success) {
+        auto err = error{errc::storage_error
+            , "load contacts failure"
+            , storage_err.what()};
+        if (perr) *perr = err; else CHAT__THROW(err);
+    }
 
     return success;
 }
@@ -270,7 +283,7 @@ void contact_list::invalidate_cache ()
     _cache.dirty = true;
 }
 
-int contact_list::prefetch (int offset, int limit)
+bool contact_list::prefetch (int offset, int limit, error * perr) const
 {
     bool prefetch_required = _cache.dirty
         || offset < _cache.offset
@@ -285,13 +298,13 @@ int contact_list::prefetch (int offset, int limit)
     _cache.limit = 0;
     _cache.dirty = true;
 
-    debby::error err;
+    debby::error storage_err;
     auto stmt = _dbh->prepare(fmt::format(SELECT_ROWS_RANGE, _table_name
-        , limit, offset), true, & err);
+        , limit, offset), true, & storage_err);
     auto success = !!stmt;
 
     if (success) {
-        auto res = stmt.exec(& err);
+        auto res = stmt.exec(& storage_err);
 
         for (; success && res.has_more(); res.next()) {
             contact::contact c;
@@ -311,7 +324,10 @@ int contact_list::prefetch (int offset, int limit)
     if (success) {
         _cache.dirty = false;
     } else {
-        _on_failure(fmt::format(CACHE_CONTACTS_ERROR, err.what()));
+        auto err = error{errc::storage_error
+            , "cache contacts failure"
+            , storage_err.what()};
+        if (perr) *perr = err; else CHAT__THROW(err);
     }
 
     return success;

@@ -6,9 +6,10 @@
 // Changelog:
 //      2021.12.12 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
-import QtQuick 2.9
+import QtQuick 2.6
 import QtQuick.Controls 2.2
-import pfs.chat 1.0
+import chat.lib 1.0
+import units.ui 1.0
 
 Page {
     id: root
@@ -16,7 +17,7 @@ Page {
     header: ChatToolBar {
         Label {
             text: qsTr("Contacts")
-            font.pixelSize: 20
+            font.pixelSize: Units.dp(20)
             anchors.centerIn: parent
         }
     }
@@ -24,19 +25,23 @@ Page {
     ListView {
         id: listView
         anchors.fill: parent
-        topMargin: 0 // 48
-        leftMargin:  0 // 48
-        bottomMargin: 0 // 48
-        rightMargin: 0 // 48
+        topMargin   : 48
+        leftMargin  : 48
+        bottomMargin: 48
+        rightMargin : 48
         spacing: 0 // Spacing between items (0 - default)
-        model: messengerProxyForQml.contactModel
+        model: messengerProxy.contactModel
 
         delegate: ItemDelegate {
-            text: model.alias //model.display
+            text: model.alias
             width: listView.width - listView.leftMargin - listView.rightMargin
-//             height: 48 //avatar.implicitHeight
+            height: Units.dp(48) //avatar.implicitHeight
+
 //             leftPadding: avatar.implicitWidth + 32
-//             onClicked: root.StackView.view.push("qrc:/ConversationPage.qml", { inConversationWith: model.display })
+            onClicked: {
+                root.StackView.view.push("qrc:/ConversationPage.qml"
+                    , { inConversationWith: model.alias })
+            }
 
 //             Image {
 //                 id: avatar

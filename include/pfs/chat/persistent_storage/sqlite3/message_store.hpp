@@ -44,7 +44,7 @@ protected:
         return !!_dbh;
     }
 
-    auto begin_conversation_impl (contact::contact_id c) -> strict_ptr_wrapper<conversation_type>;
+    auto begin_conversation_impl (contact::contact_id c) -> conversation_type &;
 
     auto wipe_impl () -> bool
     {
@@ -54,18 +54,13 @@ protected:
 private:
     message_store () = delete;
     message_store (message_store const & other) = delete;
-    message_store & operator = (message_store const & other) = delete;
     message_store (message_store && other) = delete;
+    message_store & operator = (message_store const & other) = delete;
     message_store & operator = (message_store && other) = delete;
 
 public:
     message_store (database_handle_t dbh, failure_handler_type f);
-
-    ~message_store ()
-    {
-        database_handle_t empty;
-        _dbh.swap(empty);
-    }
+    ~message_store () = default;
 };
 
 }}} // namespace chat::persistent_storage::sqlite3

@@ -4,14 +4,16 @@
 // This file is part of `chat-lib`.
 //
 // Changelog:
-//      2021.12.26 Initial version.
+//      2021.12.12 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
-#pragma once
-#include "ContactList.hpp"
-#include <memory>
+import QtQuick 2.6
+import QtQuick.Controls 2.2
+// import MyUnits 1.0
+// import '.'
 
-struct ContactListBuilder
-{
-    using type = ContactList;
-    std::shared_ptr<ContactList> operator () ();
-};
+ApplicationWindow {
+    id: window
+    width: Units.dp(540)
+    height: Units.dp(760)
+    visible: true
+}

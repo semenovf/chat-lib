@@ -52,41 +52,36 @@ protected:
 
     bool wipe_impl ();
 
-    strict_ptr_wrapper<contact_list> contacts_impl () noexcept
+    auto contacts_impl () noexcept -> contact_list &
     {
-        return strict_ptr_wrapper<contact_list>(_contacts);
+        return _contacts;
     }
 
-    strict_ptr_wrapper<contact_list const> contacts_impl () const noexcept
+    auto contacts_impl () const noexcept -> contact_list const &
     {
-        return strict_ptr_wrapper<contact_list const>(_contacts);
+        return _contacts;
     }
 
-    strict_ptr_wrapper<group_list> groups_impl () noexcept
+    auto groups_impl () noexcept -> group_list &
     {
-        return strict_ptr_wrapper<group_list>(_groups);
+        return _groups;
     }
 
-    strict_ptr_wrapper<group_list const> groups_impl () const noexcept
+    auto groups_impl () const noexcept -> group_list const &
     {
-        return strict_ptr_wrapper<group_list const>(_groups);
+        return _groups;
     }
 
 private:
     contact_manager () = delete;
     contact_manager (contact_manager const & other) = delete;
-    contact_manager & operator = (contact_manager const & other) = delete;
     contact_manager (contact_manager && other) = delete;
+    contact_manager & operator = (contact_manager const & other) = delete;
     contact_manager & operator = (contact_manager && other) = delete;
 
 public:
     contact_manager (database_handle_t dbh, std::function<void(std::string const &)> f);
-
-    ~contact_manager ()
-    {
-        database_handle_t empty;
-        _dbh.swap(empty);
-    }
+    ~contact_manager () = default;
 };
 
 }}} // namespace chat::persistent_storage::sqlite3

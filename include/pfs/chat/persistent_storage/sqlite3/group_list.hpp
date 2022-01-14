@@ -9,6 +9,7 @@
 #pragma once
 #include "database_traits.hpp"
 #include "contact_list.hpp"
+#include "pfs/chat/error.hpp"
 #include "pfs/chat/basic_group_list.hpp"
 
 namespace chat {
@@ -29,7 +30,6 @@ private:
     contact_list      & _contacts;
     std::string const & _contacts_table_name;
     std::string const & _members_table_name;
-    failure_handler_t & _on_failure;
 
 protected:
     std::size_t count_impl () const
@@ -37,43 +37,44 @@ protected:
         return _contacts.count (contact::type_enum::group);
     }
 
-    int add_impl (contact::group const & g)
+    int add_impl (contact::group const & g, error * perr)
     {
-        return _contacts.add(g);
+        return _contacts.add(g, perr);
     }
 
-    int add_impl (contact::group && g)
+    int add_impl (contact::group && g, error * perr)
     {
-        return _contacts.add(std::move(g));
+        return _contacts.add(std::move(g), perr);
     }
 
-    int update_impl (contact::group const & g)
+    int update_impl (contact::group const & g, error * perr)
     {
-        return _contacts.update(g);
+        return _contacts.update(g, perr);
     }
 
-    pfs::optional<contact::group> get_impl (contact::contact_id id);
+    pfs::optional<contact::group> get_impl (contact::contact_id id, error * perr) const;
 
     bool add_member_impl(contact::contact_id group_id
-        , contact::contact_id member_id);
+        , contact::contact_id member_id
+        , error * perr);
 
-    std::vector<contact::contact> members_impl (contact::contact_id group_id) const;
+    std::vector<contact::contact> members_impl (contact::contact_id group_id
+        , error * perr) const;
 
 private:
     group_list () = delete;
-    ~group_list () = default;
     group_list (group_list const & other) = delete;
-    group_list & operator = (group_list const & other) = delete;
     group_list (group_list && other) = delete;
+    group_list & operator = (group_list const & other) = delete;
     group_list & operator = (group_list && other) = delete;
 
     group_list (database_handle_t dbh
         , contact_list & contacts
         , std::string const & contacts_table_name
-        , std::string const & members_table_name
-        , failure_handler_t & f);
+        , std::string const & members_table_name);
+
+public:
+    ~group_list () = default;
 };
 
 }}} // namespace chat::persistent_storage::sqlite3
-
-

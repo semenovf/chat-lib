@@ -12,9 +12,12 @@
 
 namespace chat {
 
-template <typename Impl>
+template <typename Impl, typename Traits>
 class basic_conversation
 {
+public:
+    using editor_type = typename Traits::editor_type;
+
 public:
     /**
      * Checks if message store opened/initialized successfully.
@@ -41,14 +44,23 @@ public:
     }
 
     /**
-     * Creates new message.
+     * Creates editor for new outgoing message.
      *
-     * @return Valid message ID if message successfully created or
-     *         invalid message ID on error.
+     * @return Editor instance.
      */
-    auto create (contact::contact_id addressee_id) -> message::message_id
+    auto create (contact::contact_id addressee_id) -> editor_type
     {
         return static_cast<Impl *>(this)->create_impl(addressee_id);
+    }
+
+    /**
+     * Opens editor for outgoing message specified by @a id.
+     *
+     * @return Editor instance.
+     */
+    auto open (message::message_id id) -> editor_type
+    {
+        return static_cast<Impl *>(this)->open_impl(id);
     }
 };
 

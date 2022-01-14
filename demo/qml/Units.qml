@@ -1,0 +1,14 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright (c) 2021,2022 Vladislav Trifochkin
+//
+// This file is part of `chat-lib`.
+//
+// Changelog:
+//      2022.01.07 Initial version.
+////////////////////////////////////////////////////////////////////////////////
+pragma Singleton
+import QtQuick 2.6
+
+QtObject {
+    property var dp: function (number) { return number; }
+}

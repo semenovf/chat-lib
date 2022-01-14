@@ -1,6 +1,7 @@
 <RCC>
     <qresource prefix="/">
-        <file alias="Main.qml"             >Desktop/Qml/Main.qml</file>
+        <file alias="QmlApplication.qml"   >Desktop/Qml/QmlApplication.qml</file>
+        <file alias="MessageComposer.qml"  >Desktop/Qml/MessageComposer.qml</file>
         <file alias="ContactPage.qml"      >Desktop/Qml/ContactPage.qml</file>
         <file alias="ConversationPage.qml" >Desktop/Qml/ConversationPage.qml</file>
         <file alias="ChatToolBar.qml"      >Desktop/Qml/ChatToolBar.qml</file>

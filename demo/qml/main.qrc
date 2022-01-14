@@ -1,7 +1,8 @@
 <RCC>
     <qresource prefix="/">
-        <file alias="Init.qml" >Common/Qml/Init.qml</file>
-        <file alias="Units.qml">Common/Qml/Units.qml</file>
+        <file alias="main.qml">main.qml</file>
+        <file alias="Units.qml">Units.qml</file>
+        <file>qmldir</file>
     </qresource>
 
     <qresource prefix="/common">

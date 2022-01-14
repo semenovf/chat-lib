@@ -8,6 +8,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 #include "contact.hpp"
+#include "error.hpp"
 #include "pfs/optional.hpp"
 
 namespace chat {
@@ -32,9 +33,9 @@ public:
      * @return @c 1 if contact successfully added or @c 0 if contact already
      *         exists with @c contact_id or @c -1 on error.
      */
-    int add (contact::contact const & c)
+    int add (contact::contact const & c, error * perr = nullptr)
     {
-        return static_cast<Impl *>(this)->add_impl(c);
+        return static_cast<Impl *>(this)->add_impl(c, perr);
     }
 
     /**
@@ -43,9 +44,9 @@ public:
      * @return @c 1 if contact successfully added or @c 0 if contact already
      *         exists with @c contact_id or @c -1 on error.
      */
-    int add (contact::contact && c)
+    int add (contact::contact && c, error * perr = nullptr)
     {
-        return static_cast<Impl *>(this)->add_impl(std::move(c));
+        return static_cast<Impl *>(this)->add_impl(std::move(c), perr);
     }
 
     /**
@@ -54,9 +55,9 @@ public:
      * @return Total contacts added or -1 on error.
      */
     template <typename ForwardIt>
-    int add (ForwardIt first, ForwardIt last)
+    int add (ForwardIt first, ForwardIt last, error * perr = nullptr)
     {
-        return static_cast<Impl *>(this)->template add_impl<ForwardIt>(first, last);
+        return static_cast<Impl *>(this)->template add_impl<ForwardIt>(first, last, perr);
     }
 
     /**
@@ -65,9 +66,9 @@ public:
      * @return @c 1 if group successfully added or @c 0 if contact already
      *         exists with @c contact_id or @c -1 on error.
      */
-    int add (contact::group const & g)
+    int add (contact::group const & g, error * perr = nullptr)
     {
-        return static_cast<Impl *>(this)->add_impl(g);
+        return static_cast<Impl *>(this)->add_impl(g, perr);
     }
 
     /**
@@ -76,53 +77,52 @@ public:
      * @return @c 1 if group successfully added or @c 0 if group already
      *         exists with @c contact_id or @c -1 on error.
      */
-    int add (contact::group && g)
+    int add (contact::group && g, error * perr = nullptr)
     {
-        return static_cast<Impl *>(this)->add_impl(std::move(g));
+        return static_cast<Impl *>(this)->add_impl(std::move(g), perr);
     }
 
     /**
      * @return @c 1 if contact successfully updated or @c 0 if contact not found
      *         with @c contact_id or @c -1 on error.
      */
-    int update (contact::contact const & c)
+    int update (contact::contact const & c, error * perr = nullptr)
     {
-        return static_cast<Impl *>(this)->update_impl(c);
+        return static_cast<Impl *>(this)->update_impl(c, perr);
     }
 
     /**
      * @return @c 1 if group successfully updated or @c 0 if group not found
      *     with @c contact_id or @c -1 on error.
      */
-    int update (contact::group const & g)
+    int update (contact::group const & g, error * perr = nullptr)
     {
-        return static_cast<Impl *>(this)->update_impl(g);
+        return static_cast<Impl *>(this)->update_impl(g, perr);
     }
 
     /**
      * Get contact by @a id.
      */
-    pfs::optional<contact::contact> get (contact::contact_id id)
+    pfs::optional<contact::contact> get (contact::contact_id id, error * perr = nullptr) const
     {
-        return static_cast<Impl *>(this)->get_impl(id);
+        return static_cast<Impl const *>(this)->get_impl(id, perr);
     }
 
     /**
      * Get contact by @a id.
      */
-    pfs::optional<contact::contact> get (int offset)
+    pfs::optional<contact::contact> get (int offset, error * perr = nullptr) const
     {
-        return static_cast<Impl *>(this)->get_impl(offset);
+        return static_cast<Impl const *>(this)->get_impl(offset, perr);
     }
 
     /**
      * Fetch all contacts and process them by @a f
      */
-    void all_of (std::function<void(contact::contact const &)> f)
+    void all_of (std::function<void(contact::contact const &)> f, error * perr = nullptr)
     {
-        static_cast<Impl *>(this)->all_of_impl(f);
+        static_cast<Impl *>(this)->all_of_impl(f, perr);
     }
 };
 
 } // namespace chat
-

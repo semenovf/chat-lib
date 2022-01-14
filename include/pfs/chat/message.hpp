@@ -17,7 +17,8 @@
 namespace chat {
 namespace message {
 
-using message_id = pfs::uuid_t;
+using message_id  = pfs::uuid_t;
+using resource_id = pfs::uuid_t;
 
 // enum class status_enum
 // {
@@ -83,12 +84,12 @@ struct incoming_credentials
 
 struct outgoing_credentials
 {
-    message_id id;                                    // Unique message id
-    contact::contact_id addressee_id;                 // Addressee contact ID
-    pfs::utc_time_point creation_time;                // Message creation time (UTC)
-    pfs::optional<pfs::utc_time_point> sending_time;  // Message sending time (UTC)
-    pfs::optional<pfs::utc_time_point> received_time; // Message received time (UTC)
-    pfs::optional<pfs::utc_time_point> read_time;     // Message read time (UTC)
+    message_id id;                                      // Unique message id
+    contact::contact_id addressee_id;                   // Addressee contact ID
+    pfs::utc_time_point creation_time;                  // Message creation time (UTC)
+    pfs::optional<pfs::utc_time_point> dispatched_time; // Message dispatched time (UTC)
+    pfs::optional<pfs::utc_time_point> delivered_time;  // Message delivered time (UTC)
+    pfs::optional<pfs::utc_time_point> read_time;       // Message read time (UTC)
 };
 
 struct content_credentials

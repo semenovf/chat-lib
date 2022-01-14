@@ -9,7 +9,8 @@
 import QtQuick 2.9
 import QtQuick.Controls 2.2
 import QtQuick.Layouts 1.11
-import pfs.chat 1.0
+import chat.lib 1.0
+import units.ui 1.0
 
 Page {
     id: root
@@ -20,7 +21,7 @@ Page {
         ToolButton {
             text: qsTr("Back")
             anchors.left: parent.left
-            anchors.leftMargin: 10
+            anchors.leftMargin: Units.dp(10)
             anchors.verticalCenter: parent.verticalCenter
             onClicked: root.StackView.view.pop()
         }
@@ -28,7 +29,7 @@ Page {
         Label {
             id: pageTitle
             text: inConversationWith
-            font.pixelSize: 20
+            font.pixelSize: Units.dp(20)
             anchors.centerIn: parent
         }
     }
@@ -40,25 +41,23 @@ Page {
             id: listView
             Layout.fillWidth: true
             Layout.fillHeight: true
-            Layout.margins: pane.leftPadding + messageField.leftPadding
-            displayMarginBeginning: 40
-            displayMarginEnd: 40
+            Layout.margins: messageComposer.leftPadding //+ messageField.leftPadding //FIXME
+            displayMarginBeginning: Units.dp(40)
+            displayMarginEnd: Units.dp(40)
             verticalLayoutDirection: ListView.BottomToTop
-            spacing: 12
+            spacing: Units.dp(12)
 
-            model: ConversationModel {
-                recipient: inConversationWith
-            }
+            model: messengerProxy.conversationModel
 
             delegate: Column {
                 anchors.right: sentByMe ? listView.contentItem.right : undefined
-                spacing: 6
+                spacing: Units.dp(6)
 
                 readonly property bool sentByMe: model.recipient !== "Me"
 
                 Row {
                     id: messageRow
-                    spacing: 6
+                    spacing: Units.dp(6)
                     anchors.right: sentByMe ? parent.right : undefined
 
                     Image {
@@ -67,8 +66,9 @@ Page {
                     }
 
                     Rectangle {
-                        width: Math.min(messageText.implicitWidth + 24, listView.width - avatar.width - messageRow.spacing)
-                        height: messageText.implicitHeight + 24
+                        width: Math.min(messageText.implicitWidth + Units.dp(24)
+                            , listView.width - avatar.width - messageRow.spacing)
+                        height: messageText.implicitHeight + Units.dp(24)
                         color: sentByMe ? "lightgrey" : "steelblue"
 
                         Label {
@@ -76,7 +76,7 @@ Page {
                             text: model.message
                             color: sentByMe ? "black" : "white"
                             anchors.fill: parent
-                            anchors.margins: 12
+                            anchors.margins: Units.dp(12)
                             wrapMode: Label.Wrap
                         }
                     }
@@ -93,31 +93,10 @@ Page {
             ScrollBar.vertical: ScrollBar {}
         }
 
-        Pane {
-            id: pane
+        MessageComposer {
+            id: messageComposer
             Layout.fillWidth: true
-
-            RowLayout {
-                width: parent.width
-
-                TextArea {
-                    id: messageField
-                    Layout.fillWidth: true
-                    placeholderText: qsTr("Compose message")
-                    wrapMode: TextArea.Wrap
-                }
-
-                Button {
-                    id: sendButton
-                    text: qsTr("Send")
-                    enabled: messageField.length > 0
-                    onClicked: {
-                        listView.model.sendMessage(inConversationWith, messageField.text);
-                        messageField.text = "";
-                    }
-                }
-            }
-        }
+         }
     }
 }
 

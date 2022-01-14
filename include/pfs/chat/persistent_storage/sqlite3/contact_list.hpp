@@ -40,56 +40,56 @@ class contact_list final: public basic_contact_list<contact_list>
 
 private:
     database_handle_t _dbh;
-    in_memory_cache   _cache;
+    mutable in_memory_cache _cache;
     std::string const & _table_name;
-    failure_handler_t & _on_failure;
 
 protected:
     std::size_t count_impl () const;
     std::size_t count_impl (contact::type_enum type) const;
 
-    int add_impl (contact::contact const & c);
-    int update_impl (contact::contact const & c);
+    int add_impl (contact::contact const & c, error * perr);
+    int update_impl (contact::contact const & c, error * perr);
 
-    int add_impl (contact::group const & g)
+    int add_impl (contact::group const & g, error * perr)
     {
         contact::contact c {g.id, g.alias, chat::contact::type_enum::group};
-        return add_impl(c);
+        return add_impl(c, perr);
     }
 
-    int add_impl (contact::contact && c)
+    int add_impl (contact::contact && c, error * perr)
     {
-        return add_impl(c);
+        return add_impl(c, perr);
     }
 
-    int add_impl (contact::group && g)
+    int add_impl (contact::group && g, error * perr)
     {
-        return add_impl(g);
+        return add_impl(g, perr);
     }
 
-    int update_impl (contact::group const & g)
+    int update_impl (contact::group const & g, error * perr)
     {
         contact::contact c {g.id, g.alias, chat::contact::type_enum::group};
-        return update_impl(c);
+        return update_impl(c, perr);
     }
 
-    pfs::optional<contact::contact> get_impl (contact::contact_id id);
-    pfs::optional<contact::contact> get_impl (int offset);
-    bool all_of_impl (std::function<void(contact::contact const &)> f);
+    pfs::optional<contact::contact> get_impl (contact::contact_id id, error * perr) const;
+    pfs::optional<contact::contact> get_impl (int offset, error * perr) const;
+    bool all_of_impl (std::function<void(contact::contact const &)> f
+        , error * perr);
 
-    bool fill_contact (result_t * res, contact::contact * c);
+    bool fill_contact (result_t * res, contact::contact * c) const;
     void invalidate_cache ();
-    int prefetch (int offset, int limit);
+    bool prefetch (int offset, int limit, error * perr) const;
 
     template <typename ForwardIt>
-    int add_impl (ForwardIt first, ForwardIt last)
+    int add_impl (ForwardIt first, ForwardIt last, error * perr)
     {
         int counter = 0;
         bool success = _dbh->begin();
 
         if (success) {
             for (int i = 0; first != last; ++first, i++) {
-                auto n = add_impl(*first);
+                auto n = add_impl(*first, perr);
                 counter += n > 0 ? 1 : 0;
             }
         }
@@ -106,15 +106,15 @@ protected:
 
 private:
     contact_list () = delete;
-    ~contact_list () = default;
     contact_list (contact_list const & other) = delete;
-    contact_list & operator = (contact_list const & other) = delete;
     contact_list (contact_list && other) = delete;
+    contact_list & operator = (contact_list const & other) = delete;
     contact_list & operator = (contact_list && other) = delete;
 
-    contact_list (database_handle_t dbh
-        , std::string const & table_name
-        , failure_handler_t & f);
+    contact_list (database_handle_t dbh, std::string const & table_name);
+
+public:
+    ~contact_list () = default;
 };
 
 }}} // namespace chat::persistent_storage::sqlite3

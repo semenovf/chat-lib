@@ -7,9 +7,13 @@
 //      2021.12.12 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
-#include "ContactList.hpp"
+#include "Messenger.hpp"
 #include <QAbstractTableModel>
-#include <memory>
+#include <QHash>
+#include <QVariant>
+
+namespace ui {
+namespace qt {
 
 class ContactModel : public QAbstractTableModel
 {
@@ -18,10 +22,10 @@ class ContactModel : public QAbstractTableModel
     };
 
 private:
-    std::shared_ptr<ContactList> _contactList;
+    SharedMessenger _messenger;
 
 public:
-    ContactModel (std::shared_ptr<ContactList> contactList, QObject * parent = nullptr);
+    ContactModel (SharedMessenger messenger, QObject * parent = nullptr);
 
     Q_INVOKABLE int rowCount (QModelIndex const & parent = QModelIndex()) const override;
     Q_INVOKABLE int columnCount (QModelIndex const & parent = QModelIndex()) const override;
@@ -29,4 +33,6 @@ public:
     Q_INVOKABLE QHash<int, QByteArray> roleNames () const override;
 };
 
-Q_DECLARE_METATYPE(ContactModel*)
+}} // namespace ui::qt
+
+// Q_DECLARE_METATYPE(ui::qt::ContactModel*)
