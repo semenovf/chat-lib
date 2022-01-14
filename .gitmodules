@@ -1,9 +1,6 @@
 [submodule "3rdparty/pfs/common"]
 	path = 3rdparty/pfs/common
 	url = git@github.com:semenovf/common-lib.git
-[submodule "3rdparty/pfs/net"]
-	path = 3rdparty/pfs/net
-	url = git@github.com:semenovf/net-lib.git
 [submodule "3rdparty/rocksdb"]
 	path = 3rdparty/rocksdb
 	url = https://github.com/facebook/rocksdb
