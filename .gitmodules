@@ -10,3 +10,6 @@
 [submodule "3rdparty/portable-target"]
 	path = 3rdparty/portable-target
 	url = git@github.com:semenovf/portable-target.git
+[submodule "3rdparty/pfs/netty"]
+	path = 3rdparty/pfs/netty
+	url = git@github.com:semenovf/netty-lib.git
