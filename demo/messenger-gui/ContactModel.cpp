@@ -1,10 +1,9 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright (c) 2021 Vladislav Trifochkin
-//
-// This file is part of `chat-lib`.
+// TacticalPad3
+// Copyright (c) 2021,2022 Vladislav Trifochkin
 //
 // Changelog:
-//      2021.12.12 Initial version.
+//      2021.12.12 Исходная версия.
 ////////////////////////////////////////////////////////////////////////////////
 #include "ContactModel.hpp"
 #include "pfs/chat/contact.hpp"
