@@ -52,7 +52,7 @@ protected:
 
     int add_impl (contact::group const & g, error * perr)
     {
-        contact::contact c {g.id, g.alias, chat::contact::type_enum::group};
+        contact::contact c {g.id, g.alias, g.avatar, chat::contact::type_enum::group};
         return add_impl(c, perr);
     }
 
@@ -68,7 +68,7 @@ protected:
 
     int update_impl (contact::group const & g, error * perr)
     {
-        contact::contact c {g.id, g.alias, chat::contact::type_enum::group};
+        contact::contact c {g.id, g.alias, g.avatar, chat::contact::type_enum::group};
         return update_impl(c, perr);
     }
 

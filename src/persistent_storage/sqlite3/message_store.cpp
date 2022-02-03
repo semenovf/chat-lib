@@ -26,11 +26,9 @@ message_store::message_store (database_handle_t dbh, failure_handler_type f)
     , _dbh(dbh)
 {}
 
-auto message_store::begin_conversation_impl (contact::contact_id c)
-    -> conversation_type &
+auto message_store::conversation_impl (contact::contact_id c) const -> conversation_type
 {
-    auto res = _conversation_cache.emplace(c, conversation_type{c, _dbh, on_failure});
-    return res.first->second;
+    return conversation_type{c, _dbh, on_failure};
 }
 
 }}} // namespace chat::persistent_storage::sqlite3

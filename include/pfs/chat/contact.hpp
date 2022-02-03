@@ -47,19 +47,29 @@ struct contact
 {
     contact_id  id;
     std::string alias;
-    type_enum   type;
+    std::string avatar; // application specific image path/name/code
+    type_enum type;
+};
+
+struct person
+{
+    contact_id  id;
+    std::string alias;
+    std::string avatar;
 };
 
 struct group
 {
     contact_id  id;
     std::string alias;
+    std::string avatar;
 };
 
 struct channel
 {
     contact_id  id;
     std::string alias;
+    std::string avatar;
 };
 
 CHAT__EXPORT pfs::optional<type_enum> to_type_enum (int n);

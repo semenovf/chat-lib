@@ -152,5 +152,10 @@ auto conversation::count_impl () const -> std::size_t
     return _dbh->rows_count(_table_name);
 }
 
+auto conversation::unread_messages_count_impl () const -> std::size_t
+{
+
+}
+
 }}} // namespace chat::persistent_storage::sqlite3
 

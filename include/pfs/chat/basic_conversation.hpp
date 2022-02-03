@@ -62,6 +62,14 @@ public:
     {
         return static_cast<Impl *>(this)->open_impl(id);
     }
+
+    /**
+     * Returns unread messages for conversation.
+     */
+    auto unread_messages_count () const -> std::size_t
+    {
+        return static_cast<Impl const *>(this)->unread_messages_count_impl();
+    }
 };
 
 } // namespace chat

@@ -48,14 +48,14 @@ public:
     }
 
     /**
-     * Begins conversation with contact @a c.
+     * Opens conversation with contact @a c.
      *
      * @brief This method initializes/opens data storage for conversation messages
-     * associated with specified contact.
+     *        associated with specified contact.
      */
-    auto begin_conversation (contact::contact_id c) -> conversation_type &
+    auto conversation (contact::contact_id c) const -> conversation_type
     {
-        return static_cast<Impl *>(this)->begin_conversation_impl(c);
+        return static_cast<Impl const *>(this)->conversation_impl(c);
     }
 };
 

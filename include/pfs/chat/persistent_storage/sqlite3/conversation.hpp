@@ -46,6 +46,7 @@ protected:
     auto create_impl (contact::contact_id addressee_id) -> editor;
     auto count_impl () const -> std::size_t;
     auto wipe_impl () -> bool;
+    auto unread_messages_count_impl () const -> std::size_t;
 
     // Wipes (drops) all conversations
     static auto wipe_all (database_handle_t dbh, failure_handler_t & on_failure) -> bool;

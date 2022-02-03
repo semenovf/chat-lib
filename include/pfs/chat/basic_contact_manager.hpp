@@ -7,6 +7,7 @@
 //      2021.12.28 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
+#include "contact.hpp"
 #include <functional>
 
 namespace chat {
@@ -22,11 +23,13 @@ public:
     using group_list_type = typename Traits::group_list_type;
 
 protected:
+    contact::person      _me;
     failure_handler_type on_failure;
 
 protected:
-    basic_contact_manager (failure_handler_type f)
-        : on_failure(f)
+    basic_contact_manager (contact::person const & me, failure_handler_type f)
+        : _me(me)
+        , on_failure(f)
     {}
 
 public:
@@ -36,6 +39,11 @@ public:
     operator bool () const noexcept
     {
         return static_cast<Impl const *>(this)->ready();
+    }
+
+    auto my_contact () const -> contact::person
+    {
+        return _me;
     }
 
     /**

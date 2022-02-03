@@ -71,8 +71,8 @@ std::size_t contact_list::count_impl (contact::type_enum type) const
 
 namespace {
 std::string const INSERT_CONTACT {
-    "INSERT OR IGNORE INTO `{}` (`id`, `alias`, `type`)"
-    " VALUES (:id, :alias, :type)"
+    "INSERT OR IGNORE INTO `{}` (`id`, `alias`, `avatar`, `type`)"
+    " VALUES (:id, :alias, :avatar, :type)"
 };
 } // namespace
 
@@ -85,9 +85,10 @@ int contact_list::add_impl (contact::contact const & c, error * perr)
     bool success = !!stmt;
 
     success = success
-        && stmt.bind(":id"   , to_storage(c.id), false, & storage_err)
-        && stmt.bind(":alias", to_storage(c.alias), false, & storage_err)
-        && stmt.bind(":type" , to_storage(c.type), & storage_err);
+        && stmt.bind(":id"    , to_storage(c.id), false, & storage_err)
+        && stmt.bind(":alias" , to_storage(c.alias), false, & storage_err)
+        && stmt.bind(":avatar", to_storage(c.avatar), false, & storage_err)
+        && stmt.bind(":type"  , to_storage(c.type), & storage_err);
 
     if (success) {
         auto res = stmt.exec(& storage_err);
@@ -110,7 +111,7 @@ int contact_list::add_impl (contact::contact const & c, error * perr)
 namespace {
 
 std::string const UPDATE_CONTACT {
-    "UPDATE OR IGNORE `{}` SET `alias` = :alias"
+    "UPDATE OR IGNORE `{}` SET `alias` = :alias, `avatar` = :avatar"
     " WHERE `id` = :id AND `type` = :type"
 };
 
@@ -125,9 +126,10 @@ int contact_list::update_impl (contact::contact const & c, error * perr)
     bool success = !!stmt;
 
     success = success
-        && stmt.bind(":alias", to_storage(c.alias), false, & storage_err)
-        && stmt.bind(":id", to_storage(c.id), false, & storage_err)
-        && stmt.bind(":type", to_storage(c.type), & storage_err);
+        && stmt.bind(":alias" , to_storage(c.alias), false, & storage_err)
+        && stmt.bind(":avatar", to_storage(c.avatar), false, & storage_err)
+        && stmt.bind(":id"    , to_storage(c.id), false, & storage_err)
+        && stmt.bind(":type"  , to_storage(c.type), & storage_err);
 
     if (success) {
         auto res = stmt.exec(& storage_err);
@@ -149,7 +151,7 @@ int contact_list::update_impl (contact::contact const & c, error * perr)
 
 namespace {
 std::string const SELECT_CONTACT {
-    "SELECT `id`, `alias`, `type` FROM `{}` WHERE `id` = :id"
+    "SELECT `id`, `alias`, `avatar`, `type` FROM `{}` WHERE `id` = :id"
 };
 } // namespace
 
@@ -159,6 +161,7 @@ bool contact_list::fill_contact (result_t * res, contact::contact * c) const
 
     auto success = in["id"] >> c->id
         && in["alias"]      >> c->alias
+        && in["avatar"]     >> c->avatar
         && in["type"]       >> c->type;
 
     return success;
@@ -232,7 +235,7 @@ pfs::optional<contact::contact> contact_list::get_impl (int offset, error * perr
 namespace {
 
 std::string const SELECT_ALL_CONTACTS {
-    "SELECT `id`, `alias`, `type` FROM `{}`"
+    "SELECT `id`, `alias`, `avatar`, `type` FROM `{}`"
 };
 
 } // namespace
@@ -273,7 +276,7 @@ bool contact_list::all_of_impl (std::function<void(contact::contact const &)> f
 namespace {
 
 std::string const SELECT_ROWS_RANGE {
-    "SELECT `id`, `alias`, `type` FROM `{}` LIMIT {} OFFSET {}"
+    "SELECT `id`, `alias`, `avatar`, `type` FROM `{}` LIMIT {} OFFSET {}"
 };
 
 } // namespace

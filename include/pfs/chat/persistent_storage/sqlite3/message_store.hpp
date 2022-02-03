@@ -13,7 +13,6 @@
 #include "database_traits.hpp"
 #include "pfs/chat/basic_message_store.hpp"
 #include "pfs/chat/exports.hpp"
-#include <map>
 #include <string>
 
 namespace chat {
@@ -36,7 +35,6 @@ class message_store final
 
 private:
     database_handle_t _dbh;
-    std::map<contact::contact_id, conversation> _conversation_cache;
 
 protected:
     auto ready () const noexcept -> bool
@@ -44,7 +42,7 @@ protected:
         return !!_dbh;
     }
 
-    auto begin_conversation_impl (contact::contact_id c) -> conversation_type &;
+    auto conversation_impl (contact::contact_id c) const -> conversation_type;
 
     auto wipe_impl () -> bool
     {

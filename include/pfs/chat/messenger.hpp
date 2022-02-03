@@ -12,17 +12,13 @@
 
 namespace chat {
 
-template <
-      typename ControllerBuilder
-    , typename ContactManagerBuilder
-    , typename MessageStoreBuilder
-    /*, typename DeliveryBuilder*/>
+template <typename MessengerBuilder>
 class messenger
 {
 public:
-    using controller_type      = typename ControllerBuilder::type;
-    using contact_manager_type = typename ContactManagerBuilder::type;
-    using message_store_type   = typename MessageStoreBuilder::type;
+    using controller_type      = typename MessengerBuilder::controller_type;
+    using contact_manager_type = typename MessengerBuilder::contact_manager_type;
+    using message_store_type   = typename MessengerBuilder::message_store_type;
 //     using icon_library_type    = typename PersistentStorageAPI::icon_library_type;
 //     using media_cache_type     = typename PersistentStorageAPI::media_cache_type;
 
@@ -32,18 +28,10 @@ private:
     std::unique_ptr<message_store_type>   _message_store;
 
 private:
-    bool add_contact (contact::contact_id const & id
-        , std::string const & alias
-        , contact::type_enum type
-        , bool force_update)
+    bool add_contact (contact::contact const & c, bool force_update)
     {
-        contact::contact c;
         error err;
-        c.id    = id;
-        c.alias = alias;
-        c.type  = type;
-
-        auto rc = _contact_manager->contacts().add(std::move(c), & err);
+        auto rc = _contact_manager->contacts().add(c, & err);
 
         if (rc > 0) {
             // Contact added successfully
@@ -52,7 +40,7 @@ private:
             // Contact already exists
 
             if (force_update) {
-                rc = _contact_manager->contacts().update(std::move(c), & err);
+                rc = _contact_manager->contacts().update(c, & err);
 
                 if (rc > 0) {
                     return true;
@@ -63,8 +51,8 @@ private:
                 }
             } else {
                 _controller->failure(fmt::format("contact already exists: {} (#{})"
-                    , alias
-                    , to_string(id)));
+                    , c.alias
+                    , to_string(c.id)));
             }
         } else {
             // Error
@@ -75,17 +63,11 @@ private:
     }
 
 public:
-    messenger ()
-    {
-        ControllerBuilder build_controller;
-        _controller = build_controller();
-
-        ContactManagerBuilder build_contact_manager;
-        _contact_manager = build_contact_manager();
-
-        MessageStoreBuilder build_message_store;
-        _message_store = build_message_store();
-    }
+    messenger (MessengerBuilder && builder)
+        : _controller(builder.make_controller())
+        , _contact_manager(builder.make_contact_manager())
+        , _message_store(builder.make_message_store())
+    {}
 
     ~messenger () = default;
 
@@ -95,12 +77,18 @@ public:
     messenger (messenger &&) = delete;
     messenger & operator = (messenger &&) = delete;
 
-    std::size_t contacts_count () const
+    /**
+     * Total contacts count.
+     */
+    auto contacts_count () const -> std::size_t
     {
         return _contact_manager->contacts().count();
     }
 
-    std::size_t contacts_count (contact::type_enum type) const
+    /**
+     * Total count of contacts with specified @a type.
+     */
+    auto contacts_count (contact::type_enum type) const -> std::size_t
     {
         return _contact_manager->contacts().count(type);
     }
@@ -108,49 +96,33 @@ public:
     /**
      * Add contact
      */
-    bool add_contact (contact::contact_id const & id
-        , std::string const & alias
-        , contact::type_enum type)
+    auto add_contact (contact::contact const & c) -> bool
     {
-        return add_contact(id, alias, type, false);
+        return add_contact(c, false);
     }
 
     /**
      * Add or update contact
      */
-    bool add_or_update_contact (contact::contact_id const & id
-        , std::string const & alias
-        , contact::type_enum type)
+    auto add_or_update_contact (contact::contact const & c) -> bool
     {
-        return add_contact(id, alias, type, true);
+        return add_contact(c, true);
     }
 
     /**
      * Get contact by @a id.
      */
-    pfs::optional<contact::contact> get_contact (contact::contact_id id) const
+    auto get_contact (contact::contact_id id) const -> pfs::optional<contact::contact>
     {
-        error err;
-        auto result = _contact_manager->contacts().get(id, & err);
-
-        if (err)
-            _controller->failure(err.what());
-
-        return result;
+        return _contact_manager->contacts().get(id);
     }
 
     /**
      * Get contact by offset.
      */
-    pfs::optional<contact::contact> get_contact (int offset) const
+    auto get_contact (int offset) const -> pfs::optional<contact::contact>
     {
-        error err;
-        auto result = _contact_manager->contacts().get(offset, & err);
-
-        if (err)
-            _controller->failure(err.what());
-
-        return result;
+        return _contact_manager->contacts().get(offset);
     }
 
     template <typename F>
@@ -161,6 +133,12 @@ public:
         for (auto c: contacts) {
             f(c);
         }
+    }
+
+    auto unread_messages_count (contact::contact_id id) const -> std::size_t
+    {
+        auto conv = _message_store->conversation(id);
+        return conv.unread_messages_count();
     }
 };
 

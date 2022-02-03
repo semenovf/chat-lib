@@ -26,7 +26,7 @@ namespace {
     std::string const DEFAULT_FOLLOWERS_TABLE_NAME { "chat_channels" };
 
     std::string const INIT_CONTACT_MANAGER_ERROR { "initialization contact manager failure: {}" };
-    std::string const WIPE_ERROR              { "wipe contact data failure: {}" };
+    std::string const WIPE_ERROR                 { "wipe contact data failure: {}" };
 } // namespace
 
 namespace {
@@ -35,6 +35,7 @@ std::string const CREATE_CONTACTS_TABLE {
     "CREATE TABLE IF NOT EXISTS `{}` ("
         "`id` {} NOT NULL UNIQUE"
         ", `alias` {} NOT NULL"
+        ", `avatar` {}"
         ", `type` {} NOT NULL"
         ", PRIMARY KEY(`id`)) WITHOUT ROWID"
 };
@@ -65,9 +66,10 @@ std::string const CREATE_FOLLOWERS_INDEX {
 
 } // namespace
 
-contact_manager::contact_manager (database_handle_t dbh
+contact_manager::contact_manager (contact::person const & me
+    , database_handle_t dbh
     , std::function<void(std::string const &)> f)
-    : base_class(f)
+    : base_class(std::move(me), f)
     , _dbh(dbh)
     , _contacts_table_name(DEFAULT_CONTACTS_TABLE_NAME)
     , _members_table_name(DEFAULT_MEMBERS_TABLE_NAME)
@@ -80,6 +82,7 @@ contact_manager::contact_manager (database_handle_t dbh
             , _contacts_table_name
             , affinity_traits<contact::contact_id>::name()
             , affinity_traits<decltype(contact::contact{}.alias)>::name()
+            , affinity_traits<decltype(contact::contact{}.avatar)>::name()
             , affinity_traits<decltype(contact::contact{}.type)>::name())
         , fmt::format(CREATE_MEMBERS_TABLE
             , _members_table_name

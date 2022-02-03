@@ -80,7 +80,9 @@ private:
     contact_manager & operator = (contact_manager && other) = delete;
 
 public:
-    contact_manager (database_handle_t dbh, std::function<void(std::string const &)> f);
+    contact_manager (contact::person const & me
+        , database_handle_t dbh
+        , std::function<void(std::string const &)> f);
     ~contact_manager () = default;
 };
 
