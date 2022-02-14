@@ -34,7 +34,6 @@ class contact_manager final
     friend class basic_contact_manager<contact_manager, contact_manager_traits>;
 
     using base_class = basic_contact_manager<contact_manager, contact_manager_traits>;
-    using failure_handler_type = base_class::failure_handler_type;
 
 private:
     database_handle_t _dbh;
@@ -50,7 +49,7 @@ protected:
         return !!_dbh;
     }
 
-    bool wipe_impl ();
+    bool wipe_impl (error * perr);
 
     auto contacts_impl () noexcept -> contact_list &
     {
@@ -82,7 +81,7 @@ private:
 public:
     contact_manager (contact::person const & me
         , database_handle_t dbh
-        , std::function<void(std::string const &)> f);
+        , error * perr = nullptr);
     ~contact_manager () = default;
 };
 

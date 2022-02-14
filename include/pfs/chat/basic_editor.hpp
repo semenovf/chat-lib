@@ -26,34 +26,49 @@ public:
         return static_cast<Impl const *>(this)->ready();
     }
 
-    auto add_text (std::string const & text) -> bool
+    void add_text (std::string const & text)
     {
         return static_cast<Impl *>(this)->add_text_impl(text);
     }
 
-    auto add_emoji (std::string const & shortcode, error * perr = nullptr) -> bool
+    void add_html (std::string const & text)
     {
-        return static_cast<Impl *>(this)->add_emoji_impl(shortcode, perr);
+        return static_cast<Impl *>(this)->add_html_impl(text);
     }
 
-    auto attach (pfs::filesystem::path const & path, error * perr = nullptr) -> bool
+    void add_emoji (std::string const & shortcode)
+    {
+        return static_cast<Impl *>(this)->add_emoji_impl(shortcode);
+    }
+
+//     auto add_audio (message::resource_id rc, error * perr = nullptr) -> bool
+//     {
+//         return static_cast<Impl *>(this)->attach_audio_impl(rc, perr);
+//     }
+//
+//     auto add_video (message::resource_id rc, error * perr = nullptr) -> bool
+//     {
+//         return static_cast<Impl *>(this)->attach_video_impl(rc, perr);
+//     }
+
+    bool attach (pfs::filesystem::path const & path, error * perr = nullptr)
     {
         return static_cast<Impl *>(this)->attach_impl(path, perr);
     }
 
-    auto attach_audio (message::resource_id rc, error * perr = nullptr) -> bool
-    {
-        return static_cast<Impl *>(this)->attach_audio_impl(rc, perr);
-    }
-
-    auto attach_video (message::resource_id rc, error * perr = nullptr) -> bool
-    {
-        return static_cast<Impl *>(this)->attach_video_impl(rc, perr);
-    }
-
-    auto save (error * perr = nullptr) -> bool
+    bool save (error * perr = nullptr)
     {
         return static_cast<Impl *>(this)->save_impl(perr);
+    }
+
+    message::content const & content () const noexcept
+    {
+        return static_cast<Impl const *>(this)->content_impl();
+    }
+
+    message::message_id message_id () const noexcept
+    {
+        return static_cast<Impl const *>(this)->message_id_impl();
     }
 };
 

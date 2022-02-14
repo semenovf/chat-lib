@@ -32,10 +32,10 @@ class conversation final: public basic_conversation<conversation, conversation_s
     using base_class = basic_conversation<conversation, conversation_store_traits>;
 
 private:
-    contact::contact_id _contact_id;
+    contact::contact_id _my_id;
+    contact::contact_id _addressee_id;
     std::string         _table_name;
     database_handle_t   _dbh;
-    failure_handler_t   _on_failure;
 
 protected:
     auto ready () const noexcept -> bool
@@ -43,23 +43,29 @@ protected:
         return !!_dbh;
     }
 
-    auto create_impl (contact::contact_id addressee_id) -> editor;
-    auto count_impl () const -> std::size_t;
-    auto wipe_impl () -> bool;
-    auto unread_messages_count_impl () const -> std::size_t;
+    editor create_impl (error * perr);
+    editor open_impl (message::message_id message_id, error * perr);
+    std::size_t count_impl () const;
+    bool wipe_impl (error * perr);
+    void mark_dispatched_impl (message::message_id message_id);
+    std::size_t unread_messages_count_impl () const;
 
     // Wipes (drops) all conversations
-    static auto wipe_all (database_handle_t dbh, failure_handler_t & on_failure) -> bool;
+    static bool wipe_all (database_handle_t dbh, error * perr);
 
 private:
-    conversation () = delete;
     conversation (conversation const & other) = delete;
     conversation & operator = (conversation const & other) = delete;
     conversation & operator = (conversation && other) = delete;
 
-    conversation (contact::contact_id c, database_handle_t dbh, failure_handler_t f);
+    conversation (contact::contact_id my_id
+        , contact::contact_id addressee_id
+        , database_handle_t dbh
+        , error * perr = nullptr);
 
 public:
+    // Construct invalid conversation
+    conversation () {}
     conversation (conversation && other) = default;
     ~conversation () = default;
 };

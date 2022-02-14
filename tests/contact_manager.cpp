@@ -72,6 +72,8 @@ auto on_failure = [] (std::string const & errstr) {
 };
 
 auto contact_db_path = pfs::filesystem::temp_directory_path() / "contact.db";
+auto my_uuid = pfs::generate_uuid();
+auto my_alias = std::string{"My Alias"};
 
 TEST_CASE("constructors") {
     // Contact list public constructors/assign operators
@@ -92,12 +94,11 @@ TEST_CASE("constructors") {
 }
 
 TEST_CASE("initialization") {
-    auto dbh = chat::persistent_storage::sqlite3::make_handle(contact_db_path
-        , true, on_failure);
+    auto dbh = chat::persistent_storage::sqlite3::make_handle(contact_db_path, true);
 
     REQUIRE(dbh);
 
-    contact_manager_t contact_manager{dbh, on_failure};
+    contact_manager_t contact_manager{chat::contact::person{my_uuid, my_alias}, dbh};
 
     REQUIRE(contact_manager);
 
@@ -110,12 +111,11 @@ TEST_CASE("initialization") {
 }
 
 TEST_CASE("contacts") {
-    auto dbh = chat::persistent_storage::sqlite3::make_handle(contact_db_path
-        , true, on_failure);
+    auto dbh = chat::persistent_storage::sqlite3::make_handle(contact_db_path, true);
 
     REQUIRE(dbh);
 
-    contact_manager_t contact_manager{dbh, on_failure};
+    contact_manager_t contact_manager{chat::contact::person{my_uuid, my_alias}, dbh};
 
     REQUIRE(contact_manager);
 
@@ -191,12 +191,11 @@ TEST_CASE("contacts") {
 
 
 TEST_CASE("groups") {
-    auto dbh = chat::persistent_storage::sqlite3::make_handle(contact_db_path
-        , true, on_failure);
+    auto dbh = chat::persistent_storage::sqlite3::make_handle(contact_db_path, true);
 
     REQUIRE(dbh);
 
-    contact_manager_t contact_manager{dbh, on_failure};
+    contact_manager_t contact_manager{chat::contact::person{my_uuid, my_alias}, dbh};
 
     REQUIRE(contact_manager);
 

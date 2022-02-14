@@ -7,15 +7,9 @@
 //      2021.12.13 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
-#include "ContactManagerBuilder.hpp"
-#include "ControllerBuilder.hpp"
-#include "MessageStoreBuilder.hpp"
+#include "MessengerBuilder.hpp"
 #include "pfs/chat/messenger.hpp"
 #include <memory>
 
-using Messenger = chat::messenger<
-      ControllerBuilder
-    , ContactManagerBuilder
-    , MessageStoreBuilder>;
-
+using Messenger = chat::messenger<MessengerBuilder>;
 using SharedMessenger = std::shared_ptr<Messenger>;

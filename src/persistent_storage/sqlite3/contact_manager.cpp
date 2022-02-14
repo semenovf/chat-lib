@@ -68,8 +68,8 @@ std::string const CREATE_FOLLOWERS_INDEX {
 
 contact_manager::contact_manager (contact::person const & me
     , database_handle_t dbh
-    , std::function<void(std::string const &)> f)
-    : base_class(std::move(me), f)
+    , error * perr)
+    : base_class(std::move(me))
     , _dbh(dbh)
     , _contacts_table_name(DEFAULT_CONTACTS_TABLE_NAME)
     , _members_table_name(DEFAULT_MEMBERS_TABLE_NAME)
@@ -98,12 +98,12 @@ contact_manager::contact_manager (contact::person const & me
         , fmt::format(CREATE_FOLLOWERS_INDEX, _followers_table_name)
     };
 
-    debby::error err;
+    debby::error storage_err;
     auto success = _dbh->begin();
 
     if (success) {
         for (auto const & sql: sqls) {
-            success = success && _dbh->query(sql, & err);
+            success = success && _dbh->query(sql, & storage_err);
         }
     }
 
@@ -113,13 +113,14 @@ contact_manager::contact_manager (contact::person const & me
         _dbh->rollback();
 
     if (!success) {
-        on_failure(fmt::format(INIT_CONTACT_MANAGER_ERROR, err.what()));
         database_handle_t empty;
         _dbh.swap(empty);
+        error err {errc::storage_error, fmt::format(INIT_CONTACT_MANAGER_ERROR, storage_err.what())};
+        if (perr) *perr = err; CHAT__THROW(err);
     }
 }
 
-bool contact_manager::wipe_impl ()
+bool contact_manager::wipe_impl (error * perr)
 {
     std::array<std::string, 3> tables = {
           _contacts_table_name
@@ -127,12 +128,12 @@ bool contact_manager::wipe_impl ()
         , _followers_table_name
     };
 
-    debby::error err;
+    debby::error storage_err;
     auto success = _dbh->begin();
 
     if (success) {
         for (auto const & t: tables) {
-            success = success && _dbh->clear(t, & err);
+            success = success && _dbh->clear(t, & storage_err);
         }
     }
 
@@ -142,9 +143,10 @@ bool contact_manager::wipe_impl ()
         _dbh->rollback();
 
     if (!success) {
-        on_failure(fmt::format(WIPE_ERROR, err.what()));
         database_handle_t empty;
         _dbh.swap(empty);
+        error err {errc::storage_error, fmt::format(WIPE_ERROR, storage_err.what())};
+        if (perr) *perr = err; CHAT__THROW(err);
     }
 
     return success;

@@ -6,6 +6,6 @@
 # Changelog:
 #      2021.11.17 Initial version.
 ################################################################################
-add_subdirectory(messenger)
-add_subdirectory(messenger-gui)
-add_subdirectory(qml)
+# add_subdirectory(messenger)
+# add_subdirectory(messenger-gui)
+# add_subdirectory(qml)

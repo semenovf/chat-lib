@@ -40,6 +40,9 @@ std::string error_category::message (int ev) const
         case static_cast<int>(errc::bad_emoji_shortcode):
             return std::string{"bad Emoji shortcode"};
 
+        case static_cast<int>(errc::json_error):
+            return std::string{"JSON backend error"};
+
         default: return std::string{"unknown chat error"};
     }
 };

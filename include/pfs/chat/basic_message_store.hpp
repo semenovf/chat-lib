@@ -16,19 +16,11 @@ namespace chat {
 template <typename Impl, typename Traits>
 class basic_message_store
 {
-protected:
-    using failure_handler_type = std::function<void(std::string const &)>;
-
 public:
     using conversation_type = typename Traits::conversation_type;
 
 protected:
-    failure_handler_type on_failure;
-
-protected:
-    basic_message_store (failure_handler_type f)
-        : on_failure(f)
-    {}
+    basic_message_store () {}
 
 public:
     /**
@@ -42,9 +34,9 @@ public:
     /**
      * Wipes (erases all) messages.
      */
-    auto wipe () -> bool
+    bool wipe (error * perr = nullptr)
     {
-        return static_cast<Impl *>(this)->wipe_impl();
+        return static_cast<Impl *>(this)->wipe_impl(perr);
     }
 
     /**
@@ -53,9 +45,10 @@ public:
      * @brief This method initializes/opens data storage for conversation messages
      *        associated with specified contact.
      */
-    auto conversation (contact::contact_id c) const -> conversation_type
+    conversation_type conversation (contact::contact_id my_id
+        , contact::contact_id addressee_id) const
     {
-        return static_cast<Impl const *>(this)->conversation_impl(c);
+        return static_cast<Impl const *>(this)->conversation_impl(my_id, addressee_id);
     }
 };
 

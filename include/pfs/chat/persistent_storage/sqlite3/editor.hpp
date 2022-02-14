@@ -27,21 +27,27 @@ class editor final: public basic_editor<editor>
     using base_class = basic_editor<editor>;
 
 private:
-    message::outgoing_credentials _m;
-    std::string _content;
+    database_handle_t   _dbh;
+    std::string         _table_name;
+    message::message_id _message_id;
+    message::content    _content;
+
+    //message::outgoing_credentials _m;
 
 protected:
     auto ready () const noexcept -> bool
     {
-        return _m.id != message::message_id{};
+        return _message_id != message::message_id{};
     }
 
-    auto add_text_impl (std::string const & text) -> bool;
-    auto add_emoji_impl (std::string const & shortcode, error * perr) -> bool;
-    auto attach_impl (pfs::filesystem::path const & path, error * perr) -> bool;
-    auto attach_audio_impl (message::resource_id rc, error * perr) -> bool;
-    auto attach_video_impl (message::resource_id rc, error * perr) -> bool;
-    auto save_impl (error * perr) -> bool;
+    void add_text_impl (std::string const & text);
+    void add_html_impl (std::string const & text);
+    void add_emoji_impl (std::string const & shortcode);
+    bool attach_impl (pfs::filesystem::path const & path, error * perr);
+    bool save_impl (error * perr);
+
+    message::content const & content_impl () const noexcept;
+    message::message_id message_id_impl () const noexcept;
 
 private:
     editor () = default;
@@ -49,7 +55,14 @@ private:
     editor & operator = (editor const & other) = delete;
     editor & operator = (editor && other) = delete;
 
-    editor (message::outgoing_credentials && m);
+    editor (message::message_id message_id
+        , database_handle_t dbh
+        , std::string const & table_name);
+
+    editor (message::message_id message_id
+        , message::content && content
+        , database_handle_t dbh
+        , std::string const & table_name);
 
 public:
     editor (editor && other) = default;

@@ -7,20 +7,20 @@
 //      2021.11.17 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
 #define PFS_NET__P2P_TRACE_LEVEL 3
-#include "pfs/net/p2p/trace.hpp"
-#include "pfs/net/inet4_addr.hpp"
-#include "pfs/net/p2p/engine.hpp"
-#include "pfs/net/p2p/qt5/api.hpp"
-#include "pfs/net/p2p/udt/api.hpp"
+#include "pfs/netty/p2p/trace.hpp"
+#include "pfs/netty/inet4_addr.hpp"
+#include "pfs/netty/p2p/engine.hpp"
+#include "pfs/netty/p2p/qt5/api.hpp"
+#include "pfs/netty/p2p/udt/api.hpp"
 
 namespace p2p {
-using inet4_addr = pfs::net::inet4_addr;
+using inet4_addr = pfs::netty::inet4_addr;
 
 static constexpr std::uint8_t PRIORITY_COUNT = 2;
 
-using engine = pfs::net::p2p::engine<
-      pfs::net::p2p::qt5::api
-    , pfs::net::p2p::udt::api
+using engine = pfs::netty::p2p::engine<
+      pfs::netty::p2p::qt5::api
+    , pfs::netty::p2p::udt::api
     , PRIORITY_COUNT>;
 } // namespace p2p
 

@@ -8,6 +8,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 #include "contact.hpp"
+#include "error.hpp"
 #include "message.hpp"
 
 namespace chat {
@@ -30,9 +31,9 @@ public:
     /**
      * Wipes (erases all messages) conversation.
      */
-    auto wipe () -> bool
+    bool wipe (error * perr = nullptr)
     {
-        return static_cast<Impl *>(this)->wipe_impl();
+        return static_cast<Impl *>(this)->wipe_impl(perr);
     }
 
     /**
@@ -44,13 +45,21 @@ public:
     }
 
     /**
+     * Number of unread messages for conversation.
+     */
+    auto unread_messages_count () const -> std::size_t
+    {
+        return static_cast<Impl const *>(this)->unread_messages_count_impl();
+    }
+
+    /**
      * Creates editor for new outgoing message.
      *
      * @return Editor instance.
      */
-    auto create (contact::contact_id addressee_id) -> editor_type
+    editor_type create (error * perr = nullptr)
     {
-        return static_cast<Impl *>(this)->create_impl(addressee_id);
+        return static_cast<Impl *>(this)->create_impl(perr);
     }
 
     /**
@@ -58,17 +67,9 @@ public:
      *
      * @return Editor instance.
      */
-    auto open (message::message_id id) -> editor_type
+    editor_type open (message::message_id id, error * perr = nullptr)
     {
-        return static_cast<Impl *>(this)->open_impl(id);
-    }
-
-    /**
-     * Returns unread messages for conversation.
-     */
-    auto unread_messages_count () const -> std::size_t
-    {
-        return static_cast<Impl const *>(this)->unread_messages_count_impl();
+        return static_cast<Impl *>(this)->open_impl(id, perr);
     }
 };
 

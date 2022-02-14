@@ -13,3 +13,12 @@
 [submodule "3rdparty/pfs/netty"]
 	path = 3rdparty/pfs/netty
 	url = git@github.com:semenovf/netty-lib.git
+[submodule "3rdparty/cereal"]
+	path = 3rdparty/cereal
+	url = https://github.com/USCiLab/cereal.git
+[submodule "3rdparty/jansson"]
+	path = 3rdparty/jansson
+	url = https://github.com/akheron/jansson.git
+[submodule "3rdparty/pfs/jeyson"]
+	path = 3rdparty/pfs/jeyson
+	url = git@github.com:semenovf/jeyson-lib.git

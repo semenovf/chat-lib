@@ -28,6 +28,7 @@ enum class errc
     , unsuitable_member
     , access_attachment_failure
     , bad_emoji_shortcode
+    , json_error         // Any error of JSON backend
 };
 
 class error_category : public std::error_category

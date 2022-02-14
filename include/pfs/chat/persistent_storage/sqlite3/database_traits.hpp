@@ -7,6 +7,7 @@
 //      2021.12.03 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
+#include "pfs/chat/error.hpp"
 #include "pfs/debby/sqlite3/database.hpp"
 #include "pfs/debby/sqlite3/result.hpp"
 #include "pfs/debby/sqlite3/statement.hpp"
@@ -22,20 +23,21 @@ using database_t        = debby::sqlite3::database;
 using database_handle_t = std::shared_ptr<database_t>;
 using result_t          = debby::sqlite3::result;
 using statement_t       = debby::sqlite3::statement;
-using failure_handler_t = std::function<void(std::string const &)>;
 
 inline database_handle_t make_handle (
       pfs::filesystem::path const & path
     , bool create_if_missing = true
-    , failure_handler_t on_failure = failure_handler_t{})
+    , error * perr = nullptr)
 {
-    debby::error err;
+    debby::error storage_err;
 
-    auto dbh = std::make_shared<database_t>(path, create_if_missing, & err);
+    auto dbh = std::make_shared<database_t>(path, create_if_missing, & storage_err);
 
-    if (err) {
-        on_failure(err.what());
+    if (storage_err) {
         dbh.reset();
+
+        error err {errc::storage_error, storage_err.what()};
+        if (perr) *perr = err; else CHAT__THROW(err);
     }
 
     return dbh;

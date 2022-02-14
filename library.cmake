@@ -1,7 +1,7 @@
 ################################################################################
 # Copyright (c) 2021 Vladislav Trifochkin
 #
-# This file is part of [chat-lib](https://github.com/semenovf/chat-lib) library.
+# This file is part of `chat-lib`.
 #
 # Changelog:
 #      2021.08.14 Initial version.
@@ -12,6 +12,7 @@ cmake_minimum_required (VERSION 3.11)
 project(chat-lib C CXX)
 
 option(CHAT__ENABLE_ROCKSDB "Enable `RocksDb` library for persistent storage" OFF)
+option(CHAT__ENABLE_JANSSON "Enable `Jansson` library for JSON support" ON)
 
 if (NOT TARGET pfs::common)
     portable_target(INCLUDE_PROJECT
@@ -38,11 +39,31 @@ if (NOT TARGET pfs::netty::p2p)
         ${CMAKE_CURRENT_LIST_DIR}/3rdparty/pfs/netty/library-p2p.cmake)
 endif()
 
+# if (CHAT__ENABLE_JANSSON AND NOT TARGET jansson)
+#     if (NOT CHAT__JANSSON_ROOT)
+#         set(CHAT__JANSSON_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/jansson" CACHE INTERNAL "")
+#     endif()
+#
+#     portable_target(INCLUDE_PROJECT
+#         ${CMAKE_CURRENT_LIST_DIR}/cmake/Jansson.cmake)
+# endif()
+
+if (NOT TARGET pfs::jeyson)
+    if (CHAT__ENABLE_JANSSON)
+        set(JEYSON__ENABLE_JANSSON ON CACHE INTERNAL "")
+        set(JEYSON__JANSSON_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/jansson" CACHE INTERNAL "")
+    endif()
+
+    portable_target(INCLUDE_PROJECT
+        ${CMAKE_CURRENT_LIST_DIR}/3rdparty/pfs/jeyson/library.cmake)
+endif()
+
 portable_target(LIBRARY ${PROJECT_NAME} ALIAS pfs::chat)
 portable_target(SOURCES ${PROJECT_NAME}
     ${CMAKE_CURRENT_LIST_DIR}/src/contact.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/emoji_db.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/error.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/src/mime.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/persistent_storage/sqlite3/contact_manager.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/persistent_storage/sqlite3/contact_list.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/persistent_storage/sqlite3/group_list.cpp
@@ -51,10 +72,17 @@ portable_target(SOURCES ${PROJECT_NAME}
     ${CMAKE_CURRENT_LIST_DIR}/src/persistent_storage/sqlite3/editor.cpp)
 
 portable_target(INCLUDE_DIRS ${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_LIST_DIR}/include)
-portable_target(LINK ${PROJECT_NAME} PUBLIC pfs::debby pfs::common)
-portable_target(LINK ${PROJECT_NAME} PRIVATE pfs::netty::p2p pfs::netty )
+portable_target(LINK ${PROJECT_NAME} PUBLIC pfs::jeyson pfs::debby pfs::common)
+portable_target(LINK ${PROJECT_NAME} PRIVATE pfs::netty::p2p pfs::netty)
 portable_target(EXPORTS ${PROJECT_NAME} CHAT__EXPORTS CHAT__STATIC)
 
 if (CHAT__ENABLE_ROCKSDB)
     portable_target(DEFINITIONS ${PROJECT_NAME} INTERFACE "CHAT__ROCKSDB_ENABLED=1")
 endif()
+
+if (CHAT__ENABLE_JANSSON)
+    portable_target(SOURCES ${PROJECT_NAME}
+        ${CMAKE_CURRENT_LIST_DIR}/src/json_content.cpp)
+    portable_target(DEFINITIONS ${PROJECT_NAME} INTERFACE "CHAT__JANSSON_ENABLED=1")
+endif()
+

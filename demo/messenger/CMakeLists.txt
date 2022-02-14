@@ -11,4 +11,4 @@ project(messenger)
 
 portable_target(ADD_EXECUTABLE ${PROJECT_NAME})
 portable_target(SOURCES ${PROJECT_NAME} main.cpp)
-portable_target(LINK ${PROJECT_NAME} pfs::chat pfs::net::p2p pfs::net)
+portable_target(LINK ${PROJECT_NAME} pfs::chat pfs::netty::p2p pfs::netty)

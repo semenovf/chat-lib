@@ -12,6 +12,7 @@
 #include "conversation.hpp"
 #include "database_traits.hpp"
 #include "pfs/chat/basic_message_store.hpp"
+#include "pfs/chat/error.hpp"
 #include "pfs/chat/exports.hpp"
 #include <string>
 
@@ -31,7 +32,6 @@ class message_store final
     friend class basic_message_store<message_store, message_store_traits>;
 
     using base_class = basic_message_store<message_store, message_store_traits>;
-    using failure_handler_type = typename base_class::failure_handler_type;
 
 private:
     database_handle_t _dbh;
@@ -42,12 +42,13 @@ protected:
         return !!_dbh;
     }
 
-    auto conversation_impl (contact::contact_id c) const -> conversation_type;
-
-    auto wipe_impl () -> bool
+    bool wipe_impl (error * perr)
     {
-        return conversation::wipe_all(_dbh, this->on_failure);
+        return conversation::wipe_all(_dbh, perr);
     }
+
+    conversation_type conversation_impl (contact::contact_id my_id
+        , contact::contact_id addressee_id) const;
 
 private:
     message_store () = delete;
@@ -57,7 +58,7 @@ private:
     message_store & operator = (message_store && other) = delete;
 
 public:
-    message_store (database_handle_t dbh, failure_handler_type f);
+    message_store (database_handle_t dbh);
     ~message_store () = default;
 };
 

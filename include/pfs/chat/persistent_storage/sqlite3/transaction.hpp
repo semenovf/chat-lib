@@ -14,11 +14,11 @@ namespace persistent_storage {
 namespace sqlite3 {
 
 template <typename ForwardIt, typename Op, typename OnFailure>
-auto process_transaction (database_handle_t dbh
+bool process_transaction (database_handle_t dbh
     , ForwardIt first
     , ForwardIt last
     , Op && op
-    , OnFailure && on_failure) -> bool
+    , OnFailure && on_failure)
 {
     debby::error err;
     auto success = dbh->begin();

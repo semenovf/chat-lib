@@ -33,7 +33,7 @@ if (TARGET Qt5::Core
         portable_target(SOURCES ${PROJECT_NAME} Resources/Desktop.qrc)
     endif()
 
-    portable_target(LINK ${PROJECT_NAME} pfs::chat pfs::net::p2p pfs::net)
+    portable_target(LINK ${PROJECT_NAME} pfs::chat pfs::netty::p2p pfs::netty)
     portable_target(LINK_QT5_COMPONENTS ${PROJECT_NAME}
         Core Gui Qml Quick)
 

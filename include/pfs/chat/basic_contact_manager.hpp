@@ -23,13 +23,11 @@ public:
     using group_list_type = typename Traits::group_list_type;
 
 protected:
-    contact::person      _me;
-    failure_handler_type on_failure;
+    contact::person _me;
 
 protected:
-    basic_contact_manager (contact::person const & me, failure_handler_type f)
+    basic_contact_manager (contact::person const & me)
         : _me(me)
-        , on_failure(f)
     {}
 
 public:
@@ -41,17 +39,20 @@ public:
         return static_cast<Impl const *>(this)->ready();
     }
 
-    auto my_contact () const -> contact::person
+    auto my_contact () const -> contact::contact
     {
-        return _me;
+        return contact::contact {_me.id
+            , _me.alias
+            , _me.avatar
+            , contact::type_enum::person };
     }
 
     /**
      * Wipes (erase all contacts, groups and channels) contact database.
      */
-    auto wipe () -> bool
+    bool wipe (error * perr = nullptr)
     {
-        return static_cast<Impl *>(this)->wipe_impl();
+        return static_cast<Impl *>(this)->wipe_impl(perr);
     }
 
     auto contacts () noexcept -> contact_list_type &

@@ -21,14 +21,16 @@ namespace sqlite3 {
 
 using namespace debby::sqlite3;
 
-message_store::message_store (database_handle_t dbh, failure_handler_type f)
-    : base_class(f)
+message_store::message_store (database_handle_t dbh)
+    : base_class()
     , _dbh(dbh)
 {}
 
-auto message_store::conversation_impl (contact::contact_id c) const -> conversation_type
+message_store::conversation_type
+message_store::conversation_impl (contact::contact_id my_id
+    , contact::contact_id addressee_id) const
 {
-    return conversation_type{c, _dbh, on_failure};
+    return conversation_type{my_id, addressee_id, _dbh};
 }
 
 }}} // namespace chat::persistent_storage::sqlite3

@@ -16,7 +16,7 @@
 
 using message_store_t    = chat::persistent_storage::sqlite3::message_store;
 using conversation_t     = chat::persistent_storage::sqlite3::conversation;
-using outgoing_message_t = chat::message::outgoing_credentials;
+using message_t          = chat::message::message_credentials;
 
 auto on_failure = [] (std::string const & errstr) {
     fmt::print(stderr, "ERROR: {}\n", errstr);
@@ -43,42 +43,41 @@ TEST_CASE("constructors") {
 }
 
 TEST_CASE("initialization") {
-    auto dbh = chat::persistent_storage::sqlite3::make_handle(message_db_path
-        , true, on_failure);
+    auto dbh = chat::persistent_storage::sqlite3::make_handle(message_db_path, true);
 
     REQUIRE(dbh);
 
-    message_store_t message_store{dbh, on_failure};
+    message_store_t message_store{dbh};
 
     REQUIRE(message_store);
     REQUIRE(message_store.wipe());
 }
 
 TEST_CASE("outgoing messages") {
-    auto dbh = chat::persistent_storage::sqlite3::make_handle(message_db_path
-        , true, on_failure);
+    auto dbh = chat::persistent_storage::sqlite3::make_handle(message_db_path, true);
 
     REQUIRE(dbh);
 
-    message_store_t message_store{dbh, on_failure};
+    message_store_t message_store{dbh};
 
     REQUIRE(message_store);
 
     message_store.wipe();
 
+    auto my_id = chat::contact::id_generator{}.next();
     auto addressee_id = chat::contact::id_generator{}.next();
-    auto & conversation = message_store.begin_conversation(addressee_id);
+    auto conversation = message_store.conversation(my_id, addressee_id);
 
     for (int i = 0; i < 5; i++) {
-        auto ed = conversation.create(addressee_id);
+        auto ed = conversation.create();
         REQUIRE(ed);
 
-        CHECK(ed.add_text("Hello"));
-        CHECK(ed.add_text(", World!"));
-        CHECK(ed.add_emoji("emoticon"));
-        CHECK(ed.attach(pfs::filesystem::path{"data/attachment1.bin"}));
-        CHECK(ed.attach(pfs::filesystem::path{"data/attachment2.bin"}));
-        CHECK(ed.attach(pfs::filesystem::path{"data/attachment3.bin"}));
+        ed.add_text("Hello");
+        ed.add_text(", World!");
+        ed.add_emoji("emoticon");
+//         CHECK(ed.attach(pfs::filesystem::path{"data/attachment1.bin"}));
+//         CHECK(ed.attach(pfs::filesystem::path{"data/attachment2.bin"}));
+//         CHECK(ed.attach(pfs::filesystem::path{"data/attachment3.bin"}));
     }
 
 //     for (int i = 0; i < 1; i++) {

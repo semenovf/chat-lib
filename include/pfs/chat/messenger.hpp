@@ -7,6 +7,10 @@
 //      2021.11.17 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
+#include "contact.hpp"
+#include "error.hpp"
+#include "message.hpp"
+#include "pfs/emitter.hpp"
 #include <memory>
 #include <cassert>
 
@@ -16,19 +20,23 @@ template <typename MessengerBuilder>
 class messenger
 {
 public:
-    using controller_type      = typename MessengerBuilder::controller_type;
     using contact_manager_type = typename MessengerBuilder::contact_manager_type;
     using message_store_type   = typename MessengerBuilder::message_store_type;
 //     using icon_library_type    = typename PersistentStorageAPI::icon_library_type;
 //     using media_cache_type     = typename PersistentStorageAPI::media_cache_type;
 
+    using conversation_type = typename message_store_type::conversation_type;
+
 private:
-    std::unique_ptr<controller_type>      _controller;
     std::unique_ptr<contact_manager_type> _contact_manager;
     std::unique_ptr<message_store_type>   _message_store;
 
+public: // signals
+    pfs::emitter_mt<std::string const &> failure;
+    pfs::emitter_mt<message::message_id> dispatched;
+
 private:
-    bool add_contact (contact::contact const & c, bool force_update)
+    bool add_contact_helper (contact::contact const & c, bool force_update)
     {
         error err;
         auto rc = _contact_manager->contacts().add(c, & err);
@@ -47,25 +55,24 @@ private:
                 } else if (rc == 0) {
                     ; // Unexpected state (contact existence checked before)
                 } else {
-                    _controller->failure(err.what());
+                    failure(err.what());
                 }
             } else {
-                _controller->failure(fmt::format("contact already exists: {} (#{})"
+                failure(fmt::format("contact already exists: {} (#{})"
                     , c.alias
                     , to_string(c.id)));
             }
         } else {
             // Error
-            _controller->failure(err.what());
+            failure(err.what());
         }
 
         return false;
     }
 
 public:
-    messenger (MessengerBuilder && builder)
-        : _controller(builder.make_controller())
-        , _contact_manager(builder.make_contact_manager())
+    messenger (MessengerBuilder const & builder)
+        : _contact_manager(builder.make_contact_manager())
         , _message_store(builder.make_message_store())
     {}
 
@@ -77,10 +84,23 @@ public:
     messenger (messenger &&) = delete;
     messenger & operator = (messenger &&) = delete;
 
+    operator bool () const noexcept
+    {
+        return *_contact_manager && *_message_store;
+    }
+
+    /**
+     * Local contact.
+     */
+    contact::contact my_contact () const
+    {
+        return _contact_manager->my_contact();
+    }
+
     /**
      * Total contacts count.
      */
-    auto contacts_count () const -> std::size_t
+    std::size_t contacts_count () const
     {
         return _contact_manager->contacts().count();
     }
@@ -88,7 +108,7 @@ public:
     /**
      * Total count of contacts with specified @a type.
      */
-    auto contacts_count (contact::type_enum type) const -> std::size_t
+    std::size_t contacts_count (contact::type_enum type) const
     {
         return _contact_manager->contacts().count(type);
     }
@@ -98,7 +118,7 @@ public:
      */
     auto add_contact (contact::contact const & c) -> bool
     {
-        return add_contact(c, false);
+        return add_contact_helper(c, false);
     }
 
     /**
@@ -106,7 +126,7 @@ public:
      */
     auto add_or_update_contact (contact::contact const & c) -> bool
     {
-        return add_contact(c, true);
+        return add_contact_helper(c, true);
     }
 
     /**
@@ -135,10 +155,28 @@ public:
         }
     }
 
-    auto unread_messages_count (contact::contact_id id) const -> std::size_t
+    conversation_type conversation (contact::contact_id addressee_id) const
     {
-        auto conv = _message_store->conversation(id);
-        return conv.unread_messages_count();
+        // Check for contact exists
+        auto opt = get_contact(addressee_id);
+
+        if (!opt)
+            return conversation_type{};
+
+        return _message_store->conversation(my_contact().id, addressee_id);
+    }
+
+    // TODO
+//     auto unread_messages_count (contact::contact_id id) const -> std::size_t
+//     {
+//         auto conv = _message_store->conversation(id);
+//         return conv.unread_messages_count();
+//     }
+
+    void wipe ()
+    {
+        _contact_manager->wipe();
+        _message_store->wipe();
     }
 };
 
