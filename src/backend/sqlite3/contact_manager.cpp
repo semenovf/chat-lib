@@ -1,20 +1,20 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright (c) 2021 Vladislav Trifochkin
+// Copyright (c) 2021,2022 Vladislav Trifochkin
 //
 // This file is part of `chat-lib`.
 //
 // Changelog:
 //      2021.11.21 Initial version.
+//      2022.02.16 Refactored totally.
 ////////////////////////////////////////////////////////////////////////////////
 #include "contact_type_enum.hpp"
-#include "pfs/chat/persistent_storage/sqlite3/contact_manager.hpp"
+#include "pfs/chat/contact_manager.hpp"
+#include "pfs/chat/backend/sqlite3/contact_manager.hpp"
 #include "pfs/debby/sqlite3/uuid_traits.hpp"
 #include <array>
 #include <cassert>
 
 namespace chat {
-namespace persistent_storage {
-namespace sqlite3 {
 
 using namespace debby::sqlite3;
 
@@ -66,85 +66,152 @@ std::string const CREATE_FOLLOWERS_INDEX {
 
 } // namespace
 
-contact_manager::contact_manager (contact::person const & me
-    , database_handle_t dbh
+namespace backend {
+namespace sqlite3 {
+
+contact_manager::rep_type
+contact_manager::make (contact::person const & me
+    , shared_db_handle dbh
     , error * perr)
-    : base_class(std::move(me))
-    , _dbh(dbh)
-    , _contacts_table_name(DEFAULT_CONTACTS_TABLE_NAME)
-    , _members_table_name(DEFAULT_MEMBERS_TABLE_NAME)
-    , _followers_table_name(DEFAULT_FOLLOWERS_TABLE_NAME)
-    , _contacts(dbh, _contacts_table_name)
-    , _groups(dbh, _contacts, _contacts_table_name, _members_table_name)
 {
+    rep_type rep;
+
+    rep.dbh = dbh;
+    rep.me  = me;
+    rep.contacts_table_name  = DEFAULT_CONTACTS_TABLE_NAME;
+    rep.members_table_name   = DEFAULT_MEMBERS_TABLE_NAME;
+    rep.followers_table_name = DEFAULT_FOLLOWERS_TABLE_NAME;
+
     std::array<std::string, 6> sqls = {
           fmt::format(CREATE_CONTACTS_TABLE
-            , _contacts_table_name
+            , rep.contacts_table_name
             , affinity_traits<contact::contact_id>::name()
             , affinity_traits<decltype(contact::contact{}.alias)>::name()
             , affinity_traits<decltype(contact::contact{}.avatar)>::name()
             , affinity_traits<decltype(contact::contact{}.type)>::name())
         , fmt::format(CREATE_MEMBERS_TABLE
-            , _members_table_name
+            , rep.members_table_name
             , affinity_traits<contact::contact_id>::name()
             , affinity_traits<contact::contact_id>::name())
         , fmt::format(CREATE_FOLLOWERS_TABLE
-            , _followers_table_name
+            , rep.followers_table_name
             , affinity_traits<contact::contact_id>::name()
             , affinity_traits<contact::contact_id>::name())
 
-        , fmt::format(CREATE_CONTACTS_INDEX , _contacts_table_name)
-        , fmt::format(CREATE_MEMBERS_INDEX  , _members_table_name)
-        , fmt::format(CREATE_FOLLOWERS_INDEX, _followers_table_name)
+        , fmt::format(CREATE_CONTACTS_INDEX , rep.contacts_table_name)
+        , fmt::format(CREATE_MEMBERS_INDEX  , rep.members_table_name)
+        , fmt::format(CREATE_FOLLOWERS_INDEX, rep.followers_table_name)
     };
 
     debby::error storage_err;
-    auto success = _dbh->begin();
+    auto success = rep.dbh->begin();
 
     if (success) {
         for (auto const & sql: sqls) {
-            success = success && _dbh->query(sql, & storage_err);
+            success = success && rep.dbh->query(sql, & storage_err);
         }
     }
 
     if (success)
-        _dbh->commit();
+        rep.dbh->commit();
     else
-        _dbh->rollback();
+        rep.dbh->rollback();
+
+    if (success) {
+        error err;
+
+        rep.contacts = std::make_shared<contact_list_type>(
+            contact_list_type::make(dbh, rep.contacts_table_name, & err));
+
+        if (!err) {
+            rep.groups = std::make_shared<group_list_type>(
+                group_list_type::make(dbh
+                    , rep.contacts_table_name
+                    , rep.members_table_name
+                    , rep.contacts
+                    , & err));
+        }
+
+        if (err) {
+            if (perr) *perr = err; CHAT__THROW(err);
+            success = false;
+        }
+    }
 
     if (!success) {
-        database_handle_t empty;
-        _dbh.swap(empty);
+        shared_db_handle empty;
+        rep.dbh.swap(empty);
         error err {errc::storage_error, fmt::format(INIT_CONTACT_MANAGER_ERROR, storage_err.what())};
         if (perr) *perr = err; CHAT__THROW(err);
     }
+
+    return rep;
 }
 
-bool contact_manager::wipe_impl (error * perr)
+}} // namespace backend::sqlite3
+
+#define BACKEND backend::sqlite3::contact_manager
+
+template <>
+contact_manager<BACKEND>::contact_manager (rep_type && rep)
+    : _rep(std::move(rep))
+{}
+
+template <>
+contact_manager<BACKEND>::operator bool () const noexcept
+{
+    return !!_rep.dbh;
+}
+
+template <>
+contact::contact
+contact_manager<BACKEND>::my_contact () const
+{
+    return contact::contact {_rep.me.id
+        , _rep.me.alias
+        , _rep.me.avatar
+        , contact::type_enum::person };
+}
+
+template <>
+std::shared_ptr<contact_manager<BACKEND>::contact_list_type>
+contact_manager<BACKEND>::contacts () const noexcept
+{
+    return _rep.contacts;
+}
+
+template <>
+std::shared_ptr<contact_manager<BACKEND>::group_list_type>
+contact_manager<BACKEND>::groups () const noexcept
+{
+    return _rep.groups;
+}
+
+template <>
+bool
+contact_manager<BACKEND>::contact_manager::wipe (error * perr)
 {
     std::array<std::string, 3> tables = {
-          _contacts_table_name
-        , _members_table_name
-        , _followers_table_name
+          _rep.contacts_table_name
+        , _rep.members_table_name
+        , _rep.followers_table_name
     };
 
     debby::error storage_err;
-    auto success = _dbh->begin();
+    auto success = _rep.dbh->begin();
 
     if (success) {
         for (auto const & t: tables) {
-            success = success && _dbh->clear(t, & storage_err);
+            success = success && _rep.dbh->clear(t, & storage_err);
         }
     }
 
     if (success)
-        _dbh->commit();
+        _rep.dbh->commit();
     else
-        _dbh->rollback();
+        _rep.dbh->rollback();
 
     if (!success) {
-        database_handle_t empty;
-        _dbh.swap(empty);
         error err {errc::storage_error, fmt::format(WIPE_ERROR, storage_err.what())};
         if (perr) *perr = err; CHAT__THROW(err);
     }
@@ -152,4 +219,4 @@ bool contact_manager::wipe_impl (error * perr)
     return success;
 }
 
-}}} // namespace chat::persistent_storage::sqlite3
+} // namespace chat

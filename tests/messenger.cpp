@@ -12,19 +12,20 @@
 #include "pfs/fmt.hpp"
 #include "pfs/memory.hpp"
 #include "pfs/chat/messenger.hpp"
-#include "pfs/chat/persistent_storage/sqlite3/contact_manager.hpp"
-#include "pfs/chat/persistent_storage/sqlite3/message_store.hpp"
+#include "pfs/chat/contact_manager.hpp"
+#include "pfs/chat/message_store.hpp"
+#include "pfs/chat/backend/sqlite3/contact_manager.hpp"
+#include "pfs/chat/backend/sqlite3/message_store.hpp"
+#include "pfs/chat/backend/delivery_manager.hpp"
 #include <fstream>
 
 namespace fs = pfs::filesystem;
 
 namespace {
 
-std::string TEXT1 {"1.Lorem ipsum dolor sit amet, consectetuer adipiscing elit,"};
-std::string TEXT2 {"2.sed diam nonummy nibh euismod tincidunt ut laoreet dolore"};
-std::string TEXT3 {"3.magna aliquam erat volutpat. Ut wisi enim ad minim veniam,"};
-std::string TEXT4 {"4.quis nostrud exerci tation ullamcorper suscipit lobortis"};
-std::string TEXT5 {"<html></html>"};
+std::string TEXT {"1.Lorem ipsum dolor sit amet, consectetuer adipiscing elit,"};
+std::string HTML {"<html></html>"};
+std::string EMOJI {"smile"};
 
 auto on_failure = [] (std::string const & errstr) {
     fmt::print(stderr, "ERROR: {}\n", errstr);
@@ -33,22 +34,27 @@ auto on_failure = [] (std::string const & errstr) {
 } // namespace
 
 ////////////////////////////////////////////////////////////////////////////////
-// Step 1. Define messenger builder as template argument for chat::messenger
+// Step 1. Declare messenger
+////////////////////////////////////////////////////////////////////////////////
+using Messenger = chat::messenger<
+      chat::backend::sqlite3::contact_manager
+    , chat::backend::sqlite3::message_store
+    , chat::backend::delivery_manager>;
+
+using SharedMessenger = std::shared_ptr<Messenger>;
+
+////////////////////////////////////////////////////////////////////////////////
+// Step 2. Define makers for messenger components
 ////////////////////////////////////////////////////////////////////////////////
 class MessengerBuilder
 {
-public:
-    // Mandatory type declarations
-    using contact_manager_type = chat::persistent_storage::sqlite3::contact_manager;
-    using message_store_type   = chat::persistent_storage::sqlite3::message_store;
-
 public:
     chat::contact::person me;
     pfs::filesystem::path rootPath;
 
 public:
     // Mandatory contact manager builder
-    std::unique_ptr<contact_manager_type> make_contact_manager () const
+    std::unique_ptr<Messenger::contact_manager_type> make_contact_manager () const
     {
         auto contactListPath = rootPath;
 
@@ -65,12 +71,12 @@ public:
 
         contactListPath /= "contact_list.db";
 
-        auto dbh = chat::persistent_storage::sqlite3::make_handle(contactListPath, true);
+        auto dbh = chat::backend::sqlite3::make_handle(contactListPath, true);
 
         if (!dbh)
             return nullptr;
 
-        auto contactManager = pfs::make_unique<contact_manager_type>(me, dbh);
+        auto contactManager = Messenger::contact_manager_type::make_unique(me, dbh);
 
         if (!*contactManager)
             return nullptr;
@@ -79,7 +85,7 @@ public:
     }
 
     // Mandatory message store builder
-    std::unique_ptr<message_store_type> make_message_store () const
+    std::unique_ptr<Messenger::message_store_type> make_message_store () const
     {
         auto messageStorePath = rootPath;
 
@@ -96,27 +102,31 @@ public:
 
         messageStorePath /= "messages.db";
 
-        auto dbh = chat::persistent_storage::sqlite3::make_handle(messageStorePath, true);
+        //auto dbh = chat::persistent_storage::sqlite3::make_handle(messageStorePath, true);
+        auto dbh = chat::backend::sqlite3::make_handle(messageStorePath, true);
 
         if (!dbh)
             return nullptr;
 
-        auto messageStore = pfs::make_unique<message_store_type>(dbh);
+        auto messageStore = Messenger::message_store_type::make_unique(me.id, dbh);
 
         if (!*messageStore)
             return nullptr;
 
         return messageStore;
     }
+
+    // Mandatory dispatcher builder
+    std::unique_ptr<Messenger::delivery_manager_type> make_delivery_manager () const
+    {
+        auto deliveryManager = Messenger::delivery_manager_type::make_unique();
+
+        if (!*deliveryManager)
+            return nullptr;
+
+        return deliveryManager;
+    }
 };
-
-// auto message_db_path = pfs::filesystem::temp_directory_path() / "messages.db";
-
-////////////////////////////////////////////////////////////////////////////////
-// Step 2. Declare messenger
-////////////////////////////////////////////////////////////////////////////////
-using Messenger = chat::messenger<MessengerBuilder>;
-using SharedMessenger = std::shared_ptr<Messenger>;
 
 TEST_CASE("messenger") {
     // Test contacts
@@ -142,8 +152,15 @@ TEST_CASE("messenger") {
 ////////////////////////////////////////////////////////////////////////////////
 // Step 4. Instantiate messenger
 ////////////////////////////////////////////////////////////////////////////////
-    auto messenger1 = std::make_shared<Messenger>(messengerBuilder1);
-    auto messenger2 = std::make_shared<Messenger>(messengerBuilder2);
+    auto messenger1 = std::make_shared<Messenger>(
+          messengerBuilder1.make_contact_manager()
+        , messengerBuilder1.make_message_store()
+        , messengerBuilder1.make_delivery_manager());
+
+    auto messenger2 = std::make_shared<Messenger>(
+          messengerBuilder2.make_contact_manager()
+        , messengerBuilder2.make_message_store()
+        , messengerBuilder2.make_delivery_manager());
 
     REQUIRE(*messenger1);
     REQUIRE(*messenger2);
@@ -205,7 +222,7 @@ TEST_CASE("messenger") {
     REQUIRE_EQ(messenger2->contacts_count(), 1);
 
 ////////////////////////////////////////////////////////////////////////////////
-// Step 6.1 Write and dispatch message
+// Step 6.1 Write message
 ////////////////////////////////////////////////////////////////////////////////
     {
         // Attempt to start/continue conversation with unknown contact
@@ -227,43 +244,14 @@ TEST_CASE("messenger") {
 
         last_message_id = editor.message_id();
 
-        editor.add_text(TEXT1);
-
-        REQUIRE_EQ(editor.content().at(0).mime, chat::message::mime_enum::text__plain);
-        REQUIRE_EQ(editor.content().at(0).text, TEXT1);
-
-        editor.add_text(TEXT2);
-        editor.add_text(TEXT3);
-        editor.add_text(TEXT4);
-        editor.add_text(TEXT5);
-
-        REQUIRE_EQ(editor.content().at(1).mime, chat::message::mime_enum::text__plain);
-        REQUIRE_EQ(editor.content().at(2).mime, chat::message::mime_enum::text__plain);
-        REQUIRE_EQ(editor.content().at(3).mime, chat::message::mime_enum::text__plain);
-        REQUIRE_EQ(editor.content().at(4).mime, chat::message::mime_enum::text__plain);
-        REQUIRE_EQ(editor.content().at(5).mime, chat::message::mime_enum::invalid);
-
-        REQUIRE_EQ(editor.content().at(1).text, TEXT2);
-        REQUIRE_EQ(editor.content().at(2).text, TEXT3);
-        REQUIRE_EQ(editor.content().at(3).text, TEXT4);
-        REQUIRE_EQ(editor.content().at(4).text, TEXT5);
-        REQUIRE(editor.content().at(5).text.empty());
+        editor.add_text(TEXT);
+        editor.add_html(HTML);
+        editor.add_emoji(EMOJI);
 
         REQUIRE(editor.attach(f1));
         REQUIRE(editor.attach(f2));
 
-        chat::error err;
-        REQUIRE_FALSE(editor.attach(fs::utf8_decode("ABRACADABRA"), & err));
-        CHECK_EQ(err.code(), make_error_code(chat::errc::access_attachment_failure));
-
-        REQUIRE_EQ(editor.content().at(5).mime, chat::message::mime_enum::attachment);
-        REQUIRE_EQ(editor.content().at(6).mime, chat::message::mime_enum::attachment);
-        REQUIRE_EQ(editor.content().at(5).text, fs::utf8_encode(f1));
-        REQUIRE_EQ(editor.content().at(6).text, fs::utf8_encode(f2));
-
         REQUIRE(editor.save());
-
-        // messenger1->dispatch(, [] () {});
     }
 
     {
@@ -271,23 +259,75 @@ TEST_CASE("messenger") {
         REQUIRE(conversation);
 
         auto editor = conversation.open(last_message_id);
-        auto t = editor.content().at(0);
 
         REQUIRE_EQ(editor.content().at(0).mime, chat::message::mime_enum::text__plain);
-        REQUIRE_EQ(editor.content().at(1).mime, chat::message::mime_enum::text__plain);
-        REQUIRE_EQ(editor.content().at(2).mime, chat::message::mime_enum::text__plain);
-        REQUIRE_EQ(editor.content().at(3).mime, chat::message::mime_enum::text__plain);
-        REQUIRE_EQ(editor.content().at(4).mime, chat::message::mime_enum::text__plain);
+        REQUIRE_EQ(editor.content().at(1).mime, chat::message::mime_enum::text__html);
+        REQUIRE_EQ(editor.content().at(2).mime, chat::message::mime_enum::text__emoji);
+        REQUIRE_EQ(editor.content().at(3).mime, chat::message::mime_enum::attachment);
+        REQUIRE_EQ(editor.content().at(4).mime, chat::message::mime_enum::attachment);
 
-        REQUIRE_EQ(editor.content().at(0).text, TEXT1);
-        REQUIRE_EQ(editor.content().at(1).text, TEXT2);
-        REQUIRE_EQ(editor.content().at(2).text, TEXT3);
-        REQUIRE_EQ(editor.content().at(3).text, TEXT4);
-        REQUIRE_EQ(editor.content().at(4).text, TEXT5);
+        REQUIRE_EQ(editor.content().at(0).text, TEXT);
+        REQUIRE_EQ(editor.content().at(1).text, HTML);
+        REQUIRE_EQ(editor.content().at(2).text, EMOJI);
+
+        REQUIRE_EQ(editor.content().attachment(0).name, std::string{});
+        REQUIRE_EQ(editor.content().at(3).text, fs::utf8_encode(f1));
+        REQUIRE_EQ(editor.content().at(4).text, fs::utf8_encode(f2));
+
+        REQUIRE_EQ(editor.content().attachment(3).name, fs::utf8_encode(f1));
+        REQUIRE_EQ(editor.content().attachment(3).size, f1_size);
+        REQUIRE_EQ(editor.content().attachment(3).sha256, f1_sha256);
+
+        REQUIRE_EQ(editor.content().attachment(4).name, fs::utf8_encode(f2));
+        REQUIRE_EQ(editor.content().attachment(4).size, f2_size);
+        REQUIRE_EQ(editor.content().attachment(4).sha256, f2_sha256);
     }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Step 6.2 Receive message
+// Step 6.2 Dispatch message
 ////////////////////////////////////////////////////////////////////////////////
+//     {
+//         auto conversation = messenger1->conversation(contactId2);
+//         REQUIRE(conversation);
+//
+//         auto m = conversation.message(last_message_id);
+//         auto invalid_message = conversation.message(chat::message::id_generator{}.next());
+//
+//         REQUIRE(m);
+//         REQUIRE_FALSE(invalid_message);
+//
+//         REQUIRE_EQ(m->id, last_message_id);
+//         REQUIRE_EQ(m->author_id, contactId1);
+//         REQUIRE(m->creation_time.value <= pfs::current_utc_time_point().value);
+//         REQUIRE(m->local_creation_time.value <= pfs::current_utc_time_point().value);
+//         REQUIRE(m->modification_time.value <= pfs::current_utc_time_point().value);
+//         REQUIRE_FALSE(m->dispatched_time.has_value());
+//         REQUIRE_FALSE(m->delivered_time.has_value());
+//         REQUIRE_FALSE(m->read_time.has_value());
+//         REQUIRE(m->contents.has_value());
+//
+//         REQUIRE_EQ(m->contents->at(0).mime, chat::message::mime_enum::text__plain);
+//         REQUIRE_EQ(m->contents->at(1).mime, chat::message::mime_enum::text__plain);
+//         REQUIRE_EQ(m->contents->at(2).mime, chat::message::mime_enum::text__html);
+//         REQUIRE_EQ(m->contents->at(3).mime, chat::message::mime_enum::attachment);
+//         REQUIRE_EQ(m->contents->at(4).mime, chat::message::mime_enum::attachment);
+//
+//         REQUIRE_EQ(m->contents->at(0).text, TEXT1);
+//         REQUIRE_EQ(m->contents->at(1).text, TEXT2);
+//         REQUIRE_EQ(m->contents->at(2).text, HTML1);
+//
+//         REQUIRE_EQ(m->contents->attachment(0).name, std::string{});
+//         REQUIRE_EQ(m->contents->at(3).text, fs::utf8_encode(f1));
+//         REQUIRE_EQ(m->contents->at(4).text, fs::utf8_encode(f2));
+//
+//         // auto content_data = conversation.serialize(last_message_id);
+//         // messenger1->dispatch(contactId2, last_message_id);
+//     }
 
+////////////////////////////////////////////////////////////////////////////////
+// Step 6.3 Receive message
+////////////////////////////////////////////////////////////////////////////////
+    {
+
+    }
 }

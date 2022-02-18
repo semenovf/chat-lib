@@ -11,18 +11,18 @@
 #include "doctest.h"
 #include "pfs/filesystem.hpp"
 #include "pfs/fmt.hpp"
+#include "pfs/string_view.hpp"
 #include "pfs/chat/message.hpp"
-#include "pfs/chat/persistent_storage/sqlite3/message_store.hpp"
+#include "pfs/chat/message_store.hpp"
+#include "pfs/chat/backend/sqlite3/message_store.hpp"
 
-using message_store_t    = chat::persistent_storage::sqlite3::message_store;
-using conversation_t     = chat::persistent_storage::sqlite3::conversation;
-using message_t          = chat::message::message_credentials;
-
-auto on_failure = [] (std::string const & errstr) {
-    fmt::print(stderr, "ERROR: {}\n", errstr);
-};
+using message_store_t = chat::message_store<chat::backend::sqlite3::message_store>;
+using conversation_t  = message_store_t::conversation_type;
+using editor_t        = conversation_t::editor_type;
 
 auto message_db_path = pfs::filesystem::temp_directory_path() / "messages.db";
+
+namespace fs = pfs::filesystem;
 
 TEST_CASE("constructors") {
     // Conversation public constructors/assign operators
@@ -33,72 +33,101 @@ TEST_CASE("constructors") {
     REQUIRE_FALSE(std::is_move_assignable<conversation_t>::value);
     REQUIRE(std::is_destructible<conversation_t>::value);
 
+    // Editor public constructors/assign operators
+    REQUIRE_FALSE(std::is_default_constructible<editor_t>::value);
+    REQUIRE_FALSE(std::is_copy_constructible<editor_t>::value);
+    REQUIRE_FALSE(std::is_copy_assignable<editor_t>::value);
+    REQUIRE(std::is_move_constructible<editor_t>::value);
+    REQUIRE_FALSE(std::is_move_assignable<editor_t>::value);
+    REQUIRE(std::is_destructible<editor_t>::value);
+
     // Message store public constructors/assign operators
     REQUIRE_FALSE(std::is_default_constructible<message_store_t>::value);
     REQUIRE_FALSE(std::is_copy_constructible<message_store_t>::value);
     REQUIRE_FALSE(std::is_copy_assignable<message_store_t>::value);
-    REQUIRE_FALSE(std::is_move_constructible<message_store_t>::value);
+    REQUIRE(std::is_move_constructible<message_store_t>::value);
     REQUIRE_FALSE(std::is_move_assignable<message_store_t>::value);
     REQUIRE(std::is_destructible<message_store_t>::value);
 }
 
 TEST_CASE("initialization") {
-    auto dbh = chat::persistent_storage::sqlite3::make_handle(message_db_path, true);
+    auto dbh = chat::backend::sqlite3::make_handle(message_db_path, true);
 
     REQUIRE(dbh);
 
-    message_store_t message_store{dbh};
+    chat::error err;
+    auto my_id = chat::contact::id_generator{}.next();
+    auto message_store = message_store_t::make(my_id, dbh, & err);
 
     REQUIRE(message_store);
     REQUIRE(message_store.wipe());
 }
 
 TEST_CASE("outgoing messages") {
-    auto dbh = chat::persistent_storage::sqlite3::make_handle(message_db_path, true);
-
-    REQUIRE(dbh);
-
-    message_store_t message_store{dbh};
-
-    REQUIRE(message_store);
-
+    auto dbh = chat::backend::sqlite3::make_handle(message_db_path, true);
+    auto my_id = chat::contact::id_generator{}.next();
+    auto message_store = message_store_t::make(my_id, dbh);
     message_store.wipe();
 
-    auto my_id = chat::contact::id_generator{}.next();
     auto addressee_id = chat::contact::id_generator{}.next();
-    auto conversation = message_store.conversation(my_id, addressee_id);
+    auto conversation = message_store.conversation(addressee_id);
+
+    REQUIRE(conversation);
+
+    // Bad conversation
+    {
+        chat::error err;
+        auto invalid_conversation = message_store.conversation(chat::contact::contact_id{}, & err);
+        REQUIRE_FALSE(invalid_conversation);
+    }
 
     for (int i = 0; i < 5; i++) {
         auto ed = conversation.create();
         REQUIRE(ed);
 
         ed.add_text("Hello");
-        ed.add_text(", World!");
+        ed.add_html("<html><body><h1>World</h1></body></html>");
         ed.add_emoji("emoticon");
-//         CHECK(ed.attach(pfs::filesystem::path{"data/attachment1.bin"}));
-//         CHECK(ed.attach(pfs::filesystem::path{"data/attachment2.bin"}));
-//         CHECK(ed.attach(pfs::filesystem::path{"data/attachment3.bin"}));
+        REQUIRE(ed.attach(pfs::filesystem::path{"data/attachment1.bin"}));
+        REQUIRE(ed.attach(pfs::filesystem::path{"data/attachment2.bin"}));
+        REQUIRE(ed.attach(pfs::filesystem::path{"data/attachment3.bin"}));
+        REQUIRE(ed.save());
     }
 
-//     for (int i = 0; i < 1; i++) {
-//         message_t m;
-//         m.id = message_id_generator.next();
-//         m.deleted = false;
-//         m.contact_id = pfs::generate_uuid();
-//         m.creation_time = pfs::current_utc_time_point();
-//
-//         REQUIRE(message_store.save(m));
-//     }
-//
-//     message_store.all_of([] (message_t const & m) {
-//         fmt::print("{} | {} | {}\n"
-//             , std::to_string(m.id)
-//             , std::to_string(m.contact_id)
-//             , to_string(m.creation_time));
-//
-//         CHECK_FALSE(m.received_time.has_value());
-//         CHECK_FALSE(m.read_time.has_value());
-//     });
-//
-//     message_store.close();
+    // Bad attachment
+    {
+        chat::error err;
+        auto ed = conversation.create();
+        REQUIRE_FALSE(ed.attach(fs::utf8_decode("ABRACADABRA"), & err));
+        REQUIRE_EQ(err.code(), make_error_code(chat::errc::access_attachment_failure));
+    }
+
+    conversation.for_each([& conversation] (chat::message::message_credentials const & m) {
+        fmt::print("{} | {} | {}\n"
+            , std::to_string(m.id)
+            , std::to_string(m.author_id)
+            , to_string(m.creation_time));
+
+        auto ed = conversation.open(m.id);
+
+        REQUIRE_EQ(ed.content().at(0).mime, chat::message::mime_enum::text__plain);
+        REQUIRE_EQ(ed.content().at(1).mime, chat::message::mime_enum::text__html);
+        REQUIRE_EQ(ed.content().at(2).mime, chat::message::mime_enum::text__emoji);
+        REQUIRE_EQ(ed.content().at(3).mime, chat::message::mime_enum::attachment);
+
+        REQUIRE_EQ(ed.content().at(0).text, std::string{"Hello"});
+        REQUIRE_EQ(ed.content().at(1).text, std::string{"<html><body><h1>World</h1></body></html>"});
+        REQUIRE_EQ(ed.content().at(2).text, std::string{"emoticon"});
+        REQUIRE(pfs::string_view{ed.content().at(3).text}.ends_with("data/attachment1.bin"));
+        REQUIRE(pfs::string_view{ed.content().at(4).text}.ends_with("data/attachment2.bin"));
+        REQUIRE(pfs::string_view{ed.content().at(5).text}.ends_with("data/attachment3.bin"));
+
+        REQUIRE(pfs::string_view{ed.content().attachment(3).name}.ends_with("data/attachment1.bin"));
+        REQUIRE_EQ(ed.content().attachment(3).size, 4);
+        REQUIRE_EQ(ed.content().attachment(3).sha256
+            , std::string{"e12e115acf4552b2568b55e93cbd39394c4ef81c82447fafc997882a02d23677"});
+
+        // No attachment at specified position
+        REQUIRE_EQ(ed.content().attachment(0).name, std::string{});
+    });
 }

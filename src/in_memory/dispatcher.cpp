@@ -1,17 +1,18 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright (c) 2021 Vladislav Trifochkin
+// Copyright (c) 2022 Vladislav Trifochkin
 //
 // This file is part of `chat-lib`.
 //
 // Changelog:
-//      2021.12.28 Initial version.
+//      2022.02.16 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
-#pragma once
+#include "pfs/chat/in_memory/dispatcher.hpp"
 
 namespace chat {
+namespace in_memory {
 
-template <typename Impl>
-class basic_channel
-{};
+dispatcher::dispatcher ()
+    : base_class()
+{}
 
-} // namespace chat
+}} // namespace chat::in_memory

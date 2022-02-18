@@ -13,7 +13,8 @@ set(TESTS
     contact_manager
 #     file_cache
     message_store
-    messenger)
+    messenger
+)
 
 foreach (t ${TESTS})
     portable_target(ADD_TEST ${t}
@@ -21,3 +22,7 @@ foreach (t ${TESTS})
         SOURCES ${t}.cpp ${${t}_SOURCES}
         LINK pfs::chat pfs::debby)
 endforeach()
+
+file(GENERATE OUTPUT data/attachment1.bin CONTENT "ABCD")
+file(GENERATE OUTPUT data/attachment2.bin CONTENT "EFGH")
+file(GENERATE OUTPUT data/attachment3.bin CONTENT "IJKL")

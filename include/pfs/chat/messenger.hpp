@@ -8,38 +8,86 @@
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 #include "contact.hpp"
+#include "contact_manager.hpp"
+#include "delivery_manager.hpp"
 #include "error.hpp"
 #include "message.hpp"
+#include "message_store.hpp"
 #include "pfs/emitter.hpp"
 #include <memory>
+#include <vector>
 #include <cassert>
 
 namespace chat {
 
-template <typename MessengerBuilder>
+//
+//     ------------------------      -----------------------
+//     |    Contact manager   |      |Message store manager|
+//     ------------------------      -----------------------
+//                 ^                           ^
+//                 |                           |
+//                 |                           |
+//                 v                           v
+//         --------------------------------------------
+//         |                                          |
+//         |           M E S S E N G E R              |
+//         |                                          |
+//         --------------------------------------------
+//                                             ^
+//                                             |
+//                                             |
+//                                             v
+//                                   -----------------------
+//                                   |   Delivery manager  |
+//                                   -----------------------
+//                                           ^    |
+//                                           |    |
+//                                           |    v
+//                                      Communication media
+//                                     (IPC, LAN, Internet, ...)
+//
+// Communication media refer to the ways, means or channels of transmitting
+// message from sender to the receiver.
+//
+template <typename ContactManagerBackend
+    , typename MessageStoreBackend
+    , typename DeliveryManagerBackend>
 class messenger
 {
 public:
-    using contact_manager_type = typename MessengerBuilder::contact_manager_type;
-    using message_store_type   = typename MessengerBuilder::message_store_type;
+    using contact_manager_type  = contact_manager<ContactManagerBackend>;
+    using message_store_type    = message_store<MessageStoreBackend>;
+    using delivery_manager_type = delivery_manager<DeliveryManagerBackend>;
 //     using icon_library_type    = typename PersistentStorageAPI::icon_library_type;
 //     using media_cache_type     = typename PersistentStorageAPI::media_cache_type;
 
     using conversation_type = typename message_store_type::conversation_type;
 
 private:
-    std::unique_ptr<contact_manager_type> _contact_manager;
-    std::unique_ptr<message_store_type>   _message_store;
+    std::unique_ptr<contact_manager_type>  _contact_manager;
+    std::unique_ptr<message_store_type>    _message_store;
+    std::unique_ptr<delivery_manager_type> _delivery_manager;
 
 public: // signals
-    pfs::emitter_mt<std::string const &> failure;
-    pfs::emitter_mt<message::message_id> dispatched;
+    mutable pfs::emitter_mt<std::string const &> failure;
+
+//     /**
+//      * @function void dispatch (contact::contact_id addressee, std::vector<char> const & data)
+//      *
+//      * @brief Dispatch message signal.
+//      *
+//      * @param addressee Message addressee.
+//      * @param data      Serialized message.
+//      */
+//     pfs::emitter_mt<contact::contact_id, std::vector<char> const &> dispatch;
+
+    //pfs::emitter_mt<message::message_id> dispatched;
 
 private:
     bool add_contact_helper (contact::contact const & c, bool force_update)
     {
         error err;
-        auto rc = _contact_manager->contacts().add(c, & err);
+        auto rc = _contact_manager->contacts()->add(c, & err);
 
         if (rc > 0) {
             // Contact added successfully
@@ -48,7 +96,7 @@ private:
             // Contact already exists
 
             if (force_update) {
-                rc = _contact_manager->contacts().update(c, & err);
+                rc = _contact_manager->contacts()->update(c, & err);
 
                 if (rc > 0) {
                     return true;
@@ -71,9 +119,12 @@ private:
     }
 
 public:
-    messenger (MessengerBuilder const & builder)
-        : _contact_manager(builder.make_contact_manager())
-        , _message_store(builder.make_message_store())
+    messenger (std::unique_ptr<contact_manager_type> && contact_manager
+        , std::unique_ptr<message_store_type> && message_store
+        , std::unique_ptr<delivery_manager_type> && delivery_manager)
+        : _contact_manager(std::move(contact_manager))
+        , _message_store(std::move(message_store))
+        , _delivery_manager(std::move(delivery_manager))
     {}
 
     ~messenger () = default;
@@ -86,7 +137,9 @@ public:
 
     operator bool () const noexcept
     {
-        return *_contact_manager && *_message_store;
+        return *_contact_manager
+            && *_message_store
+            && *_delivery_manager;
     }
 
     /**
@@ -102,7 +155,7 @@ public:
      */
     std::size_t contacts_count () const
     {
-        return _contact_manager->contacts().count();
+        return _contact_manager->contacts()->count();
     }
 
     /**
@@ -110,7 +163,7 @@ public:
      */
     std::size_t contacts_count (contact::type_enum type) const
     {
-        return _contact_manager->contacts().count(type);
+        return _contact_manager->contacts()->count(type);
     }
 
     /**
@@ -132,16 +185,36 @@ public:
     /**
      * Get contact by @a id.
      */
-    auto get_contact (contact::contact_id id) const -> pfs::optional<contact::contact>
+    pfs::optional<contact::contact>
+    get_contact (contact::contact_id id) const noexcept
     {
-        return _contact_manager->contacts().get(id);
+        error err;
+        auto contact = _contact_manager->contacts()->get(id, & err);
+
+        if (err) {
+            failure(err.what());
+            return pfs::nullopt;
+        }
+
+        return contact;
     }
 
     /**
      * Get contact by offset.
      */
-    auto get_contact (int offset) const -> pfs::optional<contact::contact>
+    pfs::optional<contact::contact>
+    get_contact (int offset) const noexcept
     {
+        error err;
+        auto contact = _contact_manager->contacts()->get(offset, & err);
+
+        if (err) {
+            failure(err.what());
+            return pfs::nullopt;
+        }
+
+        return contact;
+
         return _contact_manager->contacts().get(offset);
     }
 
@@ -160,10 +233,18 @@ public:
         // Check for contact exists
         auto opt = get_contact(addressee_id);
 
-        if (!opt)
-            return conversation_type{};
+        if (!opt) {
+            // Invalid addressee ID to generate invalid conversation
+            addressee_id = contact::contact_id{};
+        }
 
-        return _message_store->conversation(my_contact().id, addressee_id);
+        error err;
+        auto result = _message_store->conversation(addressee_id, & err);
+
+        if (err)
+            failure(err.what());
+
+        return result;
     }
 
     // TODO

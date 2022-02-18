@@ -23,6 +23,7 @@ enum class errc
 {
       success = 0
     , storage_error       // Any error of underlying storage subsystem
+    , invalid_argument
     , contact_not_found
     , group_not_found
     , unsuitable_member
