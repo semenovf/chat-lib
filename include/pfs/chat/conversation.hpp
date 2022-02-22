@@ -74,8 +74,12 @@ public:
     // TODO Implement
     std::size_t unread_messages_count () const;
 
-    // TODO Implement
-    // void mark_dispatched (message::message_id message_id);
+    /**
+     * Mark message dispatched.
+     */
+    void mark_dispatched (message::message_id message_id
+        , pfs::utc_time_point dispatched_time
+        , error * perr = nullptr);
 
     /**
      * Creates editor for new outgoing message.

@@ -10,7 +10,11 @@
 #include "contact.hpp"
 #include "error.hpp"
 #include "message.hpp"
+#include "protocol.hpp"
+#include "serializer.hpp"
 #include "pfs/memory.hpp"
+#include <functional>
+// #include <map>
 #include <vector>
 
 namespace chat {
@@ -18,26 +22,24 @@ namespace chat {
 //   Author                                               Addressee
 // ---------                                              ---------
 //     |                                                      |
-//     |          1. author ID                                |
-//     |          2. message ID                               |
+//     |          1. message ID                               |
+//     |          2. author ID                                |
 //     |          3. creation time                            |
-//     |          4. modification time                        |
-//     |          5. dispatched time                          |
-//     | (1)      6. content                             (1') |
+//     | (1)      4. content                             (1') |
 //     |----------------------------------------------------->|
 //     |                                                      |
-//     |          1. addressee ID                             |
-//     |          2. message ID                               |
+//     |          1. message ID                               |
+//     |          2. addressee ID                             |
 //     | (2')     3. delivered time                       (2) |
 //     |<-----------------------------------------------------|
 //     |                                                      |
-//     |          1. addressee ID                             |
-//     |          2. message ID                               |
+//     |          1. message ID                               |
+//     |          2. addressee ID                             |
 //     | (3')     3. read time                            (3) |
 //     |<-----------------------------------------------------|
 //     |                                                      |
-//     |          1. author ID                                |
-//     |          2. message ID                               |
+//     |          1. message ID                               |
+//     |          2. author ID                                |
 //     |          3. modification time                        |
 //     | (4)      4. content                             (4') |
 //     |----------------------------------------------------->|
@@ -59,10 +61,13 @@ namespace chat {
 template <typename Backend>
 class delivery_manager final
 {
-    using rep_type = typename Backend::rep_type;
+    using rep_type = typename Backend::rep;
 
 private:
     rep_type _rep;
+//     std::map<message::message_id, std::time_point> dispatch_pending;
+//     std::map<message::message_id, std::time_point> delivered_pending;
+//     std::map<message::message_id, std::time_point> read_pending;
 
 private:
     delivery_manager () = default;
@@ -77,11 +82,39 @@ public:
 
 public:
     /**
-     * Checks if delivery_manager ready for use.
+     * Checks if delivery manager ready for use.
      */
     operator bool () const noexcept;
 
-    //bool dispatch (message::message_credentials const & msg, error * perr = nullptr);
+    /**
+     * Dispatch original message.
+     *
+     * @return Serialized message or empty if error occured.
+     */
+    bool dispatch (contact::contact_id addressee
+        , message::message_credentials const & msg
+        , std::function<void(contact::contact_id addressee
+            , message::message_id message_id
+            , pfs::utc_time_point dispatched_time)> message_dispatched
+        , error * perr = nullptr)
+    {
+        protocol::original_message m;
+        m.message_id    = msg.id;
+        m.author_id     = msg.author_id;
+        m.creation_time = msg.creation_time;
+        m.content       = msg.contents.has_value() ? to_string(*msg.contents) : std::string{};
+
+        auto data = serialize<protocol::original_message>(m);
+
+        error err;
+
+        if (!_rep.send_message(addressee, msg.id, data, message_dispatched, & err)) {
+            if (perr) *perr = err; else CHAT__THROW(err);
+            return false;
+        }
+
+        return true;
+    }
 
 public:
     template <typename ...Args>

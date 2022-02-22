@@ -31,6 +31,9 @@ std::string error_category::message (int ev) const
         case static_cast<int>(errc::group_not_found):
             return std::string{"group not found"};
 
+        case static_cast<int>(errc::message_not_found):
+            return std::string{"message not found"};
+
         case static_cast<int>(errc::unsuitable_member):
             return std::string{"unsuitable member"};
 

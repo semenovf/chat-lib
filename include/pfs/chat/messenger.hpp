@@ -46,12 +46,13 @@ namespace chat {
 //                                      Communication media
 //                                     (IPC, LAN, Internet, ...)
 //
-// Communication media refer to the ways, means or channels of transmitting
+// Communication media refers to the ways, means or channels of transmitting
 // message from sender to the receiver.
 //
 template <typename ContactManagerBackend
     , typename MessageStoreBackend
-    , typename DeliveryManagerBackend>
+    , typename DeliveryManagerBackend
+    , template <typename ...Args> class Emitter = pfs::emitter_mt>
 class messenger
 {
 public:
@@ -69,7 +70,7 @@ private:
     std::unique_ptr<delivery_manager_type> _delivery_manager;
 
 public: // signals
-    mutable pfs::emitter_mt<std::string const &> failure;
+    mutable Emitter<std::string const &> failure;
 
 //     /**
 //      * @function void dispatch (contact::contact_id addressee, std::vector<char> const & data)
@@ -253,6 +254,40 @@ public:
 //         auto conv = _message_store->conversation(id);
 //         return conv.unread_messages_count();
 //     }
+
+    /**
+     * Dispatch message (original or edited)
+     */
+    void dispatch (contact::contact_id addressee
+        , message::message_credentials const & msg)
+    {
+        error err;
+
+        auto message_dispatched = [this] (contact::contact_id addressee
+            , message::message_id message_id
+            , pfs::utc_time_point dispatched_time) {
+
+            auto conv = this->conversation(addressee);
+
+            if (conv) {
+                error err;
+                conv.mark_dispatched(message_id, dispatched_time, & err);
+
+                if (err) {
+                    this->failure(err.what());
+                }
+            }
+        };
+
+        auto result = _delivery_manager->dispatch(addressee
+            , msg
+            , message_dispatched
+            , & err);
+
+        if (!result) {
+            failure(err.what());
+        }
+    }
 
     void wipe ()
     {

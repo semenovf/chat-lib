@@ -26,6 +26,7 @@ enum class errc
     , invalid_argument
     , contact_not_found
     , group_not_found
+    , message_not_found
     , unsuitable_member
     , access_attachment_failure
     , bad_emoji_shortcode

@@ -11,10 +11,20 @@
 cmake_minimum_required (VERSION 3.11)
 project(chat-lib C CXX)
 
-#option(CHAT__ENABLE_ROCKSDB "Enable `RocksDb` library for persistent storage" OFF)
 option(CHAT__ENABLE_JANSSON "Enable `Jansson` library for JSON support" ON)
 option(CHAT__ENABLE_SQLITE3_CONTACT_MANAGER_BACKEND "Enable `sqlite3` contact manager backend" ON)
 option(CHAT__ENABLE_SQLITE3_MESSAGE_STORE_BACKEND "Enable `sqlite3` message store backend" ON)
+option(CHAT__ENABLE_CEREAL_SERIALIZER "Enable serialization based on `Cereal` library" ON)
+
+if (CHAT__ENABLE_CEREAL_SERIALIZER)
+    if (NOT TARGET cereal)
+        add_library(cereal INTERFACE)
+
+        # Use mutexes to ensure thread safety
+        target_compile_definitions(cereal INTERFACE "CEREAL_THREAD_SAFE=1")
+        target_include_directories(cereal INTERFACE ${CMAKE_CURRENT_LIST_DIR}/3rdparty/cereal/include)
+    endif()
+endif()
 
 if (NOT TARGET pfs::common)
     portable_target(INCLUDE_PROJECT
@@ -43,6 +53,10 @@ if (NOT TARGET pfs::netty)
 endif()
 
 if (NOT TARGET pfs::netty::p2p)
+    if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/cereal/cereal.hpp")
+        set(NETTY_P2P__CEREAL_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/cereal" CACHE INTERNAL "")
+    endif()
+
     portable_target(INCLUDE_PROJECT
         ${CMAKE_CURRENT_LIST_DIR}/3rdparty/pfs/netty/library-p2p.cmake)
 endif()
@@ -63,7 +77,7 @@ portable_target(SOURCES ${PROJECT_NAME}
     ${CMAKE_CURRENT_LIST_DIR}/src/emoji_db.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/error.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/mime.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/src/backend/delivery_manager.cpp)
+    ${CMAKE_CURRENT_LIST_DIR}/src/backend/delivery_manager/buffer.cpp)
 
 if (CHAT__ENABLE_SQLITE3_CONTACT_MANAGER_BACKEND)
     portable_target(SOURCES ${PROJECT_NAME}
@@ -96,3 +110,8 @@ if (CHAT__ENABLE_JANSSON)
     portable_target(DEFINITIONS ${PROJECT_NAME} INTERFACE "CHAT__JANSSON_ENABLED=1")
 endif()
 
+if (CHAT__ENABLE_CEREAL_SERIALIZER)
+    portable_target(LINK ${PROJECT_NAME} PUBLIC cereal)
+    portable_target(SOURCES ${PROJECT_NAME}
+        ${CMAKE_CURRENT_LIST_DIR}/src/cereal_serializer.cpp)
+endif()

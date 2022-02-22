@@ -16,7 +16,7 @@
 #include "pfs/chat/message_store.hpp"
 #include "pfs/chat/backend/sqlite3/contact_manager.hpp"
 #include "pfs/chat/backend/sqlite3/message_store.hpp"
-#include "pfs/chat/backend/delivery_manager.hpp"
+#include "pfs/chat/backend/delivery_manager/buffer.hpp"
 #include <fstream>
 
 namespace fs = pfs::filesystem;
@@ -39,9 +39,14 @@ auto on_failure = [] (std::string const & errstr) {
 using Messenger = chat::messenger<
       chat::backend::sqlite3::contact_manager
     , chat::backend::sqlite3::message_store
-    , chat::backend::delivery_manager>;
+    , chat::backend::delivery_manager::buffer
+    , pfs::emitter>;
 
 using SharedMessenger = std::shared_ptr<Messenger>;
+using Queue = chat::backend::delivery_manager::buffer::queue_type;
+
+auto q1 = std::make_shared<Queue>();
+auto q2 = std::make_shared<Queue>();
 
 ////////////////////////////////////////////////////////////////////////////////
 // Step 2. Define makers for messenger components
@@ -117,9 +122,10 @@ public:
     }
 
     // Mandatory dispatcher builder
-    std::unique_ptr<Messenger::delivery_manager_type> make_delivery_manager () const
+    std::unique_ptr<Messenger::delivery_manager_type> make_delivery_manager (
+        std::shared_ptr<Queue> out, std::shared_ptr<Queue> in) const
     {
-        auto deliveryManager = Messenger::delivery_manager_type::make_unique();
+        auto deliveryManager = Messenger::delivery_manager_type::make_unique(out, in);
 
         if (!*deliveryManager)
             return nullptr;
@@ -155,12 +161,12 @@ TEST_CASE("messenger") {
     auto messenger1 = std::make_shared<Messenger>(
           messengerBuilder1.make_contact_manager()
         , messengerBuilder1.make_message_store()
-        , messengerBuilder1.make_delivery_manager());
+        , messengerBuilder1.make_delivery_manager(q1, q2));
 
     auto messenger2 = std::make_shared<Messenger>(
           messengerBuilder2.make_contact_manager()
         , messengerBuilder2.make_message_store()
-        , messengerBuilder2.make_delivery_manager());
+        , messengerBuilder2.make_delivery_manager(q2, q1));
 
     REQUIRE(*messenger1);
     REQUIRE(*messenger2);
@@ -286,43 +292,17 @@ TEST_CASE("messenger") {
 ////////////////////////////////////////////////////////////////////////////////
 // Step 6.2 Dispatch message
 ////////////////////////////////////////////////////////////////////////////////
-//     {
-//         auto conversation = messenger1->conversation(contactId2);
-//         REQUIRE(conversation);
-//
-//         auto m = conversation.message(last_message_id);
-//         auto invalid_message = conversation.message(chat::message::id_generator{}.next());
-//
-//         REQUIRE(m);
-//         REQUIRE_FALSE(invalid_message);
-//
-//         REQUIRE_EQ(m->id, last_message_id);
-//         REQUIRE_EQ(m->author_id, contactId1);
-//         REQUIRE(m->creation_time.value <= pfs::current_utc_time_point().value);
-//         REQUIRE(m->local_creation_time.value <= pfs::current_utc_time_point().value);
-//         REQUIRE(m->modification_time.value <= pfs::current_utc_time_point().value);
-//         REQUIRE_FALSE(m->dispatched_time.has_value());
-//         REQUIRE_FALSE(m->delivered_time.has_value());
-//         REQUIRE_FALSE(m->read_time.has_value());
-//         REQUIRE(m->contents.has_value());
-//
-//         REQUIRE_EQ(m->contents->at(0).mime, chat::message::mime_enum::text__plain);
-//         REQUIRE_EQ(m->contents->at(1).mime, chat::message::mime_enum::text__plain);
-//         REQUIRE_EQ(m->contents->at(2).mime, chat::message::mime_enum::text__html);
-//         REQUIRE_EQ(m->contents->at(3).mime, chat::message::mime_enum::attachment);
-//         REQUIRE_EQ(m->contents->at(4).mime, chat::message::mime_enum::attachment);
-//
-//         REQUIRE_EQ(m->contents->at(0).text, TEXT1);
-//         REQUIRE_EQ(m->contents->at(1).text, TEXT2);
-//         REQUIRE_EQ(m->contents->at(2).text, HTML1);
-//
-//         REQUIRE_EQ(m->contents->attachment(0).name, std::string{});
-//         REQUIRE_EQ(m->contents->at(3).text, fs::utf8_encode(f1));
-//         REQUIRE_EQ(m->contents->at(4).text, fs::utf8_encode(f2));
-//
-//         // auto content_data = conversation.serialize(last_message_id);
-//         // messenger1->dispatch(contactId2, last_message_id);
-//     }
+    {
+        auto conversation = messenger1->conversation(contactId2);
+        REQUIRE(conversation);
+
+        auto m = conversation.message(last_message_id);
+
+        REQUIRE(m);
+        REQUIRE_EQ(m->id, last_message_id);
+
+        messenger1->dispatch(contactId2, *m);
+    }
 
 ////////////////////////////////////////////////////////////////////////////////
 // Step 6.3 Receive message
