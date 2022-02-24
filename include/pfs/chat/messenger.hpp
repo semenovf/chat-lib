@@ -69,55 +69,23 @@ private:
     std::unique_ptr<message_store_type>    _message_store;
     std::unique_ptr<delivery_manager_type> _delivery_manager;
 
+    typename delivery_manager_type::message_dispatched_callback _message_dispatched;
+    typename delivery_manager_type::message_delivered_callback  _message_delivered;
+    typename delivery_manager_type::message_read_callback       _message_read;
+
 public: // signals
     mutable Emitter<std::string const &> failure;
+    mutable Emitter<contact::contact_id /*addressee*/
+            , message::message_id /*message_id*/
+            , pfs::utc_time_point /*dispatched_time*/> message_dispatched;
 
-//     /**
-//      * @function void dispatch (contact::contact_id addressee, std::vector<char> const & data)
-//      *
-//      * @brief Dispatch message signal.
-//      *
-//      * @param addressee Message addressee.
-//      * @param data      Serialized message.
-//      */
-//     pfs::emitter_mt<contact::contact_id, std::vector<char> const &> dispatch;
+    mutable Emitter<contact::contact_id /*addressee*/
+            , message::message_id /*message_id*/
+            , pfs::utc_time_point /*delivered_time*/> message_delivered;
 
-    //pfs::emitter_mt<message::message_id> dispatched;
-
-private:
-    bool add_contact_helper (contact::contact const & c, bool force_update)
-    {
-        error err;
-        auto rc = _contact_manager->contacts()->add(c, & err);
-
-        if (rc > 0) {
-            // Contact added successfully
-            return true;
-        } else if (rc == 0) {
-            // Contact already exists
-
-            if (force_update) {
-                rc = _contact_manager->contacts()->update(c, & err);
-
-                if (rc > 0) {
-                    return true;
-                } else if (rc == 0) {
-                    ; // Unexpected state (contact existence checked before)
-                } else {
-                    failure(err.what());
-                }
-            } else {
-                failure(fmt::format("contact already exists: {} (#{})"
-                    , c.alias
-                    , to_string(c.id)));
-            }
-        } else {
-            // Error
-            failure(err.what());
-        }
-
-        return false;
-    }
+    mutable Emitter<contact::contact_id /*addressee*/
+            , message::message_id /*message_id*/
+            , pfs::utc_time_point /*read_time*/> message_read;
 
 public:
     messenger (std::unique_ptr<contact_manager_type> && contact_manager
@@ -126,7 +94,61 @@ public:
         : _contact_manager(std::move(contact_manager))
         , _message_store(std::move(message_store))
         , _delivery_manager(std::move(delivery_manager))
-    {}
+    {
+        _message_dispatched = [this] (contact::contact_id addressee
+            , message::message_id message_id
+            , pfs::utc_time_point dispatched_time) {
+
+            auto conv = this->conversation(addressee);
+
+            if (conv) {
+                error err;
+                conv.mark_dispatched(message_id, dispatched_time, & err);
+
+                if (err) {
+                    this->failure(err.what());
+                } else {
+                    this->message_dispatched(addressee, message_id, dispatched_time);
+                }
+            }
+        };
+
+        _message_delivered = [this] (contact::contact_id addressee
+            , message::message_id message_id
+            , pfs::utc_time_point delivered_time) {
+
+            auto conv = this->conversation(addressee);
+
+            if (conv) {
+                error err;
+                conv.mark_delivered(message_id, delivered_time, & err);
+
+                if (err) {
+                    this->failure(err.what());
+                } else {
+                    this->message_delivered(addressee, message_id, delivered_time);
+                }
+            }
+        };
+
+        _message_read = [this] (contact::contact_id addressee
+            , message::message_id message_id
+            , pfs::utc_time_point read_time) {
+
+            auto conv = this->conversation(addressee);
+
+            if (conv) {
+                error err;
+                conv.mark_read(message_id, read_time, & err);
+
+                if (err) {
+                    this->failure(err.what());
+                } else {
+                    this->message_read(addressee, message_id, read_time);
+                }
+            }
+        };
+    }
 
     ~messenger () = default;
 
@@ -168,26 +190,50 @@ public:
     }
 
     /**
-     * Add contact
+     * Add contact.
+     *
+     * @return @c true if contact added successfully, @c false on error or
+     *         contact already exists.
      */
-    auto add_contact (contact::contact const & c) -> bool
+    bool add (contact::contact const & c)
     {
-        return add_contact_helper(c, false);
+        error err;
+        auto rc = _contact_manager->contacts()->add(c, & err);
+
+        // Error
+        if (rc < 0) {
+            failure(err.what());
+            return false;
+        }
+
+        return rc > 0 ? true : false;
     }
 
     /**
-     * Add or update contact
+     * Update contact.
+     *
+     * @return @c true if contact updated successfully, @c false on error or
+     *         contact does not exist.
      */
-    auto add_or_update_contact (contact::contact const & c) -> bool
+    bool update (contact::contact const & c)
     {
-        return add_contact_helper(c, true);
+        error err;
+        auto rc = _contact_manager->contacts()->update(c, & err);
+
+        // Error
+        if (rc < 0) {
+            failure(err.what());
+            return false;
+        }
+
+        return rc > 0 ? true : false;
     }
 
     /**
      * Get contact by @a id.
      */
     pfs::optional<contact::contact>
-    get_contact (contact::contact_id id) const noexcept
+    contact (contact::contact_id id) const noexcept
     {
         error err;
         auto contact = _contact_manager->contacts()->get(id, & err);
@@ -204,7 +250,7 @@ public:
      * Get contact by offset.
      */
     pfs::optional<contact::contact>
-    get_contact (int offset) const noexcept
+    contact (int offset) const noexcept
     {
         error err;
         auto contact = _contact_manager->contacts()->get(offset, & err);
@@ -232,7 +278,7 @@ public:
     conversation_type conversation (contact::contact_id addressee_id) const
     {
         // Check for contact exists
-        auto opt = get_contact(addressee_id);
+        auto opt = contact(addressee_id);
 
         if (!opt) {
             // Invalid addressee ID to generate invalid conversation
@@ -263,25 +309,11 @@ public:
     {
         error err;
 
-        auto message_dispatched = [this] (contact::contact_id addressee
-            , message::message_id message_id
-            , pfs::utc_time_point dispatched_time) {
-
-            auto conv = this->conversation(addressee);
-
-            if (conv) {
-                error err;
-                conv.mark_dispatched(message_id, dispatched_time, & err);
-
-                if (err) {
-                    this->failure(err.what());
-                }
-            }
-        };
-
         auto result = _delivery_manager->dispatch(addressee
             , msg
-            , message_dispatched
+            , _message_dispatched
+            , _message_delivered
+            , _message_read
             , & err);
 
         if (!result) {

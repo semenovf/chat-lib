@@ -14,7 +14,6 @@
 #include "serializer.hpp"
 #include "pfs/memory.hpp"
 #include <functional>
-// #include <map>
 #include <vector>
 
 namespace chat {
@@ -63,6 +62,13 @@ class delivery_manager final
 {
     using rep_type = typename Backend::rep;
 
+public:
+    using message_dispatched_callback = std::function<void(contact::contact_id
+                , message::message_id
+                , pfs::utc_time_point)>;
+    using message_delivered_callback = message_dispatched_callback;
+    using message_read_callback = message_dispatched_callback;
+
 private:
     rep_type _rep;
 //     std::map<message::message_id, std::time_point> dispatch_pending;
@@ -93,9 +99,9 @@ public:
      */
     bool dispatch (contact::contact_id addressee
         , message::message_credentials const & msg
-        , std::function<void(contact::contact_id addressee
-            , message::message_id message_id
-            , pfs::utc_time_point dispatched_time)> message_dispatched
+        , message_dispatched_callback message_dispatched
+        , message_delivered_callback message_delivered
+        , message_read_callback message_read
         , error * perr = nullptr)
     {
         protocol::original_message m;
@@ -105,10 +111,13 @@ public:
         m.content       = msg.contents.has_value() ? to_string(*msg.contents) : std::string{};
 
         auto data = serialize<protocol::original_message>(m);
-
         error err;
 
-        if (!_rep.send_message(addressee, msg.id, data, message_dispatched, & err)) {
+        if (!_rep.send_message(addressee, msg.id, data
+                , message_dispatched
+                , message_delivered
+                , message_read
+                , & err)) {
             if (perr) *perr = err; else CHAT__THROW(err);
             return false;
         }

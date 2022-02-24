@@ -75,10 +75,24 @@ public:
     std::size_t unread_messages_count () const;
 
     /**
-     * Mark message dispatched.
+     * Mark message dispatched to addressee.
      */
     void mark_dispatched (message::message_id message_id
         , pfs::utc_time_point dispatched_time
+        , error * perr = nullptr);
+
+    /**
+     * Mark message delivered by addressee.
+     */
+    void mark_delivered (message::message_id message_id
+        , pfs::utc_time_point delivered_time
+        , error * perr = nullptr);
+
+    /**
+     * Mark message read by addressee.
+     */
+    void mark_read (message::message_id message_id
+        , pfs::utc_time_point read_time
         , error * perr = nullptr);
 
     /**

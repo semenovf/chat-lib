@@ -171,6 +171,42 @@ TEST_CASE("messenger") {
     REQUIRE(*messenger1);
     REQUIRE(*messenger2);
 
+    auto dispatched_callback = [] (chat::contact::contact_id addressee
+        , chat::message::message_id message_id
+        , pfs::utc_time_point /*dispatched_time*/) {
+
+        fmt::print("Message dispatched for #{}: #{}\n"
+            , to_string(addressee)
+            , to_string(message_id));
+    };
+
+    auto delivered_callback = [] (chat::contact::contact_id addressee
+        , chat::message::message_id message_id
+        , pfs::utc_time_point /*delivered_time*/) {
+
+        fmt::print("Message delivered for #{}: #{}\n"
+            , to_string(addressee)
+            , to_string(message_id));
+    };
+
+    auto read_callback = [] (chat::contact::contact_id addressee
+        , chat::message::message_id message_id
+        , pfs::utc_time_point /*read_time*/) {
+
+        fmt::print("Message read for #{}: #{}\n"
+            , to_string(addressee)
+            , to_string(message_id));
+    };
+
+    messenger1->message_dispatched.connect(dispatched_callback);
+    messenger2->message_dispatched.connect(dispatched_callback);
+
+    messenger1->message_delivered.connect(delivered_callback);
+    messenger2->message_delivered.connect(delivered_callback);
+
+    messenger1->message_read.connect(read_callback);
+    messenger2->message_read.connect(read_callback);
+
 ////////////////////////////////////////////////////////////////////////////////
 // Wipe before tests for clear
 ////////////////////////////////////////////////////////////////////////////////
@@ -215,14 +251,14 @@ TEST_CASE("messenger") {
     REQUIRE_EQ(contact1.alias, contactAlias1);
     REQUIRE_EQ(contact2.alias, contactAlias2);
 
-    REQUIRE(messenger1->add_contact(contact2)); // or add_or_update_contact()
-    REQUIRE(messenger2->add_contact(contact1)); // or add_or_update_contact()
+    REQUIRE(messenger1->add(contact2)); // or add_or_update_contact()
+    REQUIRE(messenger2->add(contact1)); // or add_or_update_contact()
 
-    REQUIRE_FALSE(messenger1->add_contact(contact2)); // Already exists
-    REQUIRE_FALSE(messenger2->add_contact(contact1)); // Already exists
+    REQUIRE_FALSE(messenger1->add(contact2)); // Already exists
+    REQUIRE_FALSE(messenger2->add(contact1)); // Already exists
 
-    REQUIRE(messenger1->add_or_update_contact(contact2)); // Ok, attempt to update
-    REQUIRE(messenger2->add_or_update_contact(contact1)); // Ok, attempt to update
+    REQUIRE(messenger1->update(contact2)); // Ok, attempt to update
+    REQUIRE(messenger2->update(contact1)); // Ok, attempt to update
 
     REQUIRE_EQ(messenger1->contacts_count(), 1);
     REQUIRE_EQ(messenger2->contacts_count(), 1);

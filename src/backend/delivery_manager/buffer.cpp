@@ -30,13 +30,15 @@ buffer::make (std::shared_ptr<queue_type> out
 bool buffer::rep::send_message (contact::contact_id addressee
     , message::message_id message_id
     , std::string const & data
-    , std::function<void(contact::contact_id
-        , message::message_id
-        , pfs::utc_time_point)> message_dispatched
+    , chat::delivery_manager<buffer>::message_dispatched_callback message_dispatched
+    , chat::delivery_manager<buffer>::message_delivered_callback message_delivered
+    , chat::delivery_manager<buffer>::message_read_callback message_read
     , error *)
 {
     out->push(data);
     message_dispatched(addressee, message_id, pfs::current_utc_time_point());
+    message_delivered(addressee, message_id, pfs::current_utc_time_point());
+    message_read(addressee, message_id, pfs::current_utc_time_point());
     return true;
 }
 
@@ -54,28 +56,5 @@ delivery_manager<BACKEND>::operator bool () const noexcept
 {
     return true;
 }
-
-// template <>
-// void
-// delivery_manager<BACKEND>::dispatch (contact::contact_id addressee
-//     , message::message_credentials const & msg, error * perr)
-// {
-//     protocol::original_message m;
-//     m.message_id    = msg.id;
-//     m.author_id     = msg.author_id;
-//     m.creation_time = msg.creation_time;
-//     m.content       = msg.contents.has_value() ? to_string(*msg.contents) : std::string{};
-//
-//     auto data = serialize<protocol::original_message>(m);
-//
-//     error err;
-//
-//     if (!_rep.send_message(addressee, data, [] (pfs::utc_time_point dispatched_time) {
-//             /*dispatched notification callback*/
-//         }, & err)) {
-//
-//         if (perr) *perr = err; else CHAT__THROW(err);
-//     }
-// }
 
 } // namespace chat

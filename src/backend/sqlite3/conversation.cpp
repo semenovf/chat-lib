@@ -133,24 +133,37 @@ conversation<BACKEND>::unread_messages_count () const
 namespace {
 
 std::string const UPDATE_DISPATCHED_TIME {
-    "UPDATE OR IGNORE `{}` SET `dispatched_time` = :dispatched_time"
+    "UPDATE OR IGNORE `{}` SET `dispatched_time` = :time"
+    " WHERE `message_id` = :message_id"
+};
+
+std::string const UPDATE_DELIVERED_TIME {
+    "UPDATE OR IGNORE `{}` SET `delivered_time` = :time"
+    " WHERE `message_id` = :message_id"
+};
+
+std::string const UPDATE_READ_TIME {
+    "UPDATE OR IGNORE `{}` SET `read_time` = :time"
     " WHERE `message_id` = :message_id"
 };
 
 } // namespace
 
-template <>
-void conversation<BACKEND>::mark_dispatched (message::message_id message_id
-    , pfs::utc_time_point dispatched_time
+static void mark_message_status (
+      backend::sqlite3::shared_db_handle dbh
+    , std::string const & sql
+    , std::string const & table_name
+    , message::message_id message_id
+    , pfs::utc_time_point time
+    , std::string const & status_str
     , error * perr)
 {
     debby::error storage_err;
-    auto stmt = _rep.dbh->prepare(fmt::format(UPDATE_DISPATCHED_TIME, _rep.table_name)
-        , true, & storage_err);
+    auto stmt = dbh->prepare(fmt::format(sql, table_name), true, & storage_err);
     bool success = !!stmt;
 
     success = success
-        && stmt.bind(":dispatched_time", to_storage(dispatched_time), & storage_err)
+        && stmt.bind(":time", to_storage(time), & storage_err)
         && stmt.bind(":message_id", to_storage(message_id), false, & storage_err);
 
     if (success) {
@@ -162,15 +175,56 @@ void conversation<BACKEND>::mark_dispatched (message::message_id message_id
 
     if (!success) {
         auto err = error{errc::storage_error
-            , fmt::format("mark dispatched failure: #{}", to_string(message_id))
+            , fmt::format("mark message {} failure: #{}", status_str, to_string(message_id))
             , storage_err.what()};
         if (perr) *perr = err; else CHAT__THROW(err);
     } else if (stmt.rows_affected() == 0) {
         auto err = error{errc::message_not_found
-            , fmt::format("no message mark dispatched: #{}"
-                , to_string(message_id))};
+            , fmt::format("no message mark {}: #{}", status_str, to_string(message_id))};
         if (perr) *perr = err; else CHAT__THROW(err);
     }
+}
+
+template <>
+void conversation<BACKEND>::mark_dispatched (message::message_id message_id
+    , pfs::utc_time_point dispatched_time
+    , error * perr)
+{
+    mark_message_status(_rep.dbh
+        , UPDATE_DISPATCHED_TIME
+        , _rep.table_name
+        , message_id
+        , dispatched_time
+        , "dispatched"
+        , perr);
+}
+
+template <>
+void conversation<BACKEND>::mark_delivered (message::message_id message_id
+    , pfs::utc_time_point delivered_time
+    , error * perr)
+{
+    mark_message_status(_rep.dbh
+        , UPDATE_DELIVERED_TIME
+        , _rep.table_name
+        , message_id
+        , delivered_time
+        , "delivered"
+        , perr);
+}
+
+template <>
+void conversation<BACKEND>::mark_read (message::message_id message_id
+    , pfs::utc_time_point read_time
+    , error * perr)
+{
+    mark_message_status(_rep.dbh
+        , UPDATE_READ_TIME
+        , _rep.table_name
+        , message_id
+        , read_time
+        , "read"
+        , perr);
 }
 
 namespace {

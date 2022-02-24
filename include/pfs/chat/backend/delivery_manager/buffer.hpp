@@ -16,6 +16,9 @@ namespace chat {
 namespace backend {
 namespace delivery_manager {
 
+//
+// For unit tests purposes.
+//
 struct buffer
 {
     using queue_type = pfs::ring_buffer<std::string, 256>;
@@ -31,6 +34,12 @@ struct buffer
             , std::function<void(contact::contact_id
                 , message::message_id
                 , pfs::utc_time_point)> message_dispatched
+            , std::function<void(contact::contact_id
+                , message::message_id
+                , pfs::utc_time_point)> message_delivered
+            , std::function<void(contact::contact_id
+                , message::message_id
+                , pfs::utc_time_point)> message_read
             , error * perr = nullptr);
     };
 
