@@ -11,18 +11,14 @@
 cmake_minimum_required (VERSION 3.11)
 project(chat-lib C CXX)
 
-option(CHAT__ENABLE_JANSSON "Enable `Jansson` library for JSON support" ON)
+option(CHAT__ENABLE_JANSSON_BACKEND "Enable `Jansson` library for JSON support" ON)
 option(CHAT__ENABLE_SQLITE3_CONTACT_MANAGER_BACKEND "Enable `sqlite3` contact manager backend" ON)
 option(CHAT__ENABLE_SQLITE3_MESSAGE_STORE_BACKEND "Enable `sqlite3` message store backend" ON)
 option(CHAT__ENABLE_CEREAL_SERIALIZER "Enable serialization based on `Cereal` library" ON)
 
 if (CHAT__ENABLE_CEREAL_SERIALIZER)
     if (NOT TARGET cereal)
-        add_library(cereal INTERFACE)
-
-        # Use mutexes to ensure thread safety
-        target_compile_definitions(cereal INTERFACE "CEREAL_THREAD_SAFE=1")
-        target_include_directories(cereal INTERFACE ${CMAKE_CURRENT_LIST_DIR}/3rdparty/cereal/include)
+        portable_target(INCLUDE_PROJECT ${CMAKE_CURRENT_LIST_DIR}/cmake/Cereal.cmake)
     endif()
 endif()
 
@@ -37,11 +33,6 @@ if (CHAT__ENABLE_SQLITE3_CONTACT_MANAGER_BACKEND
     set(DEBBY__ENABLE_SQLITE3 ON CACHE INTERNAL "")
 
     if (NOT TARGET pfs::debby)
-#         if (CHAT__ENABLE_ROCKSDB)
-#             set(DEBBY__ENABLE_ROCKSDB ON CACHE INTERNAL "")
-#             set(DEBBY__ROCKSDB_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/rocksdb" CACHE INTERNAL "")
-#         endif()
-
         portable_target(INCLUDE_PROJECT
             ${CMAKE_CURRENT_LIST_DIR}/3rdparty/pfs/debby/library.cmake)
     endif()
@@ -53,16 +44,13 @@ if (NOT TARGET pfs::netty)
 endif()
 
 if (NOT TARGET pfs::netty::p2p)
-    if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/cereal/cereal.hpp")
-        set(NETTY_P2P__CEREAL_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/cereal" CACHE INTERNAL "")
-    endif()
-
+    set(NETTY_P2P__CEREAL_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/cereal" CACHE INTERNAL "")
     portable_target(INCLUDE_PROJECT
         ${CMAKE_CURRENT_LIST_DIR}/3rdparty/pfs/netty/library-p2p.cmake)
 endif()
 
 if (NOT TARGET pfs::jeyson)
-    if (CHAT__ENABLE_JANSSON)
+    if (CHAT__ENABLE_JANSSON_BACKEND)
         set(JEYSON__ENABLE_JANSSON ON CACHE INTERNAL "")
         set(JEYSON__JANSSON_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/jansson" CACHE INTERNAL "")
     endif()
@@ -100,14 +88,10 @@ portable_target(LINK ${PROJECT_NAME} PUBLIC pfs::jeyson pfs::debby pfs::common)
 portable_target(LINK ${PROJECT_NAME} PRIVATE pfs::netty::p2p pfs::netty)
 portable_target(EXPORTS ${PROJECT_NAME} CHAT__EXPORTS CHAT__STATIC)
 
-if (CHAT__ENABLE_ROCKSDB)
-    portable_target(DEFINITIONS ${PROJECT_NAME} INTERFACE "CHAT__ROCKSDB_ENABLED=1")
-endif()
-
-if (CHAT__ENABLE_JANSSON)
+if (CHAT__ENABLE_JANSSON_BACKEND)
     portable_target(SOURCES ${PROJECT_NAME}
         ${CMAKE_CURRENT_LIST_DIR}/src/json_content.cpp)
-    portable_target(DEFINITIONS ${PROJECT_NAME} INTERFACE "CHAT__JANSSON_ENABLED=1")
+    portable_target(DEFINITIONS ${PROJECT_NAME} INTERFACE "CHAT__JANSSON_BACKEND_ENABLED=1")
 endif()
 
 if (CHAT__ENABLE_CEREAL_SERIALIZER)

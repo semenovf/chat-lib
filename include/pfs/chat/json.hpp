@@ -9,13 +9,13 @@
 #pragma once
 #include "pfs/jeyson/json.hpp"
 
-#if CHAT__JANSSON_ENABLED
-#include "pfs/jeyson/backend/jansson.hpp"
+#if CHAT__JANSSON_BACKEND_ENABLED
+#   include "pfs/jeyson/backend/jansson.hpp"
 #endif
 
 namespace chat {
 
-#if CHAT__JANSSON_ENABLED
+#if CHAT__JANSSON_BACKEND_ENABLED
 using json = jeyson::json<jeyson::jansson_backend>;
 #endif
 
