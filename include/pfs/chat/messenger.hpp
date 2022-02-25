@@ -195,7 +195,7 @@ public:
      * @return @c true if contact added successfully, @c false on error or
      *         contact already exists.
      */
-    bool add (contact::contact const & c)
+    bool add (contact::contact const & c, bool update_on_failure = false)
     {
         error err;
         auto rc = _contact_manager->contacts()->add(c, & err);
@@ -204,6 +204,10 @@ public:
         if (rc < 0) {
             failure(err.what());
             return false;
+        }
+
+        if (rc == 0 && update_on_failure) {
+            rc = this->update(c);
         }
 
         return rc > 0 ? true : false;
@@ -261,8 +265,6 @@ public:
         }
 
         return contact;
-
-        return _contact_manager->contacts().get(offset);
     }
 
     template <typename F>

@@ -14,7 +14,16 @@ project(chat-lib C CXX)
 option(CHAT__ENABLE_JANSSON_BACKEND "Enable `Jansson` library for JSON support" ON)
 option(CHAT__ENABLE_SQLITE3_CONTACT_MANAGER_BACKEND "Enable `sqlite3` contact manager backend" ON)
 option(CHAT__ENABLE_SQLITE3_MESSAGE_STORE_BACKEND "Enable `sqlite3` message store backend" ON)
+option(CHAT__ENABLE_NETTY_P2P_DELIVERY_MANAGER_BACKEND "Enable `netty-p2p` delivery manager backend " ON)
 option(CHAT__ENABLE_CEREAL_SERIALIZER "Enable serialization based on `Cereal` library" ON)
+
+portable_target(LIBRARY ${PROJECT_NAME} ALIAS pfs::chat)
+portable_target(SOURCES ${PROJECT_NAME}
+    ${CMAKE_CURRENT_LIST_DIR}/src/contact.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/src/emoji_db.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/src/error.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/src/mime.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/src/backend/delivery_manager/buffer.cpp)
 
 if (CHAT__ENABLE_CEREAL_SERIALIZER)
     if (NOT TARGET cereal)
@@ -38,15 +47,19 @@ if (CHAT__ENABLE_SQLITE3_CONTACT_MANAGER_BACKEND
     endif()
 endif()
 
-if (NOT TARGET pfs::netty)
-    portable_target(INCLUDE_PROJECT
-        ${CMAKE_CURRENT_LIST_DIR}/3rdparty/pfs/netty/library.cmake)
-endif()
+if (CHAT__ENABLE_NETTY_P2P_DELIVERY_MANAGER_BACKEND)
+    if (NOT TARGET pfs::netty)
+        portable_target(INCLUDE_PROJECT
+            ${CMAKE_CURRENT_LIST_DIR}/3rdparty/pfs/netty/library.cmake)
+    endif()
 
-if (NOT TARGET pfs::netty::p2p)
-    set(NETTY_P2P__CEREAL_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/cereal" CACHE INTERNAL "")
-    portable_target(INCLUDE_PROJECT
-        ${CMAKE_CURRENT_LIST_DIR}/3rdparty/pfs/netty/library-p2p.cmake)
+    if (NOT TARGET pfs::netty::p2p)
+        portable_target(INCLUDE_PROJECT
+            ${CMAKE_CURRENT_LIST_DIR}/3rdparty/pfs/netty/library-p2p.cmake)
+    endif()
+
+    portable_target(SOURCES ${PROJECT_NAME}
+        ${CMAKE_CURRENT_LIST_DIR}/src/backend/delivery_manager/netty_p2p.cpp)
 endif()
 
 if (NOT TARGET pfs::jeyson)
@@ -58,14 +71,6 @@ if (NOT TARGET pfs::jeyson)
     portable_target(INCLUDE_PROJECT
         ${CMAKE_CURRENT_LIST_DIR}/3rdparty/pfs/jeyson/library.cmake)
 endif()
-
-portable_target(LIBRARY ${PROJECT_NAME} ALIAS pfs::chat)
-portable_target(SOURCES ${PROJECT_NAME}
-    ${CMAKE_CURRENT_LIST_DIR}/src/contact.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/src/emoji_db.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/src/error.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/src/mime.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/src/backend/delivery_manager/buffer.cpp)
 
 if (CHAT__ENABLE_SQLITE3_CONTACT_MANAGER_BACKEND)
     portable_target(SOURCES ${PROJECT_NAME}
