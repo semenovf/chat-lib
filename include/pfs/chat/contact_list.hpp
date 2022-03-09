@@ -81,7 +81,11 @@ public:
      */
     int add (contact::group const & g, error * perr = nullptr)
     {
-        contact::contact c {g.id, g.alias, g.avatar, chat::contact::type_enum::group};
+        contact::contact c {g.id
+            , g.alias
+            , g.avatar
+            , g.description
+            , chat::contact::type_enum::group};
         return add(c, perr);
     }
 
@@ -97,7 +101,11 @@ public:
      */
     int update (contact::group const & g, error * perr = nullptr)
     {
-        contact::contact c {g.id, g.alias, g.avatar, chat::contact::type_enum::group};
+        contact::contact c {g.id
+            , g.alias
+            , g.avatar
+            , g.description
+            , chat::contact::type_enum::group};
         return update(c, perr);
     }
 

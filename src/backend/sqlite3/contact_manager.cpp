@@ -36,6 +36,7 @@ std::string const CREATE_CONTACTS_TABLE {
         "`id` {} NOT NULL UNIQUE"
         ", `alias` {} NOT NULL"
         ", `avatar` {}"
+        ", `description` {}"
         ", `type` {} NOT NULL"
         ", PRIMARY KEY(`id`)) WITHOUT ROWID"
 };
@@ -88,6 +89,7 @@ contact_manager::make (contact::person const & me
             , affinity_traits<contact::contact_id>::name()
             , affinity_traits<decltype(contact::contact{}.alias)>::name()
             , affinity_traits<decltype(contact::contact{}.avatar)>::name()
+            , affinity_traits<decltype(contact::contact{}.description)>::name()
             , affinity_traits<decltype(contact::contact{}.type)>::name())
         , fmt::format(CREATE_MEMBERS_TABLE
             , rep.members_table_name
@@ -170,6 +172,7 @@ contact_manager<BACKEND>::my_contact () const
     return contact::contact {_rep.me.id
         , _rep.me.alias
         , _rep.me.avatar
+        , _rep.me.description
         , contact::type_enum::person };
 }
 

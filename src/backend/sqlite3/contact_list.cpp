@@ -28,10 +28,11 @@ static bool fill_contact (backend::sqlite3::db_traits::result_type * res
 {
     input_record in {*res};
 
-    auto success = in["id"] >> c->id
-        && in["alias"]      >> c->alias
-        && in["avatar"]     >> c->avatar
-        && in["type"]       >> c->type;
+    auto success = in["id"]  >> c->id
+        && in["alias"]       >> c->alias
+        && in["avatar"]      >> c->avatar
+        && in["description"] >> c->description
+        && in["type"]        >> c->type;
 
     return success;
 }
@@ -60,7 +61,7 @@ contact_list::make (shared_db_handle dbh
 
 namespace {
 std::string const SELECT_ROWS_RANGE {
-    "SELECT `id`, `alias`, `avatar`, `type` FROM `{}` LIMIT {} OFFSET {}"
+    "SELECT `id`, `alias`, `avatar`, `description`, `type` FROM `{}` LIMIT {} OFFSET {}"
 };
 } // namespace
 
@@ -167,8 +168,8 @@ contact_list<BACKEND>::count (contact::type_enum type) const
 
 namespace {
 std::string const INSERT_CONTACT {
-    "INSERT OR IGNORE INTO `{}` (`id`, `alias`, `avatar`, `type`)"
-    " VALUES (:id, :alias, :avatar, :type)"
+    "INSERT OR IGNORE INTO `{}` (`id`, `alias`, `avatar`, `description`, `type`)"
+    " VALUES (:id, :alias, :avatar, :description, :type)"
 };
 } // namespace
 
@@ -187,6 +188,7 @@ contact_list<BACKEND>::add (contact::contact const & c, error * perr)
         && stmt.bind(":id"    , to_storage(c.id), false, & storage_err)
         && stmt.bind(":alias" , to_storage(c.alias), false, & storage_err)
         && stmt.bind(":avatar", to_storage(c.avatar), false, & storage_err)
+        && stmt.bind(":description", to_storage(c.description), false, & storage_err)
         && stmt.bind(":type"  , to_storage(c.type), & storage_err);
 
     if (success) {
@@ -243,7 +245,7 @@ contact_list<BACKEND>::batch_add (std::function<bool()> has_next
 namespace {
 
 std::string const UPDATE_CONTACT {
-    "UPDATE OR IGNORE `{}` SET `alias` = :alias, `avatar` = :avatar"
+    "UPDATE OR IGNORE `{}` SET `alias` = :alias, `avatar` = :avatar, `description` = :description"
     " WHERE `id` = :id AND `type` = :type"
 };
 
@@ -263,6 +265,7 @@ contact_list<BACKEND>::update (contact::contact const & c, error * perr)
     success = success
         && stmt.bind(":alias" , to_storage(c.alias), false, & storage_err)
         && stmt.bind(":avatar", to_storage(c.avatar), false, & storage_err)
+        && stmt.bind(":description", to_storage(c.description), false, & storage_err)
         && stmt.bind(":id"    , to_storage(c.id), false, & storage_err)
         && stmt.bind(":type"  , to_storage(c.type), & storage_err);
 
@@ -286,7 +289,7 @@ contact_list<BACKEND>::update (contact::contact const & c, error * perr)
 
 namespace {
 std::string const SELECT_CONTACT {
-    "SELECT `id`, `alias`, `avatar`, `type` FROM `{}` WHERE `id` = :id"
+    "SELECT `id`, `alias`, `avatar`, `description`, `type` FROM `{}` WHERE `id` = :id"
 };
 } // namespace
 
@@ -373,7 +376,7 @@ contact_list<BACKEND>::get (int offset, error * perr) const
 
 namespace {
 std::string const SELECT_ALL_CONTACTS {
-    "SELECT `id`, `alias`, `avatar`, `type` FROM `{}`"
+    "SELECT `id`, `alias`, `avatar`, `description`, `type` FROM `{}`"
 };
 } // namespace
 
