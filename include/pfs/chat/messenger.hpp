@@ -68,6 +68,8 @@ private:
     std::unique_ptr<contact_manager_type>  _contact_manager;
     std::unique_ptr<message_store_type>    _message_store;
     std::unique_ptr<delivery_manager_type> _delivery_manager;
+    contact::id_generator _contact_id_generator;
+    message::id_generator _message_id_generator;
 
     typename delivery_manager_type::message_dispatched_callback _message_dispatched;
     typename delivery_manager_type::message_delivered_callback  _message_delivered;
@@ -192,25 +194,65 @@ public:
     /**
      * Add contact.
      *
-     * @return @c true if contact added successfully, @c false on error or
-     *         contact already exists.
+     * @return Identifier of just added contact or @c chat::contact::contact_id{}
+     *         on error.
      */
-    bool add (contact::contact const & c, bool update_on_failure = false)
+    contact::contact_id add (contact::contact c)
     {
         error err;
+
+        if (c.id == contact::contact_id{}) {
+            c.id = _contact_id_generator.next();
+        }
+
         auto rc = _contact_manager->contacts()->add(c, & err);
 
         // Error
-        if (rc < 0) {
+        if (rc < 0 ) {
             failure(err.what());
             return false;
         }
 
-        if (rc == 0 && update_on_failure) {
-            rc = this->update(c);
-        }
+        return rc > 0 ? c.id : contact::contact_id{};
+    }
 
-        return rc > 0 ? true : false;
+    /**
+     * Add person contact.
+     *
+     * @return Identifier of just added contact or @c chat::contact::contact_id{}
+     *         on error.
+     */
+    contact::contact_id add (contact::person const & p)
+    {
+        contact::contact c { _contact_id_generator.next()
+            , p.alias, p.avatar, p.description, contact::type_enum::person};
+        return add(c);
+    }
+
+    /**
+     * Add group contact.
+     *
+     * @return Identifier of just added contact or @c chat::contact::contact_id{}
+     *         on error.
+     */
+    contact::contact_id add (contact::group const & g)
+    {
+        contact::contact c {_contact_id_generator.next()
+            , g.alias, g.avatar, g.description, contact::type_enum::group};
+        return add(c);
+    }
+
+    /**
+     * Add channel contact.
+     *
+     * @return Identifier of just added contact or @c chat::contact::contact_id{}
+     *         on error.
+     */
+    contact::contact_id add (contact::channel const & ch)
+    {
+        contact::contact c {_contact_id_generator.next()
+            , ch.alias, ch.avatar, ch.description, contact::type_enum::channel};
+        return add(c);
     }
 
     /**
@@ -231,6 +273,27 @@ public:
         }
 
         return rc > 0 ? true : false;
+    }
+
+    bool update (contact::person const & p)
+    {
+        contact::contact c {p.id, p.alias, p.avatar, p.description
+            , contact::type_enum::person};
+        return update(c);
+    }
+
+    bool update (contact::group const & g)
+    {
+        contact::contact c {g.id, g.alias, g.avatar, g.description
+            , contact::type_enum::group};
+        return update(c);
+    }
+
+    bool update (contact::channel const & ch)
+    {
+        contact::contact c {ch.id, ch.alias, ch.avatar, ch.description
+            , contact::type_enum::channel};
+        return update(c);
     }
 
     /**
