@@ -83,6 +83,11 @@ public:
     std::vector<contact::contact> members (contact::contact_id group_id
         , error * perr = nullptr) const;
 
+    /**
+     * Checks if contact @a member_id is the member of group @a group_id.
+     */
+    bool is_member_of (contact::contact_id member_id, contact::contact_id group_id) const;
+
 public:
     template <typename ...Args>
     static group_list make (Args &&... args)

@@ -316,5 +316,9 @@ TEST_CASE("groups") {
 
         REQUIRE_EQ(memebers[0].alias, c1.alias);
         REQUIRE_EQ(memebers[1].alias, c2.alias);
+
+        REQUIRE(groups->is_member_of(c1.id, g.id));
+        REQUIRE(groups->is_member_of(c2.id, g.id));
+        REQUIRE_FALSE(groups->is_member_of(c3.id, g.id));
     }
 }

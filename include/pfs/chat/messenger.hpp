@@ -277,6 +277,34 @@ public:
         }
     }
 
+    /**
+     * Adds member specified by @a member_id to the group specified by @a group_id.
+     *
+     * @return @c false on error or @c true if contact added was successfully
+     *         or it is already a member of the specified group.
+     */
+    bool add_member (contact::contact_id group_id, contact::contact_id member_id)
+    {
+        error err;
+        auto rc = _contact_manager->groups()->add_member(group_id, member_id, & err);
+
+        // Error
+        if (rc < 0) {
+            failure(err.what());
+            return false;
+        }
+
+        return rc > 0 ? true : false;
+    }
+
+    /**
+     * Checks if contact @a member_id is the member of group @a group_id.
+     */
+    bool is_member_of (contact::contact_id member_id, contact::contact_id group_id) const
+    {
+        return _contact_manager->groups()->is_member_of(member_id, group_id);
+    }
+
     conversation_type conversation (contact::contact_id addressee_id) const
     {
         // Check for contact exists

@@ -210,4 +210,43 @@ group_list<BACKEND>::members (contact::contact_id group_id, error * perr) const
     return members;
 }
 
+namespace {
+std::string const IS_MEMBER_OF {
+    "SELECT COUNT(1) as count FROM `{}`"
+    " WHERE `group_id` = :group_id AND `member_id` = :member_id"
+};
+} // namespace
+
+template <>
+bool
+group_list<BACKEND>::is_member_of (contact::contact_id member_id
+    , contact::contact_id group_id) const
+{
+    std::size_t count = 0;
+    debby::error err;
+    auto stmt = _rep.dbh->prepare(fmt::format(IS_MEMBER_OF, _rep.members_table_name)
+        , true, & err);
+    bool success = !!stmt;
+
+    success = success
+        && stmt.bind(":group_id" , to_storage(group_id), false, & err)
+        && stmt.bind(":member_id" , to_storage(member_id), false, & err);
+
+    if (success) {
+        auto res = stmt.exec(& err);
+
+        if (res.has_more()) {
+            auto opt = res.get<std::size_t>(0);
+            assert(opt.has_value());
+            count = *opt;
+            res.next();
+        }
+
+        if (res.is_error())
+            success = false;
+    }
+
+    return success ? count > 0 : false;
+}
+
 } // namespace chat
