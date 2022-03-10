@@ -304,6 +304,8 @@ TEST_CASE("groups") {
         REQUIRE(contact_manager.gref(g.id).is_member_of(c1.id));
         REQUIRE(contact_manager.gref(g.id).is_member_of(c2.id));
         REQUIRE_FALSE(contact_manager.gref(g.id).is_member_of(c3.id));
+
+        REQUIRE_EQ(contact_manager.gref(g.id).count(), 2);
     }
 
      // TODO Check remove methods

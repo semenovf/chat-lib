@@ -219,4 +219,40 @@ contact_manager<BACKEND>::group_ref::is_member_of (contact::contact_id member_id
     return success ? count > 0 : false;
 }
 
+namespace {
+std::string const MEMBER_COUNT {
+    "SELECT COUNT(1) as count FROM `{}` WHERE `group_id` = :group_id"
+};
+} // namespace
+
+template <>
+std::size_t contact_manager<BACKEND>::group_ref::count () const
+{
+    std::size_t count = 0;
+    debby::error err;
+    auto & rep = _pmanager->_rep;
+    auto stmt = rep.dbh->prepare(fmt::format(MEMBER_COUNT, rep.members_table_name)
+        , true, & err);
+    bool success = !!stmt;
+
+    success = success
+        && stmt.bind(":group_id" , to_storage(_id), false, & err);
+
+    if (success) {
+        auto res = stmt.exec(& err);
+
+        if (res.has_more()) {
+            auto opt = res.get<std::size_t>(0);
+            assert(opt.has_value());
+            count = *opt;
+            res.next();
+        }
+
+        if (res.is_error())
+            success = false;
+    }
+
+    return count;
+}
+
 } // namespace chat

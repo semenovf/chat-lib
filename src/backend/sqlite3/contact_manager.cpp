@@ -242,6 +242,19 @@ contact_manager<BACKEND>::get (int offset, error * perr) const
     return _rep.contacts->get(offset, perr);
 }
 
+template <>
+contact_manager<BACKEND>::group_ref
+contact_manager<BACKEND>::gref (contact::contact_id group_id)
+{
+    error err;
+    auto c = get(group_id, & err);
+
+    if (is_valid(c) && c.type == contact::type_enum::group)
+        return group_ref{group_id, this};
+
+    return group_ref{};
+}
+
 namespace {
 std::string const REMOVE_CONTACT {
     "DELETE from `{}` WHERE `id` = :id"

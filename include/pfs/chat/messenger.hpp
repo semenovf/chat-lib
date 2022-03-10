@@ -184,6 +184,14 @@ public:
     }
 
     /**
+     * Count of contacts in specified group.
+     */
+    std::size_t members_count (contact::contact_id group_id) const
+    {
+        return _contact_manager->gref(group_id).count();
+    }
+
+    /**
      * Total count of contacts with specified @a type.
      */
     std::size_t contacts_count (contact::type_enum type) const

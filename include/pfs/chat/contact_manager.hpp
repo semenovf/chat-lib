@@ -32,12 +32,22 @@ public:
         contact::contact_id _id;
 
     private:
+        group_ref () : _pmanager(nullptr) {}
+
         group_ref (contact::contact_id id, contact_manager * pmanager)
             : _pmanager(pmanager)
             , _id(id)
         {}
 
     public:
+        /**
+         * Checks if group reference is valid.
+         */
+        operator bool () const
+        {
+            return _pmanager != nullptr;
+        }
+
         /**
          * Adds member specified by @a member_id to the group specified by @a group_id.
          *
@@ -60,6 +70,11 @@ public:
          * Checks if contact @a member_id is the member of group @a group_id.
          */
         bool is_member_of (contact::contact_id member_id) const;
+
+        /**
+         * Count of members in group.
+         */
+        std::size_t count () const;
     };
 
 private:
@@ -212,12 +227,10 @@ public:
     }
 
     /**
-     * Group reference.
+     * Group reference if @a group_id is identifier of exist group or invalid
+     * reference otherwise.
      */
-    group_ref gref (contact::contact_id group_id)
-    {
-        return group_ref(group_id, this);
-    }
+    group_ref gref (contact::contact_id group_id);
 
     /**
      * Removes contact.
