@@ -57,6 +57,11 @@ public:
     int update (contact::contact const & c, error * perr = nullptr);
 
     /**
+     * Removes contact from contact list.
+     */
+    bool remove (contact::contact_id id, error * perr);
+
+    /**
      * Get contact by @a id. On error returns invalid contact.
      */
     contact::contact get (contact::contact_id id, error * perr = nullptr) const;

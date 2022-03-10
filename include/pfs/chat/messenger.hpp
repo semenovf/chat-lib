@@ -312,15 +312,15 @@ public:
     bool remove (contact::contact_id id)
     {
         error err;
-        auto rc = _contact_manager->remove(id, & err);
+        auto success = _contact_manager->remove(id, & err);
 
         // Error
-        if (rc < 0) {
+        if (! success) {
             failure(err.what());
             return false;
         }
 
-        return rc > 0 ? true : false;
+        return success;
     }
 
     /**
@@ -385,7 +385,7 @@ public:
             return false;
         }
 
-        auto rc = group_ref->add_member(member_id, & err);
+        auto rc = group_ref.add_member(member_id, & err);
 
         // Error
         if (rc < 0) {
@@ -401,7 +401,12 @@ public:
      */
     bool is_member_of (contact::contact_id member_id, contact::contact_id group_id) const
     {
-        auto group_ref = _contact_manager->groups()->ref(group_id);
+        error err;
+        auto group_ref = _contact_manager->gref(group_id);
+
+        if (!group_ref)
+            return false;
+
         return group_ref.is_member_of(member_id);
     }
 

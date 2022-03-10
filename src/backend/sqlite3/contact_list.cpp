@@ -209,39 +209,6 @@ contact_list<BACKEND>::add (contact::contact const & c, error * perr)
     return stmt.rows_affected();
 }
 
-// template <>
-// int
-// contact_list<BACKEND>::batch_add (std::function<bool()> has_next
-//     , std::function<contact::contact()> next
-//     , error * perr)
-// {
-//     int counter = 0;
-//     bool success = _rep.dbh->begin();
-//
-//     if (success) {
-//         error err;
-//
-//         while (!err && has_next()) {
-//             auto n = add(next(), & err);
-//             counter += n > 0 ? 1 : 0;
-//         }
-//
-//         if (err) {
-//             if (perr) *perr = err; else CHAT__THROW(err);
-//             success = false;
-//         }
-//     }
-//
-//     if (success) {
-//         _rep.dbh->commit();
-//     } else {
-//         _rep.dbh->rollback();
-//         counter = -1;
-//     }
-//
-//     return counter;
-// }
-
 namespace {
 
 std::string const UPDATE_CONTACT {
@@ -285,6 +252,45 @@ contact_list<BACKEND>::update (contact::contact const & c, error * perr)
     }
 
     return stmt.rows_affected();
+}
+
+namespace {
+std::string const REMOVE_CONTACT {
+    "DELETE from `{}` WHERE `id` = :id"
+};
+} // namespace
+
+template <>
+bool
+contact_list<BACKEND>::remove (contact::contact_id id, error * perr)
+{
+    BACKEND::invalidate_cache(& _rep);
+
+    debby::error storage_err;
+    auto stmt = _rep.dbh->prepare(fmt::format(REMOVE_CONTACT, _rep.table_name)
+        , true, & storage_err);
+    bool success = !!stmt;
+
+    success = success
+        && stmt.bind(":id", to_storage(id), false, & storage_err);
+
+    if (success) {
+        auto res = stmt.exec(& storage_err);
+
+        if (res.is_error())
+            success = false;
+    }
+
+    if (!success) {
+        error err{errc::storage_error
+            , fmt::format("remove contact failure: #{}"
+                , to_string(id))
+            , storage_err.what()};
+        if (perr) *perr = err; else CHAT__THROW(err);
+        return false;
+    }
+
+    return success;
 }
 
 namespace {

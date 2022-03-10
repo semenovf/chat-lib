@@ -256,10 +256,6 @@ contact_manager<BACKEND>::gref (contact::contact_id group_id)
 }
 
 namespace {
-std::string const REMOVE_CONTACT {
-    "DELETE from `{}` WHERE `id` = :id"
-};
-
 std::string const REMOVE_MEMBERSHIPS {
     "DELETE from `{}` WHERE `member_id` = :member_id"
 };
@@ -275,28 +271,29 @@ bool
 contact_manager<BACKEND>::remove (contact::contact_id id, error * perr)
 {
     debby::error storage_err;
-    auto stmt1 = _rep.dbh->prepare(fmt::format(REMOVE_CONTACT, _rep.contacts_table_name)
+    auto stmt1 = _rep.dbh->prepare(fmt::format(REMOVE_MEMBERSHIPS, _rep.members_table_name)
         , true, & storage_err);
-    auto stmt2 = _rep.dbh->prepare(fmt::format(REMOVE_MEMBERSHIPS, _rep.members_table_name)
+    auto stmt2 = _rep.dbh->prepare(fmt::format(REMOVE_GROUP, _rep.members_table_name)
         , true, & storage_err);
-    auto stmt3 = _rep.dbh->prepare(fmt::format(REMOVE_GROUP, _rep.members_table_name)
-        , true, & storage_err);
-    bool success = !!stmt1 && !!stmt2 && !!stmt3;
+    bool success = !!stmt1 && !!stmt2;
 
     success = success
-        && stmt1.bind(":id", to_storage(id), false, & storage_err)
-        && stmt2.bind(":member_id", to_storage(id), false, & storage_err)
+        && stmt1.bind(":member_id", to_storage(id), false, & storage_err)
         && stmt2.bind(":group_id", to_storage(id), false, & storage_err);
 
     if (success) {
-        success = _rep.dbh->begin();
+        _rep.dbh->begin();
 
-        for (auto * stmt: {& stmt1, & stmt2, & stmt3}) {
-            auto res = stmt->exec(& storage_err);
+        success = _rep.contacts->remove(id, perr);
 
-            if (res.is_error()) {
-                success = false;
-                break;
+        if (success) {
+            for (auto * stmt: {& stmt1, & stmt2}) {
+                auto res = stmt->exec(& storage_err);
+
+                if (res.is_error()) {
+                    success = false;
+                    break;
+                }
             }
         }
 
