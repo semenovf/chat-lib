@@ -30,6 +30,8 @@ bool
 contact_manager<BACKEND>::group_ref::add_member(contact::contact_id member_id
     , error * perr)
 {
+    PFS__ASSERT(_pmanager, "");
+
     error err;
     auto & rep = _pmanager->_rep;
 
@@ -96,6 +98,8 @@ bool
 contact_manager<BACKEND>::group_ref::remove_member (contact::contact_id member_id
     , error * perr)
 {
+    PFS__ASSERT(_pmanager, "");
+
     debby::error storage_err;
     auto & rep = _pmanager->_rep;
     auto stmt = rep.dbh->prepare(fmt::format(REMOVE_MEMBER, rep.members_table_name)
@@ -137,6 +141,8 @@ template <>
 std::vector<contact::contact>
 contact_manager<BACKEND>::group_ref::members (error * perr) const
 {
+    PFS__ASSERT(_pmanager, "");
+
     debby::error storage_err;
     auto & rep = _pmanager->_rep;
     auto stmt = rep.dbh->prepare(fmt::format(SELECT_MEMBERS
@@ -191,6 +197,8 @@ template <>
 bool
 contact_manager<BACKEND>::group_ref::is_member_of (contact::contact_id member_id) const
 {
+    PFS__ASSERT(_pmanager, "");
+
     std::size_t count = 0;
     debby::error err;
     auto & rep = _pmanager->_rep;
@@ -228,6 +236,8 @@ std::string const MEMBER_COUNT {
 template <>
 std::size_t contact_manager<BACKEND>::group_ref::count () const
 {
+    PFS__ASSERT(_pmanager, "");
+
     std::size_t count = 0;
     debby::error err;
     auto & rep = _pmanager->_rep;

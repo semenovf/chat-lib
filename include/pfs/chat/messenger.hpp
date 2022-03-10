@@ -188,7 +188,15 @@ public:
      */
     std::size_t members_count (contact::contact_id group_id) const
     {
-        return _contact_manager->gref(group_id).count();
+        auto group_ref = _contact_manager->gref(group_id);
+
+        if (!group_ref) {
+            failure(fmt::format("attempt to get members count of non-existent group: #{}"
+                , to_string(group_id)));
+            return 0;
+        }
+
+        return group_ref ? group_ref.count() : 0;
     }
 
     /**
@@ -247,19 +255,6 @@ public:
     {
         contact::contact c {_contact_id_generator.next()
             , g.alias, g.avatar, g.description, contact::type_enum::group};
-        return add(c);
-    }
-
-    /**
-     * Add channel contact.
-     *
-     * @return Identifier of just added contact or @c chat::contact::contact_id{}
-     *         on error.
-     */
-    contact::contact_id add (contact::channel const & ch)
-    {
-        contact::contact c {_contact_id_generator.next()
-            , ch.alias, ch.avatar, ch.description, contact::type_enum::channel};
         return add(c);
     }
 
@@ -382,7 +377,14 @@ public:
     bool add_member (contact::contact_id group_id, contact::contact_id member_id)
     {
         error err;
-        auto group_ref = _contact_manager->groups()->ref(group_id);
+        auto group_ref = _contact_manager->gref(group_id);
+
+        if (!group_ref) {
+            failure(fmt::format("attempt to add member into non-existent group: #{}"
+                , to_string(group_id)));
+            return false;
+        }
+
         auto rc = group_ref->add_member(member_id, & err);
 
         // Error
