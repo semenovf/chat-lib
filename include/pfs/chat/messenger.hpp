@@ -184,6 +184,31 @@ public:
     }
 
     /**
+        * Get members of the specified group.
+        */
+    std::vector<contact::contact> members (contact::contact_id group_id) const
+    {
+        error err;
+
+        auto group_ref = _contact_manager->gref(group_id);
+
+        if (!group_ref) {
+            failure(fmt::format("attempt to get members of non-existent group: #{}"
+                , to_string(group_id)));
+            return std::vector<contact::contact>{};
+        }
+
+        auto result = group_ref.members(& err);
+
+        if (err) {
+            failure(err.what());
+            result.clear();
+        }
+
+        return result;
+    }
+
+    /**
      * Count of contacts in specified group.
      */
     std::size_t members_count (contact::contact_id group_id) const
