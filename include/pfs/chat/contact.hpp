@@ -76,6 +76,12 @@ struct channel
     std::string description;
 };
 
+template <typename T>
+inline bool is_valid (T const & t)
+{
+    return t.id != contact_id{};
+}
+
 CHAT__EXPORT pfs::optional<type_enum> to_type_enum (int n);
 CHAT__EXPORT std::string to_string (type_enum type);
 

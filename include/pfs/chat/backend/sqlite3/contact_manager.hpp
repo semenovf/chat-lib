@@ -10,10 +10,8 @@
 #pragma once
 #include "db_traits.hpp"
 #include "contact_list.hpp"
-#include "group_list.hpp"
 #include "pfs/chat/contact.hpp"
 #include "pfs/chat/contact_list.hpp"
-#include "pfs/chat/group_list.hpp"
 #include <memory>
 #include <string>
 
@@ -24,7 +22,6 @@ namespace sqlite3 {
 struct contact_manager
 {
     using contact_list_type = chat::contact_list<contact_list>;
-    using group_list_type   = chat::group_list<group_list>;
 
     struct rep_type
     {
@@ -34,7 +31,6 @@ struct contact_manager
         std::string      members_table_name;
         std::string      followers_table_name;
         std::shared_ptr<contact_list_type> contacts;
-        std::shared_ptr<group_list_type>   groups;
     };
 
     static rep_type make (contact::person const & me

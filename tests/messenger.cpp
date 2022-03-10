@@ -251,11 +251,11 @@ TEST_CASE("messenger") {
     REQUIRE_EQ(contact1.alias, contactAlias1);
     REQUIRE_EQ(contact2.alias, contactAlias2);
 
-    REQUIRE(messenger1->add(contact2)); // or add_or_update_contact()
-    REQUIRE(messenger2->add(contact1)); // or add_or_update_contact()
+    REQUIRE_NE(messenger1->add(contact2), chat::contact::contact_id{});
+    REQUIRE_NE(messenger2->add(contact1), chat::contact::contact_id{});
 
-    REQUIRE_FALSE(messenger1->add(contact2)); // Already exists
-    REQUIRE_FALSE(messenger2->add(contact1)); // Already exists
+    REQUIRE_EQ(messenger1->add(contact2), chat::contact::contact_id{}); // Already exists
+    REQUIRE_EQ(messenger2->add(contact1), chat::contact::contact_id{}); // Already exists
 
     REQUIRE(messenger1->update(contact2)); // Ok, attempt to update
     REQUIRE(messenger2->update(contact1)); // Ok, attempt to update

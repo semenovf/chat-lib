@@ -45,7 +45,6 @@ using contact_t = chat::contact::contact;
 using group_t = chat::contact::group;
 using contact_manager_t = chat::contact_manager<chat::backend::sqlite3::contact_manager>;
 using contact_list_t = contact_manager_t::contact_list_type;
-using group_list_t = contact_manager_t::group_list_type;
 
 struct forward_iterator : public pfs::iterator_facade<
           pfs::forward_iterator_tag
@@ -86,14 +85,6 @@ TEST_CASE("constructors") {
     REQUIRE_FALSE(std::is_move_assignable<contact_list_t>::value);
     REQUIRE(std::is_destructible<contact_list_t>::value);
 
-    // Group list public constructors/assign operators
-    REQUIRE_FALSE(std::is_default_constructible<group_list_t>::value);
-    REQUIRE_FALSE(std::is_copy_constructible<group_list_t>::value);
-    REQUIRE_FALSE(std::is_copy_assignable<group_list_t>::value);
-    REQUIRE(std::is_move_constructible<group_list_t>::value);
-    REQUIRE_FALSE(std::is_move_assignable<group_list_t>::value);
-    REQUIRE(std::is_destructible<group_list_t>::value);
-
     // Contact manager public constructors/assign operators
     REQUIRE_FALSE(std::is_default_constructible<contact_manager_t>::value);
     REQUIRE_FALSE(std::is_copy_constructible<contact_manager_t>::value);
@@ -114,12 +105,10 @@ TEST_CASE("initialization") {
 
     REQUIRE(contact_manager);
 
-    auto contacts = contact_manager.contacts();
-
-    if (contacts->count() > 0)
+    if (contact_manager.count() > 0)
         REQUIRE(contact_manager.wipe());
 
-    REQUIRE_EQ(contacts->count(), 0);
+    REQUIRE_EQ(contact_manager.count(), 0);
 }
 
 TEST_CASE("contacts") {
@@ -132,20 +121,18 @@ TEST_CASE("contacts") {
 
     REQUIRE(contact_manager);
 
-    auto contacts = contact_manager.contacts();
-
-    REQUIRE_EQ(contacts->add(forward_iterator{NAMES}
+    REQUIRE_EQ(contact_manager.add(forward_iterator{NAMES}
             , forward_iterator{NAMES + sizeof(NAMES)/sizeof(NAMES[0])})
         , sizeof(NAMES) / sizeof(NAMES[0]));
 
     {
-        auto count = contacts->count();
+        auto count = contact_manager.count();
         REQUIRE_EQ(count, sizeof(NAMES) / sizeof(NAMES[0]));
     }
 
     std::vector<chat::contact::contact> all_contacts;
 
-    contacts->for_each([& all_contacts] (contact_t const & c) {
+    contact_manager.for_each([& all_contacts] (contact_t const & c) {
 //         fmt::print("{} | {:10} | {}\n"
 //             , to_string(c.id)
 //             , c.alias
@@ -155,7 +142,7 @@ TEST_CASE("contacts") {
 
     // No new contacts added as they already exist.
     {
-        auto count = contacts->add(all_contacts.cbegin(), all_contacts.cend());
+        auto count = contact_manager.add(all_contacts.cbegin(), all_contacts.cend());
         REQUIRE_EQ(count, 0);
     }
 
@@ -164,7 +151,7 @@ TEST_CASE("contacts") {
         auto c = all_contacts[0];
         c.alias = "NewAlias";
 
-        auto count = contacts->update(c);
+        auto count = contact_manager.update(c);
         REQUIRE_EQ(count, 1);
     }
 
@@ -175,14 +162,14 @@ TEST_CASE("contacts") {
         c.alias = "Noname";
         c.type = chat::contact::type_enum::person;
 
-        auto count = contacts->update(c);
+        auto count = contact_manager.update(c);
         REQUIRE_EQ(count, 0);
     }
 
     // Get contact by id
     {
         chat::error err;
-        auto c = contacts->get(all_contacts[1].id, & err);
+        auto c = contact_manager.get(all_contacts[1].id, & err);
         REQUIRE_FALSE(err);
         REQUIRE_EQ(c.alias, all_contacts[1].alias);
         REQUIRE_EQ(c.type, all_contacts[1].type);
@@ -191,7 +178,7 @@ TEST_CASE("contacts") {
     // Get contact by offset
     {
         chat::error err;
-        auto c = contacts->get(1, & err);
+        auto c = contact_manager.get(1, & err);
         REQUIRE_FALSE(err);
         REQUIRE_EQ(c.alias, all_contacts[1].alias);
         REQUIRE_EQ(c.type, all_contacts[1].type);
@@ -200,7 +187,7 @@ TEST_CASE("contacts") {
     // Attempt to get non-existent contact
     {
         chat::error err;
-        auto c = contacts->get(pfs::generate_uuid(), & err);
+        auto c = contact_manager.get(pfs::generate_uuid(), & err);
         REQUIRE(err);
     }
 }
@@ -215,20 +202,17 @@ TEST_CASE("groups") {
 
     REQUIRE(contact_manager);
 
-    auto contacts = contact_manager.contacts();
-    auto groups = contact_manager.groups();
-
     {
         group_t g;
         g.alias = "Group 0";
         g.id = pfs::generate_uuid();
 
-        REQUIRE_EQ(groups->add(g), 1);
+        REQUIRE_EQ(contact_manager.add(g), 1);
 
         // No new group added as it already exist
-        REQUIRE_EQ(groups->add(g), 0);
+        REQUIRE_EQ(contact_manager.add(g), 0);
 
-        REQUIRE_EQ(groups->count(), 1);
+        REQUIRE_EQ(contact_manager.group_count(), 1);
     }
 
     chat::contact::contact_id sample_id;
@@ -239,12 +223,12 @@ TEST_CASE("groups") {
         g.alias = "Group 1";
         g.id = pfs::generate_uuid();
 
-        REQUIRE_EQ(groups->add(g), 1);
+        REQUIRE_EQ(contact_manager.add(g), 1);
 
         g.alias = sample_alias;
 
-        REQUIRE_EQ(groups->update(g), 1);
-        REQUIRE_EQ(groups->count(), 2);
+        REQUIRE_EQ(contact_manager.update(g), 1);
+        REQUIRE_EQ(contact_manager.group_count(), 2);
 
         sample_id = g.id;
     }
@@ -255,13 +239,13 @@ TEST_CASE("groups") {
         g.id = pfs::generate_uuid();
         g.alias = "Noname";
 
-        REQUIRE_EQ(groups->update(g), 0);
+        REQUIRE_EQ(contact_manager.update(g), 0);
     }
 
     // Get contact by id
     {
         chat::error err;
-        auto g = groups->get(sample_id, & err);
+        auto g = contact_manager.get(sample_id, & err);
         REQUIRE_FALSE(err);
         REQUIRE_EQ(g.alias, sample_alias);
     }
@@ -269,7 +253,7 @@ TEST_CASE("groups") {
     // Attempt to get non-existent contact
     {
         chat::error err;
-        auto g = groups->get(pfs::generate_uuid(), & err);
+        auto g = contact_manager.get(pfs::generate_uuid(), & err);
         REQUIRE(err);
     }
 
@@ -279,22 +263,22 @@ TEST_CASE("groups") {
         g.alias = "Group 3";
         g.id = pfs::generate_uuid();
 
-        REQUIRE_EQ(groups->add(g), 1);
-        REQUIRE_EQ(groups->count(), 3);
+        REQUIRE_EQ(contact_manager.add(g), 1);
+        REQUIRE_EQ(contact_manager.group_count(), 3);
 
         contact_t c1;
         c1.id = pfs::generate_uuid();
         c1.alias = "Contact 1 for " + g.alias;
         c1.type = chat::contact::type_enum::person;
 
-        REQUIRE_EQ(contacts->add(c1), 1);
+        REQUIRE_EQ(contact_manager.add(c1), 1);
 
         contact_t c2;
         c2.id = pfs::generate_uuid();
         c2.alias = "Contact 2 for " + g.alias;
         c2.type = chat::contact::type_enum::person;
 
-        REQUIRE_EQ(contacts->add(c2), 1);
+        REQUIRE_EQ(contact_manager.add(c2), 1);
 
         // Only person can be added to group now.
         // NOTE This behavior is subject to change in the future.
@@ -303,22 +287,24 @@ TEST_CASE("groups") {
         c3.alias = "Contact 3 for " + g.alias;
         c3.type = chat::contact::type_enum::group;
 
-        REQUIRE_EQ(contacts->add(c3), 1);
+        REQUIRE_EQ(contact_manager.add(c3), 1);
 
-        REQUIRE(groups->add_member(g.id, c1.id));
-        REQUIRE(groups->add_member(g.id, c2.id));
+        REQUIRE(contact_manager.gref(g.id).add_member(c1.id));
+        REQUIRE(contact_manager.gref(g.id).add_member(c2.id));
 
         chat::error err;
-        REQUIRE_FALSE(groups->add_member(g.id, c3.id, & err));
+        REQUIRE_FALSE(contact_manager.gref(g.id).add_member(c3.id, & err));
 
-        auto memebers = groups->members(g.id);
+        auto memebers = contact_manager.gref(g.id).members();
         REQUIRE(memebers.size() == 2);
 
         REQUIRE_EQ(memebers[0].alias, c1.alias);
         REQUIRE_EQ(memebers[1].alias, c2.alias);
 
-        REQUIRE(groups->is_member_of(c1.id, g.id));
-        REQUIRE(groups->is_member_of(c2.id, g.id));
-        REQUIRE_FALSE(groups->is_member_of(c3.id, g.id));
+        REQUIRE(contact_manager.gref(g.id).is_member_of(c1.id));
+        REQUIRE(contact_manager.gref(g.id).is_member_of(c2.id));
+        REQUIRE_FALSE(contact_manager.gref(g.id).is_member_of(c3.id));
     }
+
+     // TODO Check remove methods
 }

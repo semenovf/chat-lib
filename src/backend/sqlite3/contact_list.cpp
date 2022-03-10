@@ -209,38 +209,38 @@ contact_list<BACKEND>::add (contact::contact const & c, error * perr)
     return stmt.rows_affected();
 }
 
-template <>
-int
-contact_list<BACKEND>::batch_add (std::function<bool()> has_next
-    , std::function<contact::contact()> next
-    , error * perr)
-{
-    int counter = 0;
-    bool success = _rep.dbh->begin();
-
-    if (success) {
-        error err;
-
-        while (!err && has_next()) {
-            auto n = add(next(), & err);
-            counter += n > 0 ? 1 : 0;
-        }
-
-        if (err) {
-            if (perr) *perr = err; else CHAT__THROW(err);
-            success = false;
-        }
-    }
-
-    if (success) {
-        _rep.dbh->commit();
-    } else {
-        _rep.dbh->rollback();
-        counter = -1;
-    }
-
-    return counter;
-}
+// template <>
+// int
+// contact_list<BACKEND>::batch_add (std::function<bool()> has_next
+//     , std::function<contact::contact()> next
+//     , error * perr)
+// {
+//     int counter = 0;
+//     bool success = _rep.dbh->begin();
+//
+//     if (success) {
+//         error err;
+//
+//         while (!err && has_next()) {
+//             auto n = add(next(), & err);
+//             counter += n > 0 ? 1 : 0;
+//         }
+//
+//         if (err) {
+//             if (perr) *perr = err; else CHAT__THROW(err);
+//             success = false;
+//         }
+//     }
+//
+//     if (success) {
+//         _rep.dbh->commit();
+//     } else {
+//         _rep.dbh->rollback();
+//         counter = -1;
+//     }
+//
+//     return counter;
+// }
 
 namespace {
 

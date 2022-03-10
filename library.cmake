@@ -77,7 +77,7 @@ if (CHAT__ENABLE_SQLITE3_CONTACT_MANAGER_BACKEND)
         ${CMAKE_CURRENT_LIST_DIR}/src/backend/sqlite3/db_traits.cpp
         ${CMAKE_CURRENT_LIST_DIR}/src/backend/sqlite3/contact_manager.cpp
         ${CMAKE_CURRENT_LIST_DIR}/src/backend/sqlite3/contact_list.cpp
-        ${CMAKE_CURRENT_LIST_DIR}/src/backend/sqlite3/group_list.cpp)
+        ${CMAKE_CURRENT_LIST_DIR}/src/backend/sqlite3/group_ref.cpp)
 endif()
 
 if (CHAT__ENABLE_SQLITE3_MESSAGE_STORE_BACKEND)

@@ -125,15 +125,6 @@ contact_manager::make (contact::person const & me
         rep.contacts = std::make_shared<contact_list_type>(
             contact_list_type::make(dbh, rep.contacts_table_name, & err));
 
-        if (!err) {
-            rep.groups = std::make_shared<group_list_type>(
-                group_list_type::make(dbh
-                    , rep.contacts_table_name
-                    , rep.members_table_name
-                    , rep.contacts
-                    , & err));
-        }
-
         if (err) {
             if (perr) *perr = err; CHAT__THROW(err);
             success = false;
@@ -177,22 +168,146 @@ contact_manager<BACKEND>::my_contact () const
 }
 
 template <>
-std::shared_ptr<contact_manager<BACKEND>::contact_list_type>
-contact_manager<BACKEND>::contacts () const noexcept
+std::size_t
+contact_manager<BACKEND>::count () const
 {
-    return _rep.contacts;
+    return _rep.contacts->count();
 }
 
 template <>
-std::shared_ptr<contact_manager<BACKEND>::group_list_type>
-contact_manager<BACKEND>::groups () const noexcept
+std::size_t
+contact_manager<BACKEND>::count (contact::type_enum type) const
 {
-    return _rep.groups;
+    return _rep.contacts->count(type);
+}
+
+template <>
+int
+contact_manager<BACKEND>::add (contact::contact const & c, error * perr)
+{
+    return _rep.contacts->add(c, perr);
+}
+
+template <>
+int
+contact_manager<BACKEND>::batch_add (std::function<bool()> has_next
+    , std::function<contact::contact()> next
+    , error * perr)
+{
+    int counter = 0;
+    bool success = _rep.dbh->begin();
+
+    if (success) {
+        error err;
+
+        while (!err && has_next()) {
+            auto n = add(next(), & err);
+            counter += n > 0 ? 1 : 0;
+        }
+
+        if (err) {
+            if (perr) *perr = err; else CHAT__THROW(err);
+            success = false;
+        }
+    }
+
+    if (success) {
+        _rep.dbh->commit();
+    } else {
+        _rep.dbh->rollback();
+        counter = -1;
+    }
+
+    return counter;
+}
+
+template <>
+int
+contact_manager<BACKEND>::update (contact::contact const & c, error * perr)
+{
+    return _rep.contacts->update(c, perr);
+}
+
+template <>
+contact::contact
+contact_manager<BACKEND>::get (contact::contact_id id, error * perr) const
+{
+    return _rep.contacts->get(id, perr);
+}
+
+template <>
+contact::contact
+contact_manager<BACKEND>::get (int offset, error * perr) const
+{
+    return _rep.contacts->get(offset, perr);
+}
+
+namespace {
+std::string const REMOVE_CONTACT {
+    "DELETE from `{}` WHERE `id` = :id"
+};
+
+std::string const REMOVE_MEMBERSHIPS {
+    "DELETE from `{}` WHERE `member_id` = :member_id"
+};
+
+std::string const REMOVE_GROUP {
+    "DELETE from `{}` WHERE `group_id` = :group_id"
+};
+
+} // namespace
+
+template <>
+bool
+contact_manager<BACKEND>::remove (contact::contact_id id, error * perr)
+{
+    debby::error storage_err;
+    auto stmt1 = _rep.dbh->prepare(fmt::format(REMOVE_CONTACT, _rep.contacts_table_name)
+        , true, & storage_err);
+    auto stmt2 = _rep.dbh->prepare(fmt::format(REMOVE_MEMBERSHIPS, _rep.members_table_name)
+        , true, & storage_err);
+    auto stmt3 = _rep.dbh->prepare(fmt::format(REMOVE_GROUP, _rep.members_table_name)
+        , true, & storage_err);
+    bool success = !!stmt1 && !!stmt2 && !!stmt3;
+
+    success = success
+        && stmt1.bind(":id", to_storage(id), false, & storage_err)
+        && stmt2.bind(":member_id", to_storage(id), false, & storage_err)
+        && stmt2.bind(":group_id", to_storage(id), false, & storage_err);
+
+    if (success) {
+        success = _rep.dbh->begin();
+
+        for (auto * stmt: {& stmt1, & stmt2, & stmt3}) {
+            auto res = stmt->exec(& storage_err);
+
+            if (res.is_error()) {
+                success = false;
+                break;
+            }
+        }
+
+        if (success)
+            _rep.dbh->commit();
+        else
+            _rep.dbh->rollback();
+    }
+
+    if (!success) {
+        error err{errc::storage_error
+            , fmt::format("remove contact failure: #{}"
+                , to_string(id))
+            , storage_err.what()};
+        if (perr) *perr = err; else CHAT__THROW(err);
+        return false;
+    }
+
+    return success;
 }
 
 template <>
 bool
-contact_manager<BACKEND>::contact_manager::wipe (error * perr)
+contact_manager<BACKEND>::wipe (error * perr)
 {
     std::array<std::string, 3> tables = {
           _rep.contacts_table_name
@@ -220,6 +335,20 @@ contact_manager<BACKEND>::contact_manager::wipe (error * perr)
     }
 
     return success;
+}
+
+namespace {
+std::string const SELECT_ALL_CONTACTS {
+    "SELECT `id`, `alias`, `avatar`, `description`, `type` FROM `{}`"
+};
+} // namespace
+
+template <>
+bool
+contact_manager<BACKEND>::for_each (std::function<void(contact::contact const &)> f
+    , error * perr)
+{
+    return _rep.contacts->for_each(f, perr);
 }
 
 } // namespace chat

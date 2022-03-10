@@ -180,7 +180,7 @@ public:
      */
     std::size_t contacts_count () const
     {
-        return _contact_manager->contacts()->count();
+        return _contact_manager->count();
     }
 
     /**
@@ -188,7 +188,7 @@ public:
      */
     std::size_t contacts_count (contact::type_enum type) const
     {
-        return _contact_manager->contacts()->count(type);
+        return _contact_manager->count(type);
     }
 
     /**
@@ -205,7 +205,7 @@ public:
             c.id = _contact_id_generator.next();
         }
 
-        auto rc = _contact_manager->contacts()->add(c, & err);
+        auto rc = _contact_manager->add(c, & err);
 
         // Error
         if (rc < 0 ) {
@@ -264,7 +264,7 @@ public:
     bool update (contact::contact const & c)
     {
         error err;
-        auto rc = _contact_manager->contacts()->update(c, & err);
+        auto rc = _contact_manager->update(c, & err);
 
         // Error
         if (rc < 0) {
@@ -277,23 +277,47 @@ public:
 
     bool update (contact::person const & p)
     {
-        contact::contact c {p.id, p.alias, p.avatar, p.description
-            , contact::type_enum::person};
+        contact::contact c {
+              p.id
+            , p.alias
+            , p.avatar
+            , p.description
+            , contact::type_enum::person
+        };
+
         return update(c);
     }
 
     bool update (contact::group const & g)
     {
-        contact::contact c {g.id, g.alias, g.avatar, g.description
+        contact::contact c {
+              g.id
+            , g.alias
+            , g.avatar
+            , g.description
             , contact::type_enum::group};
         return update(c);
     }
 
-    bool update (contact::channel const & ch)
+    /**
+     * Removes contact.
+     *
+     * @details If @a id is a group then group contact and all memberships
+     *          will be removed. If @a id is a person contact membership will
+     *          be removed in case of group participation.
+     */
+    bool remove (contact::contact_id id)
     {
-        contact::contact c {ch.id, ch.alias, ch.avatar, ch.description
-            , contact::type_enum::channel};
-        return update(c);
+        error err;
+        auto rc = _contact_manager->remove(id, & err);
+
+        // Error
+        if (rc < 0) {
+            failure(err.what());
+            return false;
+        }
+
+        return rc > 0 ? true : false;
     }
 
     /**
@@ -303,7 +327,7 @@ public:
     contact (contact::contact_id id) const noexcept
     {
         error err;
-        auto contact = _contact_manager->contacts()->get(id, & err);
+        auto contact = _contact_manager->get(id, & err);
 
         if (err) {
             failure(err.what());
@@ -320,7 +344,7 @@ public:
     contact (int offset) const noexcept
     {
         error err;
-        auto contact = _contact_manager->contacts()->get(offset, & err);
+        auto contact = _contact_manager->get(offset, & err);
 
         if (err) {
             failure(err.what());
@@ -333,10 +357,11 @@ public:
     template <typename F>
     void for_each_contact (F && f) const
     {
-        auto contacts = _contact_manager->contacts();
+        error err;
+        _contact_manager->for_each(f, & err);
 
-        for (auto c: contacts) {
-            f(c);
+        if (err) {
+            failure(err.what());
         }
     }
 
@@ -349,7 +374,8 @@ public:
     bool add_member (contact::contact_id group_id, contact::contact_id member_id)
     {
         error err;
-        auto rc = _contact_manager->groups()->add_member(group_id, member_id, & err);
+        auto group_ref = _contact_manager->groups()->ref(group_id);
+        auto rc = group_ref->add_member(member_id, & err);
 
         // Error
         if (rc < 0) {
@@ -365,7 +391,8 @@ public:
      */
     bool is_member_of (contact::contact_id member_id, contact::contact_id group_id) const
     {
-        return _contact_manager->groups()->is_member_of(member_id, group_id);
+        auto group_ref = _contact_manager->groups()->ref(group_id);
+        return group_ref.is_member_of(member_id);
     }
 
     conversation_type conversation (contact::contact_id addressee_id) const
