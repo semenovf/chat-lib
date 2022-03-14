@@ -8,7 +8,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 #include "pfs/chat/exports.hpp"
-#include "pfs/optional.hpp"
 #include "pfs/time_point.hpp"
 #include "pfs/uuid.hpp"
 #include <string>
@@ -82,7 +81,7 @@ inline bool is_valid (T const & t)
     return t.id != contact_id{};
 }
 
-CHAT__EXPORT pfs::optional<type_enum> to_type_enum (int n);
+CHAT__EXPORT type_enum to_type_enum (int n);
 CHAT__EXPORT std::string to_string (type_enum type);
 
 }} // namespace chat::contact

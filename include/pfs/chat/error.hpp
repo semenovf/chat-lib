@@ -22,13 +22,15 @@ namespace chat {
 enum class errc
 {
       success = 0
-    , storage_error       // Any error of underlying storage subsystem
+    //, storage_error       // Any error of underlying storage subsystem
     , invalid_argument
     , contact_not_found
     , group_not_found
     , message_not_found
-    , unsuitable_member
-    , access_attachment_failure
+    , unsuitable_group_member
+    , unsuitable_group_creator
+    , group_creator_already_set
+    , attachment_failure
     , bad_emoji_shortcode
     , json_error         // Any error of JSON backend
 };
@@ -70,6 +72,13 @@ public:
         , std::string const & description)
         : pfs::error(make_error_code(ec), description)
     {}
+
+    bool ok () const
+    {
+        return !*this;
+    }
 };
+
+using result_status = error;
 
 } // namespace chat

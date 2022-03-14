@@ -14,22 +14,10 @@ namespace backend {
 namespace sqlite3 {
 
 shared_db_handle make_handle (pfs::filesystem::path const & path
-    , bool create_if_missing, error * perr)
+    , bool create_if_missing)
 {
-    debby::error storage_err;
-
-    auto dbh = std::make_shared<db_traits::database_type>(path
-        , create_if_missing, & storage_err);
-
-    if (storage_err) {
-        dbh.reset();
-
-        error err {errc::storage_error, storage_err.what()};
-        if (perr) *perr = err; else CHAT__THROW(err);
-    }
-
-    return dbh;
+    auto p = db_traits::database_type::make_unique(path, create_if_missing);
+    return std::move(p);
 }
 
 }}} // namespace chat::backend::sqlite3
-

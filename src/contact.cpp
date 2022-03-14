@@ -7,11 +7,12 @@
 //      2021.12.03 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
 #include "pfs/chat/contact.hpp"
+#include "pfs/chat/error.hpp"
 
 namespace chat {
 namespace contact {
 
-CHAT__EXPORT pfs::optional<type_enum> to_type_enum (int n)
+CHAT__EXPORT type_enum to_type_enum (int n)
 {
     switch (n) {
         case static_cast<int>(type_enum::person):
@@ -24,7 +25,8 @@ CHAT__EXPORT pfs::optional<type_enum> to_type_enum (int n)
             break;
     }
 
-    return pfs::nullopt;
+    chat::error err {chat::make_error_code(chat::errc::invalid_argument)};
+    CHAT__THROW(err);
 }
 
 CHAT__EXPORT std::string to_string (type_enum type)

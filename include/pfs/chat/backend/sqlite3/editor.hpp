@@ -9,7 +9,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 #include "db_traits.hpp"
-#include "pfs/chat/error.hpp"
 #include "pfs/chat/message.hpp"
 
 namespace chat {
@@ -32,14 +31,12 @@ struct editor
 
     static rep_type make (message::message_id message_id
         , shared_db_handle dbh
-        , std::string const & table_name
-        , error * perr = nullptr);
+        , std::string const & table_name);
 
     static rep_type make (message::message_id message_id
         , message::content && content
         , shared_db_handle dbh
-        , std::string const & table_name
-        , error * perr = nullptr);
+        , std::string const & table_name);
 };
 
 }}} // namespace chat::backend::sqlite3

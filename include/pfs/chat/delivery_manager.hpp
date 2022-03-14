@@ -97,12 +97,11 @@ public:
      *
      * @return Serialized message or empty if error occured.
      */
-    bool dispatch (contact::contact_id addressee
+    result_status dispatch (contact::contact_id addressee
         , message::message_credentials const & msg
         , message_dispatched_callback message_dispatched
         , message_delivered_callback message_delivered
-        , message_read_callback message_read
-        , error * perr = nullptr)
+        , message_read_callback message_read)
     {
         protocol::original_message m;
         m.message_id    = msg.id;
@@ -111,18 +110,12 @@ public:
         m.content       = msg.contents.has_value() ? to_string(*msg.contents) : std::string{};
 
         auto data = serialize<protocol::original_message>(m);
-        error err;
+        auto res = _rep.send_message(addressee, msg.id, data
+            , message_dispatched
+            , message_delivered
+            , message_read);
 
-        if (!_rep.send_message(addressee, msg.id, data
-                , message_dispatched
-                , message_delivered
-                , message_read
-                , & err)) {
-            if (perr) *perr = err; else CHAT__THROW(err);
-            return false;
-        }
-
-        return true;
+        return res;
     }
 
 public:

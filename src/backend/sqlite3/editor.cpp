@@ -12,9 +12,6 @@
 #include "pfs/sha256.hpp"
 #include "pfs/chat/editor.hpp"
 #include "pfs/chat/backend/sqlite3/editor.hpp"
-#include "pfs/debby/sqlite3/input_record.hpp"
-#include "pfs/debby/sqlite3/time_point_traits.hpp"
-#include "pfs/debby/sqlite3/uuid_traits.hpp"
 #include <fstream>
 
 #if PFS_COMPILER_MSVC
@@ -32,7 +29,6 @@
 
 namespace chat {
 
-using namespace debby::sqlite3;
 namespace fs = pfs::filesystem;
 
 namespace backend {
@@ -41,8 +37,7 @@ namespace sqlite3 {
 editor::rep_type
 editor::make (message::message_id message_id
     , shared_db_handle dbh
-    , std::string const & table_name
-    , error *)
+    , std::string const & table_name)
 {
     rep_type rep;
 
@@ -58,8 +53,7 @@ editor::rep_type
 editor::make (message::message_id message_id
     , message::content && content
     , shared_db_handle dbh
-    , std::string const & table_name
-    , error *)
+    , std::string const & table_name)
 {
     rep_type rep;
 
@@ -115,8 +109,8 @@ namespace {
 }
 
 template <>
-bool
-editor<BACKEND>::attach (fs::path const & path, error * perr)
+void
+editor<BACKEND>::attach (fs::path const & path)
 {
     auto utf8_path = path.is_absolute()
         ? fs::utf8_encode(path)
@@ -141,13 +135,13 @@ editor<BACKEND>::attach (fs::path const & path, error * perr)
                 }
 
                 if (success) {
-                    assert(file_size != std::ifstream::pos_type{-1});
+                    CHAT__ASSERT(file_size != std::ifstream::pos_type{-1}, "");
 
                     auto digest = pfs::crypto::sha256::digest(ifs, & success);
 
                     if (success) {
                         _rep.content.attach(utf8_path, file_size, to_string(digest));
-                        return true;
+                        return;
                     } else {
                         errdesc = SHA256_GENERATION_ERROR;
                     }
@@ -160,14 +154,13 @@ editor<BACKEND>::attach (fs::path const & path, error * perr)
         errdesc = FILE_NOTFOUND_ERROR;
     }
 
-    error err {errc::access_attachment_failure, utf8_path, errdesc};
+    error err {
+          errc::attachment_failure
+        , utf8_path
+        , errdesc
+    };
 
-    if (perr)
-        *perr = err;
-    else
-        CHAT__THROW(err);
-
-    return false;
+    CHAT__THROW(err);
 }
 
 namespace {
@@ -186,41 +179,25 @@ std::string const MODIFY_CONTENT {
 } // namespace
 
 template <>
-bool
-editor<BACKEND>::save (error * perr)
+void
+editor<BACKEND>::save ()
 {
-    debby::error storage_err;
     std::string const * sql = _rep.modification ? & MODIFY_CONTENT : & SAVE_CONTENT;
-    auto stmt = _rep.dbh->prepare(fmt::format(*sql, _rep.table_name)
-        , true, & storage_err);
-    bool success = !!stmt;
+    auto stmt = _rep.dbh->prepare(fmt::format(*sql, _rep.table_name));
 
-    success = success
-        && stmt.bind(":content"   , to_storage(_rep.content), false, & storage_err)
-        && stmt.bind(":message_id", to_storage(_rep.message_id), false, & storage_err);
+    CHAT__ASSERT(!!stmt, "");
+
+    stmt.bind(":content", _rep.content);
+    stmt.bind(":message_id", _rep.message_id);
 
     if (_rep.modification) {
         auto modification_time = pfs::current_utc_time_point();
-        success = success && stmt.bind(":modification_time"
-            , to_storage(modification_time), & storage_err);
+        stmt.bind(":modification_time", modification_time);
     }
 
-    if (success) {
-        auto res = stmt.exec(& storage_err);
+    stmt.exec();
 
-        if (res.is_error())
-            success = false;
-    }
-
-    if (!success) {
-        error err {errc::storage_error
-            , fmt::format("save content failure: #{}", to_string(_rep.message_id))
-            , storage_err.what()};
-        if (perr) *perr = err; else CHAT__THROW(err);
-        return false;
-    }
-
-    return stmt.rows_affected() > 0;
+    //return stmt.rows_affected() > 0;
 }
 
 template <>

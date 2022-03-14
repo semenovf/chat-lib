@@ -21,7 +21,7 @@ struct netty_p2p
     // FIXME
     struct rep
     {
-        bool send_message (contact::contact_id addressee
+        result_status send_message (contact::contact_id addressee
             , message::message_id message_id
             , std::string const & data
             , std::function<void(contact::contact_id
@@ -32,11 +32,10 @@ struct netty_p2p
                 , pfs::utc_time_point)> message_delivered
             , std::function<void(contact::contact_id
                 , message::message_id
-                , pfs::utc_time_point)> message_read
-            , error * perr = nullptr);
+                , pfs::utc_time_point)> message_read);
     };
 
-    static rep make (error * perr = nullptr);
+    static rep make ();
 };
 
 }}} // namespace chat::backend::delivery_manager

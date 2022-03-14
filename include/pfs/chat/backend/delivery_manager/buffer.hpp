@@ -28,7 +28,7 @@ struct buffer
         std::shared_ptr<queue_type> out;
         std::shared_ptr<queue_type> in;
 
-        bool send_message (contact::contact_id addressee
+        result_status send_message (contact::contact_id addressee
             , message::message_id message_id
             , std::string const & data
             , std::function<void(contact::contact_id
@@ -39,13 +39,11 @@ struct buffer
                 , pfs::utc_time_point)> message_delivered
             , std::function<void(contact::contact_id
                 , message::message_id
-                , pfs::utc_time_point)> message_read
-            , error * perr = nullptr);
+                , pfs::utc_time_point)> message_read);
     };
 
     static rep make (std::shared_ptr<queue_type> out
-        , std::shared_ptr<queue_type> in
-        , error * perr = nullptr);
+        , std::shared_ptr<queue_type> in);
 };
 
 }}} // namespace chat::backend::delivery_manager

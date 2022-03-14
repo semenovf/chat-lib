@@ -9,7 +9,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 #include "contact.hpp"
-#include "error.hpp"
 #include <functional>
 
 namespace chat {
@@ -46,37 +45,51 @@ public:
      * Adds contact.
      *
      * @return @c 1 if contact successfully added or @c 0 if contact already
-     *         exists with @c contact_id or @c -1 on error.
+     *         exists with @c contact_id.
+     *
+     * @throw debby::error on storage error.
      */
-    int add (contact::contact const & c, error * perr = nullptr);
+    int add (contact::contact const & c);
 
     /**
      * @return @c 1 if contact successfully updated or @c 0 if contact not found
-     *         with @c contact_id or @c -1 on error.
+     *         with @c contact_id.
+     *
+     * @throw debby::error on storage error.
      */
-    int update (contact::contact const & c, error * perr = nullptr);
+    int update (contact::contact const & c);
 
     /**
      * Removes contact from contact list.
+     *
+     * @throw debby::error on storage error.
      */
-    bool remove (contact::contact_id id, error * perr);
+    void remove (contact::contact_id id);
 
     /**
      * Get contact by @a id. On error returns invalid contact.
+     *
+     * @return Contact with @a id or invalid contact if not found.
+     *
+     * @throw debby::error on storage error.
      */
-    contact::contact get (contact::contact_id id, error * perr = nullptr) const;
+    contact::contact get (contact::contact_id id) const;
 
     /**
      * Get contact by @a offset. On error returns invalid contact.
+     *
+     * @return Contact with @a id or invalid contact if not found.
+     *
+     * @throw debby::error on storage error.
      */
-    contact::contact get (int offset, error * perr = nullptr) const;
+    contact::contact get (int offset) const;
 
     /**
      * Fetch all contacts and process them by @a f
      *
-     * @return @c true If no error occured or @c false otherwise.
+     * @throw debby::error on storage error.
      */
-    bool for_each (std::function<void(contact::contact const &)> f, error * perr = nullptr);
+    void for_each (std::function<void(contact::contact const &)> f);
 
 public:
     template <typename ...Args>

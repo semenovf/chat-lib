@@ -10,7 +10,6 @@
 #pragma once
 #include "db_traits.hpp"
 #include "pfs/chat/contact.hpp"
-#include "pfs/chat/error.hpp"
 #include <map>
 #include <string>
 #include <vector>
@@ -37,12 +36,18 @@ struct contact_list
         std::string table_name;
     };
 
-    static rep_type make (shared_db_handle dbh
-        , std::string const & table_name
-        , error * perr = nullptr);
+    /**
+     */
+    static rep_type make (shared_db_handle dbh, std::string const & table_name);
 
+    /**
+     */
     static void invalidate_cache (rep_type * rep);
-    static bool prefetch (rep_type const * rep, int offset, int limit, error * perr);
+
+    /**
+     * @throw @c chat::error(errc::storage_error) on storage failure.
+     */
+    static void prefetch (rep_type const * rep, int offset, int limit);
 };
 
 }}} // namespace chat::backend::sqlite3

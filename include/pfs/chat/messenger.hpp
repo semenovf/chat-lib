@@ -14,6 +14,7 @@
 #include "message.hpp"
 #include "message_store.hpp"
 #include "pfs/emitter.hpp"
+#include "pfs/fmt.hpp"
 #include <memory>
 #include <vector>
 #include <cassert>
@@ -76,7 +77,7 @@ private:
     typename delivery_manager_type::message_read_callback       _message_read;
 
 public: // signals
-    mutable Emitter<std::string const &> failure;
+    mutable Emitter<error const &> failure;
     mutable Emitter<contact::contact_id /*addressee*/
             , message::message_id /*message_id*/
             , pfs::utc_time_point /*dispatched_time*/> message_dispatched;
@@ -97,6 +98,11 @@ public:
         , _message_store(std::move(message_store))
         , _delivery_manager(std::move(delivery_manager))
     {
+        // Set default failure callback
+        failure.connect([] (error const & err) {
+            fmt::print(stderr, "ERROR: {}\n", err.what());
+        });
+
         _message_dispatched = [this] (contact::contact_id addressee
             , message::message_id message_id
             , pfs::utc_time_point dispatched_time) {
@@ -104,14 +110,8 @@ public:
             auto conv = this->conversation(addressee);
 
             if (conv) {
-                error err;
-                conv.mark_dispatched(message_id, dispatched_time, & err);
-
-                if (err) {
-                    this->failure(err.what());
-                } else {
-                    this->message_dispatched(addressee, message_id, dispatched_time);
-                }
+                conv.mark_dispatched(message_id, dispatched_time);
+                this->message_dispatched(addressee, message_id, dispatched_time);
             }
         };
 
@@ -122,14 +122,8 @@ public:
             auto conv = this->conversation(addressee);
 
             if (conv) {
-                error err;
-                conv.mark_delivered(message_id, delivered_time, & err);
-
-                if (err) {
-                    this->failure(err.what());
-                } else {
-                    this->message_delivered(addressee, message_id, delivered_time);
-                }
+                conv.mark_delivered(message_id, delivered_time);
+                this->message_delivered(addressee, message_id, delivered_time);
             }
         };
 
@@ -140,14 +134,8 @@ public:
             auto conv = this->conversation(addressee);
 
             if (conv) {
-                error err;
-                conv.mark_read(message_id, read_time, & err);
-
-                if (err) {
-                    this->failure(err.what());
-                } else {
-                    this->message_read(addressee, message_id, read_time);
-                }
+                conv.mark_read(message_id, read_time);
+                this->message_read(addressee, message_id, read_time);
             }
         };
     }
@@ -170,7 +158,7 @@ public:
     /**
      * Local contact.
      */
-    contact::contact my_contact () const
+    contact::person my_contact () const
     {
         return _contact_manager->my_contact();
     }
@@ -198,14 +186,7 @@ public:
             return std::vector<contact::contact>{};
         }
 
-        auto result = group_ref.members(& err);
-
-        if (err) {
-            failure(err.what());
-            result.clear();
-        }
-
-        return result;
+        return group_ref.members(& err);
     }
 
     /**
@@ -233,41 +214,18 @@ public:
     }
 
     /**
-     * Add contact.
-     *
-     * @return Identifier of just added contact or @c chat::contact::contact_id{}
-     *         on error.
-     */
-    contact::contact_id add (contact::contact c)
-    {
-        error err;
-
-        if (c.id == contact::contact_id{}) {
-            c.id = _contact_id_generator.next();
-        }
-
-        auto rc = _contact_manager->add(c, & err);
-
-        // Error
-        if (rc < 0 ) {
-            failure(err.what());
-            return false;
-        }
-
-        return rc > 0 ? c.id : contact::contact_id{};
-    }
-
-    /**
      * Add person contact.
      *
      * @return Identifier of just added contact or @c chat::contact::contact_id{}
      *         on error.
      */
-    contact::contact_id add (contact::person const & p)
+    contact::contact_id add (contact::person c)
     {
-        contact::contact c { _contact_id_generator.next()
-            , p.alias, p.avatar, p.description, contact::type_enum::person};
-        return add(c);
+        if (c.id == contact::contact_id{})
+            c.id = _contact_id_generator.next();
+
+        auto success = _contact_manager->add(c);
+        return success ? c.id : contact::contact_id{};
     }
 
     /**
@@ -276,11 +234,13 @@ public:
      * @return Identifier of just added contact or @c chat::contact::contact_id{}
      *         on error.
      */
-    contact::contact_id add (contact::group const & g)
+    contact::contact_id add (contact::group g, contact::contact_id creator_id)
     {
-        contact::contact c {_contact_id_generator.next()
-            , g.alias, g.avatar, g.description, contact::type_enum::group};
-        return add(c);
+        if (g.id == contact::contact_id{})
+            g.id = _contact_id_generator.next();
+
+        auto success = _contact_manager->add(g, creator_id);
+        return success ? g.id : contact::contact_id{};
     }
 
     /**
@@ -291,40 +251,17 @@ public:
      */
     bool update (contact::contact const & c)
     {
-        error err;
-        auto rc = _contact_manager->update(c, & err);
-
-        // Error
-        if (rc < 0) {
-            failure(err.what());
-            return false;
-        }
-
-        return rc > 0 ? true : false;
+        return _contact_manager->update(c);
     }
 
-    bool update (contact::person const & p)
+    bool update (contact::person const & c)
     {
-        contact::contact c {
-              p.id
-            , p.alias
-            , p.avatar
-            , p.description
-            , contact::type_enum::person
-        };
-
-        return update(c);
+        return _contact_manager->update(c);
     }
 
     bool update (contact::group const & g)
     {
-        contact::contact c {
-              g.id
-            , g.alias
-            , g.avatar
-            , g.description
-            , contact::type_enum::group};
-        return update(c);
+        return _contact_manager->update(g);
     }
 
     /**
@@ -334,63 +271,33 @@ public:
      *          will be removed. If @a id is a person contact membership will
      *          be removed in case of group participation.
      */
-    bool remove (contact::contact_id id)
+    void remove (contact::contact_id id)
     {
-        error err;
-        auto success = _contact_manager->remove(id, & err);
-
-        // Error
-        if (! success) {
-            failure(err.what());
-            return false;
-        }
-
-        return success;
+        _contact_manager->remove(id);
     }
 
     /**
-     * Get contact by @a id.
+     * Get contact by @a id. On error returns invalid contact.
      */
-    pfs::optional<contact::contact>
+    contact::contact
     contact (contact::contact_id id) const noexcept
     {
-        error err;
-        auto contact = _contact_manager->get(id, & err);
-
-        if (err) {
-            failure(err.what());
-            return pfs::nullopt;
-        }
-
-        return contact;
+        return _contact_manager->get(id);
     }
 
     /**
-     * Get contact by offset.
+     * Get contact by @a offset. On error returns invalid contact.
      */
-    pfs::optional<contact::contact>
+    contact::contact
     contact (int offset) const noexcept
     {
-        error err;
-        auto contact = _contact_manager->get(offset, & err);
-
-        if (err) {
-            failure(err.what());
-            return pfs::nullopt;
-        }
-
-        return contact;
+        return _contact_manager->get(offset);
     }
 
     template <typename F>
     void for_each_contact (F && f) const
     {
-        error err;
-        _contact_manager->for_each(f, & err);
-
-        if (err) {
-            failure(err.what());
-        }
+        _contact_manager->for_each(std::forward<F>(f));
     }
 
     /**
@@ -401,7 +308,6 @@ public:
      */
     bool add_member (contact::contact_id group_id, contact::contact_id member_id)
     {
-        error err;
         auto group_ref = _contact_manager->gref(group_id);
 
         if (!group_ref) {
@@ -410,15 +316,7 @@ public:
             return false;
         }
 
-        auto rc = group_ref.add_member(member_id, & err);
-
-        // Error
-        if (rc < 0) {
-            failure(err.what());
-            return false;
-        }
-
-        return rc > 0 ? true : false;
+        return group_ref.add_member(member_id);
     }
 
     /**
@@ -426,7 +324,6 @@ public:
      */
     bool is_member_of (contact::contact_id member_id, contact::contact_id group_id) const
     {
-        error err;
         auto group_ref = _contact_manager->gref(group_id);
 
         if (!group_ref)
@@ -438,20 +335,15 @@ public:
     conversation_type conversation (contact::contact_id addressee_id) const
     {
         // Check for contact exists
-        auto opt = contact(addressee_id);
+        auto c = contact(addressee_id);
 
-        if (!opt) {
+        if (!is_valid(c)) {
             // Invalid addressee ID to generate invalid conversation
             addressee_id = contact::contact_id{};
+            return conversation_type{};
         }
 
-        error err;
-        auto result = _message_store->conversation(addressee_id, & err);
-
-        if (err)
-            failure(err.what());
-
-        return result;
+        return _message_store->conversation(addressee_id);
     }
 
     // TODO
@@ -467,18 +359,11 @@ public:
     void dispatch (contact::contact_id addressee
         , message::message_credentials const & msg)
     {
-        error err;
-
         auto result = _delivery_manager->dispatch(addressee
             , msg
             , _message_dispatched
             , _message_delivered
-            , _message_read
-            , & err);
-
-        if (!result) {
-            failure(err.what());
-        }
+            , _message_read);
     }
 
     void wipe ()

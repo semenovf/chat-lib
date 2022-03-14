@@ -17,9 +17,7 @@ namespace backend {
 namespace delivery_manager {
 
 buffer::rep
-buffer::make (std::shared_ptr<queue_type> out
-    , std::shared_ptr<queue_type> in
-    , error *)
+buffer::make (std::shared_ptr<queue_type> out, std::shared_ptr<queue_type> in)
 {
     rep r;
     r.out = out;
@@ -27,19 +25,18 @@ buffer::make (std::shared_ptr<queue_type> out
     return r;
 }
 
-bool buffer::rep::send_message (contact::contact_id addressee
+result_status buffer::rep::send_message (contact::contact_id addressee
     , message::message_id message_id
     , std::string const & data
     , chat::delivery_manager<buffer>::message_dispatched_callback message_dispatched
     , chat::delivery_manager<buffer>::message_delivered_callback message_delivered
-    , chat::delivery_manager<buffer>::message_read_callback message_read
-    , error *)
+    , chat::delivery_manager<buffer>::message_read_callback message_read)
 {
     out->push(data);
     message_dispatched(addressee, message_id, pfs::current_utc_time_point());
     message_delivered(addressee, message_id, pfs::current_utc_time_point());
     message_read(addressee, message_id, pfs::current_utc_time_point());
-    return true;
+    return result_status{};
 }
 
 }} // namespace backend::delivery_manager

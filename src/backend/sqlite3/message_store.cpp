@@ -9,28 +9,23 @@
 ////////////////////////////////////////////////////////////////////////////////
 #include "pfs/chat/message_store.hpp"
 #include "pfs/chat/backend/sqlite3/message_store.hpp"
-#include "pfs/debby/sqlite3/input_record.hpp"
-#include "pfs/debby/sqlite3/time_point_traits.hpp"
-#include "pfs/debby/sqlite3/uuid_traits.hpp"
+#include "pfs/debby/backend/sqlite3/time_point_traits.hpp"
+#include "pfs/debby/backend/sqlite3/uuid_traits.hpp"
 #include <array>
 #include <cassert>
 
 namespace chat {
 
-using namespace debby::sqlite3;
-
 namespace {
     // NOTE Must be synchronized with analog in conversation.cpp
     std::string const DEFAULT_TABLE_NAME_PREFIX { "#" };
-
-    std::string const WIPE_ALL_ERROR { "wipe all converstions failure: {}" };
 }
 
 namespace backend {
 namespace sqlite3 {
 
 message_store::rep_type
-message_store::make (contact::contact_id me, shared_db_handle dbh, error *)
+message_store::make (contact::contact_id me, shared_db_handle dbh)
 {
     rep_type rep;
     rep.dbh = dbh;
@@ -55,40 +50,24 @@ message_store<BACKEND>::operator bool () const noexcept
 
 template <>
 message_store<BACKEND>::conversation_type
-message_store<BACKEND>::conversation (contact::contact_id addressee_id
-    , error * perr) const
+message_store<BACKEND>::conversation (contact::contact_id addressee_id) const
 {
-    if (addressee_id == contact::contact_id{}) {
-        error err {errc::invalid_argument, "bad addressee identifier"};
-        if (perr) *perr = err; else CHAT__THROW(err);
-        return conversation_type{};
-    }
+    CHAT__ASSERT(addressee_id != contact::contact_id{}
+        , "bad addressee identifier");
 
-    return conversation_type::make(_rep.me, addressee_id, _rep.dbh, perr);
+    return conversation_type::make(_rep.me, addressee_id, _rep.dbh);
 }
 
 template <>
-bool
-message_store<BACKEND>::wipe (error * perr) noexcept
+void
+message_store<BACKEND>::wipe () noexcept
 {
-    debby::error storage_err;
-    auto tables = _rep.dbh->tables("^" + DEFAULT_TABLE_NAME_PREFIX, & storage_err);
+    auto tables = _rep.dbh->tables("^" + DEFAULT_TABLE_NAME_PREFIX);
 
-    auto success = !storage_err;
+    if (tables.empty())
+        return;
 
-    if (success) {
-        if (tables.empty())
-            return true;
-
-        success = _rep.dbh->remove(tables, & storage_err);
-    }
-
-    if (!success) {
-        error err {errc::storage_error, fmt::format(WIPE_ALL_ERROR, storage_err.what())};
-        if (perr) *perr = err;
-    }
-
-    return success;
+    _rep.dbh->remove(tables);
 }
 
 } // namespace chat

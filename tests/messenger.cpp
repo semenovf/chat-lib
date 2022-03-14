@@ -290,10 +290,9 @@ TEST_CASE("messenger") {
         editor.add_html(HTML);
         editor.add_emoji(EMOJI);
 
-        REQUIRE(editor.attach(f1));
-        REQUIRE(editor.attach(f2));
-
-        REQUIRE(editor.save());
+        editor.attach(f1);
+        editor.attach(f2);
+        editor.save();
     }
 
     {

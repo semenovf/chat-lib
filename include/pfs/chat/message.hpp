@@ -93,7 +93,13 @@ class content
 
 public:
     content ();
-    content (std::string const & source, error * perr = nullptr);
+
+    /**
+     * Construct content from JSON source.
+     *
+     * @throw chat::error @c errc::json_error on JSON parse error.
+     */
+    content (std::string const & source);
 
     content (content const & other) = delete;
     content (content && other);

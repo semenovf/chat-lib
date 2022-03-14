@@ -8,10 +8,11 @@
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 #include "pfs/chat/contact.hpp"
-#include "pfs/debby/sqlite3/affinity_traits.hpp"
-#include "pfs/debby/sqlite3/cast_traits.hpp"
+#include "pfs/debby/backend/sqlite3/affinity_traits.hpp"
+#include "pfs/debby/backend/sqlite3/cast_traits.hpp"
 
 namespace debby {
+namespace backend {
 namespace sqlite3 {
 
 template <>
@@ -28,10 +29,10 @@ struct cast_traits<chat::contact::type_enum>
         return static_cast<storage_type>(value);
     }
 
-    static pfs::optional<chat::contact::type_enum> to_native (storage_type const & value)
+    static chat::contact::type_enum to_native (storage_type const & value)
     {
         return chat::contact::to_type_enum(value);
     }
 };
 
-}} // namespace debby::sqlite3
+}}} // namespace debby::backend::sqlite3

@@ -25,7 +25,7 @@ namespace {
 
 content::content () = default;
 
-content::content (std::string const & source, error * perr)
+content::content (std::string const & source)
 {
     jeyson::error jerror;
 
@@ -33,14 +33,12 @@ content::content (std::string const & source, error * perr)
 
     if (!j) {
         error err {errc::json_error, jerror.what()};
-        if (perr) *perr = err; else CHAT__THROW(err);
-        return;
+        CHAT__THROW(err);
     }
 
     if (!jeyson::is_array(j)) {
         error err {errc::json_error, "expected array"};
-        if (perr) *perr = err; else CHAT__THROW(err);
-        return;
+        CHAT__THROW(err);
     } else {
         _d = std::move(j);
     }

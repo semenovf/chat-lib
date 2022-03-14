@@ -47,13 +47,14 @@ public:
      * @brief This method initializes/opens data storage for conversation messages
      *        associated with specified contact.
      */
-    conversation_type conversation (contact::contact_id addressee_id
-        , error * perr = nullptr) const;
+    conversation_type conversation (contact::contact_id addressee_id) const;
 
     /**
      * Wipes (erases all, drop all conversations) messages.
+     *
+     * @throw debby::error on storage error.
      */
-    bool wipe (error * perr = nullptr) noexcept;
+    void wipe () noexcept;
 
 public:
     template <typename ...Args>

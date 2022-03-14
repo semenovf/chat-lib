@@ -22,9 +22,6 @@ std::string error_category::message (int ev) const
         case static_cast<int>(errc::success):
             return std::string{"no error"};
 
-        case static_cast<int>(errc::storage_error):
-            return std::string{"storage error"};
-
         case static_cast<int>(errc::contact_not_found):
             return std::string{"contact not found"};
 
@@ -34,11 +31,17 @@ std::string error_category::message (int ev) const
         case static_cast<int>(errc::message_not_found):
             return std::string{"message not found"};
 
-        case static_cast<int>(errc::unsuitable_member):
+        case static_cast<int>(errc::unsuitable_group_member):
             return std::string{"unsuitable member"};
 
-        case static_cast<int>(errc::access_attachment_failure):
-            return std::string{"access attachment failure"};
+        case static_cast<int>(errc::unsuitable_group_creator):
+            return std::string{"unsuitable group creator"};
+
+        case static_cast<int>(errc::group_creator_already_set):
+            return std::string{"group creator already set"};
+
+        case static_cast<int>(errc::attachment_failure):
+            return std::string{"attachment failure"};
 
         case static_cast<int>(errc::bad_emoji_shortcode):
             return std::string{"bad Emoji shortcode"};

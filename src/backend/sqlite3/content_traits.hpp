@@ -8,10 +8,10 @@
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 #include "pfs/chat/message.hpp"
-#include "pfs/debby/sqlite3/affinity_traits.hpp"
-#include "pfs/debby/sqlite3/cast_traits.hpp"
+#include "pfs/debby/backend/sqlite3/cast_traits.hpp"
 
 namespace debby {
+namespace backend {
 namespace sqlite3 {
 
 template <> struct affinity_traits<chat::message::content> : text_affinity_traits {};
@@ -36,4 +36,4 @@ struct cast_traits<NativeType, typename std::enable_if<
     }
 };
 
-}} // namespace debby::sqlite3
+}}} // namespace debby::backend::sqlite3

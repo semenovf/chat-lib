@@ -9,14 +9,70 @@
 #include "contact_type_enum.hpp"
 #include "pfs/chat/contact_manager.hpp"
 #include "pfs/chat/backend/sqlite3/contact_manager.hpp"
-#include "pfs/debby/sqlite3/input_record.hpp"
-#include "pfs/debby/sqlite3/uuid_traits.hpp"
 
 namespace chat {
 
-using namespace debby::sqlite3;
-
 #define BACKEND backend::sqlite3::contact_manager
+
+namespace {
+std::string const SET_CREATOR {
+    "INSERT OR IGNORE INTO `{}` (`group_id`, `creator_id`)"
+    " VALUES (:group_id, :creator_id)"
+};
+} // namespace
+
+template <>
+void
+contact_manager<BACKEND>::group_ref::set_creator_unchecked (
+      contact::contact_id creator_id)
+{
+    PFS__ASSERT(_pmanager, "");
+    auto & rep = _pmanager->_rep;
+
+    auto stmt = rep.dbh->prepare(fmt::format(SET_CREATOR, rep.group_creator_table_name));
+
+    CHAT__ASSERT(!!stmt, "");
+
+    stmt.bind(":group_id", _id);
+    stmt.bind(":creator_id", creator_id);
+
+    stmt.exec();
+
+    // If stmt.rows_affected() > 0 then new member added;
+    // If stmt.rows_affected() == 0 then new member not added (already added earlier);
+    // The last situation is not en error.
+    if (stmt.rows_affected() <= 0) {
+        error err {
+              errc::group_creator_already_set
+            , to_string(_id)
+            , "group creator already set"
+        };
+
+        CHAT__THROW(err);
+    }
+}
+
+template <>
+void
+contact_manager<BACKEND>::group_ref::set_creator (contact::contact_id creator_id)
+{
+    PFS__ASSERT(_pmanager, "");
+
+    auto & rep = _pmanager->_rep;
+    auto c = rep.contacts->get(creator_id);
+
+    if (c.type != contact::type_enum::person) {
+        error err {
+              errc::unsuitable_group_creator
+            , to_string(creator_id)
+            , "group creator must be a person"
+        };
+
+        CHAT__THROW(err);
+    }
+
+    set_creator_unchecked(creator_id);
+}
 
 namespace {
 std::string const INSERT_MEMBER {
@@ -27,64 +83,45 @@ std::string const INSERT_MEMBER {
 
 template <>
 bool
-contact_manager<BACKEND>::group_ref::add_member(contact::contact_id member_id
-    , error * perr)
+contact_manager<BACKEND>::group_ref::add_member_unchecked (contact::contact_id member_id)
 {
     PFS__ASSERT(_pmanager, "");
 
-    error err;
     auto & rep = _pmanager->_rep;
 
-    if (err) {
-        if (perr) *perr = err; else CHAT__THROW(err);
-        return false;
-    }
+    auto stmt = rep.dbh->prepare(fmt::format(INSERT_MEMBER, rep.members_table_name));
 
-    auto c = rep.contacts->get(member_id, & err);
+    CHAT__ASSERT(!!stmt, "");
 
-    if (err) {
-        if (perr) *perr = err; else CHAT__THROW(err);
-        return false;
-    }
+    stmt.bind(":group_id" , _id);
+    stmt.bind(":member_id", member_id);
 
-    if (c.type != contact::type_enum::person) {
-        error err {errc::unsuitable_member
-            , to_string(member_id)
-            , "member must be a person to add to group"};
-        if (perr) *perr = err; else CHAT__THROW(err);
-        return false;
-    }
-
-    debby::error storage_err;
-    auto stmt = rep.dbh->prepare(fmt::format(INSERT_MEMBER, rep.members_table_name)
-        , true, & storage_err);
-    bool success = !!stmt;
-
-    success = success
-        && stmt.bind(":group_id" , to_storage(_id), false, & storage_err)
-        && stmt.bind(":member_id", to_storage(c.id), false, & storage_err);
-
-    if (success) {
-        auto res = stmt.exec(& storage_err);
-
-        if (res.is_error())
-            success = false;
-    }
-
-    if (!success) {
-        error err{errc::storage_error
-            , fmt::format("add member failure: #{} to #{}"
-                , to_string(c.id)
-                , to_string(_id))
-            , storage_err.what()};
-        if (perr) *perr = err; else CHAT__THROW(err);
-        return false;
-    }
+    auto res = stmt.exec();
 
     // If stmt.rows_affected() > 0 then new member added;
     // If stmt.rows_affected() == 0 then new member not added (already added earlier);
     // The last situation is not en error.
-    return true;
+    return stmt.rows_affected() > 0;
+}
+
+template <>
+bool
+contact_manager<BACKEND>::group_ref::add_member (contact::contact_id member_id)
+{
+    PFS__ASSERT(_pmanager, "");
+
+    auto & rep = _pmanager->_rep;
+    auto c = rep.contacts->get(member_id);
+
+    if (c.type != contact::type_enum::person) {
+        error err {errc::unsuitable_group_member
+            , to_string(member_id)
+            , "member must be a person to add to group"};
+        CHAT__THROW(err);
+        return false;
+    }
+
+    return add_member_unchecked(member_id);
 }
 
 namespace {
@@ -94,40 +131,20 @@ std::string const REMOVE_MEMBER {
 } // namespace
 
 template <>
-bool
-contact_manager<BACKEND>::group_ref::remove_member (contact::contact_id member_id
-    , error * perr)
+void
+contact_manager<BACKEND>::group_ref::remove_member (contact::contact_id member_id)
 {
     PFS__ASSERT(_pmanager, "");
 
-    debby::error storage_err;
     auto & rep = _pmanager->_rep;
-    auto stmt = rep.dbh->prepare(fmt::format(REMOVE_MEMBER, rep.members_table_name)
-        , true, & storage_err);
-    bool success = !!stmt;
+    auto stmt = rep.dbh->prepare(fmt::format(REMOVE_MEMBER, rep.members_table_name));
 
-    success = success
-        && stmt.bind(":group_id", to_storage(_id), false, & storage_err)
-        && stmt.bind(":member_id", to_storage(member_id), false, & storage_err);
+    CHAT__ASSERT(!!stmt, "");
 
-    if (success) {
-        auto res = stmt.exec(& storage_err);
+    stmt.bind(":group_id", _id);
+    stmt.bind(":member_id", member_id);
 
-        if (res.is_error())
-            success = false;
-    }
-
-    if (!success) {
-        error err{errc::storage_error
-            , fmt::format("remove member failure: #{} from #{}"
-                , to_string(member_id)
-                , to_string(_id))
-            , storage_err.what()};
-        if (perr) *perr = err; else CHAT__THROW(err);
-        return false;
-    }
-
-    return success;
+    auto res = stmt.exec();
 }
 
 namespace {
@@ -139,48 +156,32 @@ std::string const SELECT_MEMBERS {
 
 template <>
 std::vector<contact::contact>
-contact_manager<BACKEND>::group_ref::members (error * perr) const
+contact_manager<BACKEND>::group_ref::members () const
 {
     PFS__ASSERT(_pmanager, "");
 
-    debby::error storage_err;
     auto & rep = _pmanager->_rep;
-    auto stmt = rep.dbh->prepare(fmt::format(SELECT_MEMBERS
-        , rep.members_table_name, rep.contacts_table_name), true, & storage_err);
-    bool success = !!stmt;
 
-    success = success
-        && stmt.bind(":group_id", to_storage(_id), false, & storage_err);
+    auto stmt = rep.dbh->prepare(fmt::format(SELECT_MEMBERS
+        , rep.members_table_name, rep.contacts_table_name));
+
+    CHAT__ASSERT(!!stmt, "");
+
+    stmt.bind(":group_id", _id);
 
     std::vector<contact::contact> members;
 
-    if (success) {
-        auto res = stmt.exec(& storage_err);
+    auto res = stmt.exec();
 
-        while (res.has_more()) {
-            contact::contact c;
-            input_record in {res};
+    while (res.has_more()) {
+        contact::contact c;
 
-            success = in["id"] >> c.id
-                && in["alias"] >> c.alias
-                && in["type"]  >> c.type;
+        res["id"]    >> c.id;
+        res["alias"] >> c.alias;
+        res["type"]  >> c.type;
 
-            if (success)
-                members.push_back(std::move(c));
-
-            res.next();
-        }
-
-        if (res.is_error())
-            success = false;
-    }
-
-    if (!success) {
-        error err {errc::storage_error
-            , fmt::format("fetch members failure for group: #{}", to_string(_id))
-            , storage_err.what()};
-        if (perr) *perr = err; else CHAT__THROW(err);
-        return std::vector<contact::contact>{};
+        members.push_back(std::move(c));
+        res.next();
     }
 
     return members;
@@ -200,31 +201,20 @@ contact_manager<BACKEND>::group_ref::is_member_of (contact::contact_id member_id
     PFS__ASSERT(_pmanager, "");
 
     std::size_t count = 0;
-    debby::error err;
     auto & rep = _pmanager->_rep;
-    auto stmt = rep.dbh->prepare(fmt::format(IS_MEMBER_OF, rep.members_table_name)
-        , true, & err);
-    bool success = !!stmt;
+    auto stmt = rep.dbh->prepare(fmt::format(IS_MEMBER_OF, rep.members_table_name));
 
-    success = success
-        && stmt.bind(":group_id" , to_storage(_id), false, & err)
-        && stmt.bind(":member_id" , to_storage(member_id), false, & err);
+    CHAT__ASSERT(!!stmt, "");
 
-    if (success) {
-        auto res = stmt.exec(& err);
+    stmt.bind(":group_id", _id);
+    stmt.bind(":member_id", member_id);
 
-        if (res.has_more()) {
-            auto opt = res.get<std::size_t>(0);
-            assert(opt.has_value());
-            count = *opt;
-            res.next();
-        }
+    auto res = stmt.exec();
 
-        if (res.is_error())
-            success = false;
-    }
+    if (res.has_more())
+        count = res.get<std::size_t>(0);
 
-    return success ? count > 0 : false;
+    return count > 0;
 }
 
 namespace {
@@ -239,28 +229,17 @@ std::size_t contact_manager<BACKEND>::group_ref::count () const
     PFS__ASSERT(_pmanager, "");
 
     std::size_t count = 0;
-    debby::error err;
     auto & rep = _pmanager->_rep;
-    auto stmt = rep.dbh->prepare(fmt::format(MEMBER_COUNT, rep.members_table_name)
-        , true, & err);
-    bool success = !!stmt;
+    auto stmt = rep.dbh->prepare(fmt::format(MEMBER_COUNT, rep.members_table_name));
 
-    success = success
-        && stmt.bind(":group_id" , to_storage(_id), false, & err);
+    CHAT__ASSERT(!!stmt, "");
 
-    if (success) {
-        auto res = stmt.exec(& err);
+    stmt.bind(":group_id", _id);
 
-        if (res.has_more()) {
-            auto opt = res.get<std::size_t>(0);
-            assert(opt.has_value());
-            count = *opt;
-            res.next();
-        }
+    auto res = stmt.exec();
 
-        if (res.is_error())
-            success = false;
-    }
+    if (res.has_more())
+        count = res.get<std::size_t>(0);
 
     return count;
 }

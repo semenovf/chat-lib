@@ -9,24 +9,23 @@
 ////////////////////////////////////////////////////////////////////////////////
 #include "contact_type_enum.hpp"
 #include "pfs/chat/contact_manager.hpp"
+#include "pfs/chat/error.hpp"
 #include "pfs/chat/backend/sqlite3/contact_manager.hpp"
-#include "pfs/debby/sqlite3/uuid_traits.hpp"
+#include "pfs/debby/backend/sqlite3/uuid_traits.hpp"
 #include <array>
 #include <cassert>
 
 namespace chat {
 
-using namespace debby::sqlite3;
+using namespace debby::backend::sqlite3;
 
 namespace {
     constexpr std::size_t CACHE_WINDOW_SIZE = 100;
 
     std::string const DEFAULT_CONTACTS_TABLE_NAME  { "chat_contacts" };
-    std::string const DEFAULT_MEMBERS_TABLE_NAME   { "chat_groups" };
+    std::string const DEFAULT_MEMBERS_TABLE_NAME   { "chat_members" };
+    std::string const DEFAULT_GROUP_CREATOR_TABLE_NAME  { "chat_group_creator" };
     std::string const DEFAULT_FOLLOWERS_TABLE_NAME { "chat_channels" };
-
-    std::string const INIT_CONTACT_MANAGER_ERROR { "initialization contact manager failure: {}" };
-    std::string const WIPE_ERROR                 { "wipe contact data failure: {}" };
 } // namespace
 
 namespace {
@@ -53,6 +52,12 @@ std::string const CREATE_FOLLOWERS_TABLE {
         ", `follower_id` {} NOT NULL)"
 };
 
+std::string const CREATE_GROUP_CREATOR_TABLE {
+    "CREATE TABLE IF NOT EXISTS `{}` ("
+        "`group_id` {} NOT NULL"
+        ", `creator_id` {} NOT NULL)"
+};
+
 std::string const CREATE_CONTACTS_INDEX {
     "CREATE UNIQUE INDEX IF NOT EXISTS `{0}_index` ON `{0}` (`id`)"
 };
@@ -65,25 +70,28 @@ std::string const CREATE_FOLLOWERS_INDEX {
     "CREATE INDEX IF NOT EXISTS `{0}_index` ON `{0}` (`channel_id`)"
 };
 
+std::string const CREATE_GROUP_CREATOR_INDEX {
+    "CREATE INDEX IF NOT EXISTS `{0}_index` ON `{0}` (`group_id`)"
+};
+
 } // namespace
 
 namespace backend {
 namespace sqlite3 {
 
 contact_manager::rep_type
-contact_manager::make (contact::person const & me
-    , shared_db_handle dbh
-    , error * perr)
+contact_manager::make (contact::person const & me, shared_db_handle dbh)
 {
     rep_type rep;
 
     rep.dbh = dbh;
     rep.me  = me;
-    rep.contacts_table_name  = DEFAULT_CONTACTS_TABLE_NAME;
-    rep.members_table_name   = DEFAULT_MEMBERS_TABLE_NAME;
-    rep.followers_table_name = DEFAULT_FOLLOWERS_TABLE_NAME;
+    rep.contacts_table_name      = DEFAULT_CONTACTS_TABLE_NAME;
+    rep.members_table_name       = DEFAULT_MEMBERS_TABLE_NAME;
+    rep.followers_table_name     = DEFAULT_FOLLOWERS_TABLE_NAME;
+    rep.group_creator_table_name = DEFAULT_GROUP_CREATOR_TABLE_NAME;
 
-    std::array<std::string, 6> sqls = {
+    std::array<std::string, 8> sqls = {
           fmt::format(CREATE_CONTACTS_TABLE
             , rep.contacts_table_name
             , affinity_traits<contact::contact_id>::name()
@@ -99,43 +107,34 @@ contact_manager::make (contact::person const & me
             , rep.followers_table_name
             , affinity_traits<contact::contact_id>::name()
             , affinity_traits<contact::contact_id>::name())
-
+        , fmt::format(CREATE_GROUP_CREATOR_TABLE
+            , rep.group_creator_table_name
+            , affinity_traits<contact::contact_id>::name()
+            , affinity_traits<contact::contact_id>::name())
         , fmt::format(CREATE_CONTACTS_INDEX , rep.contacts_table_name)
         , fmt::format(CREATE_MEMBERS_INDEX  , rep.members_table_name)
         , fmt::format(CREATE_FOLLOWERS_INDEX, rep.followers_table_name)
+        , fmt::format(CREATE_GROUP_CREATOR_INDEX, rep.group_creator_table_name)
     };
 
-    debby::error storage_err;
-    auto success = rep.dbh->begin();
+    TRY {
+        rep.dbh->begin();
 
-    if (success) {
-        for (auto const & sql: sqls) {
-            success = success && rep.dbh->query(sql, & storage_err);
-        }
-    }
-
-    if (success)
-        rep.dbh->commit();
-    else
-        rep.dbh->rollback();
-
-    if (success) {
-        error err;
+        for (auto const & sql: sqls)
+            rep.dbh->query(sql);
 
         rep.contacts = std::make_shared<contact_list_type>(
-            contact_list_type::make(dbh, rep.contacts_table_name, & err));
+            contact_list_type::make(dbh, rep.contacts_table_name));
 
-        if (err) {
-            if (perr) *perr = err; CHAT__THROW(err);
-            success = false;
-        }
-    }
+        rep.dbh->commit();
+    } CATCH (debby::error ex) {
+#if PFS__EXCEPTIONS_ENABLED
+        rep.dbh->rollback();
 
-    if (!success) {
         shared_db_handle empty;
         rep.dbh.swap(empty);
-        error err {errc::storage_error, fmt::format(INIT_CONTACT_MANAGER_ERROR, storage_err.what())};
-        if (perr) *perr = err; CHAT__THROW(err);
+        throw;
+#endif
     }
 
     return rep;
@@ -157,14 +156,60 @@ contact_manager<BACKEND>::operator bool () const noexcept
 }
 
 template <>
+bool
+contact_manager<BACKEND>::transaction (std::function<bool()> op) noexcept
+{
+    bool success = true;
+
+    TRY {
+        _rep.dbh->begin();
+        success = op();
+        _rep.dbh->commit();
+    } CATCH (...) {
+#if PFS__EXCEPTIONS_ENABLED
+        _rep.dbh->rollback();
+#endif
+        return false;
+    }
+
+    return success;
+}
+
+template <>
 contact::contact
+contact_manager<BACKEND>::get (contact::contact_id id) const
+{
+    return _rep.contacts->get(id);
+}
+
+template <>
+contact::contact
+contact_manager<BACKEND>::get (int offset) const
+{
+    return _rep.contacts->get(offset);
+}
+
+template <>
+contact_manager<BACKEND>::group_ref
+contact_manager<BACKEND>::gref (contact::contact_id group_id)
+{
+    auto c = get(group_id);
+
+    if (is_valid(c) && c.type == contact::type_enum::group)
+        return group_ref{group_id, this};
+
+    return group_ref{};
+}
+
+template <>
+contact::person
 contact_manager<BACKEND>::my_contact () const
 {
-    return contact::contact {_rep.me.id
+    return contact::person {_rep.me.id
         , _rep.me.alias
         , _rep.me.avatar
         , _rep.me.description
-        , contact::type_enum::person };
+    };
 }
 
 template <>
@@ -182,77 +227,52 @@ contact_manager<BACKEND>::count (contact::type_enum type) const
 }
 
 template <>
-int
-contact_manager<BACKEND>::add (contact::contact const & c, error * perr)
+bool
+contact_manager<BACKEND>::add (contact::person const & p)
 {
-    return _rep.contacts->add(c, perr);
+    contact::contact c {
+          p.id
+        , p.alias
+        , p.avatar
+        , p.description
+        , chat::contact::type_enum::person};
+    return _rep.contacts->add(c) > 0;
 }
 
 template <>
-int
-contact_manager<BACKEND>::batch_add (std::function<bool()> has_next
-    , std::function<contact::contact()> next
-    , error * perr)
+bool
+contact_manager<BACKEND>::add (contact::group const & g
+    , contact::contact_id creator_id)
 {
-    int counter = 0;
-    bool success = _rep.dbh->begin();
+    return transaction([this, & g, & creator_id] {
+        contact::contact c {
+              g.id
+            , g.alias
+            , g.avatar
+            , g.description
+            , chat::contact::type_enum::group};
 
-    if (success) {
-        error err;
+        if (_rep.contacts->add(c) > 0) {
+            auto gr = this->gref(g.id);
 
-        while (!err && has_next()) {
-            auto n = add(next(), & err);
-            counter += n > 0 ? 1 : 0;
+            if (!gr)
+                return false;
+
+            gr.set_creator_unchecked(creator_id);
+            gr.add_member_unchecked(creator_id);
+
+            return true;
         }
 
-        if (err) {
-            if (perr) *perr = err; else CHAT__THROW(err);
-            success = false;
-        }
-    }
-
-    if (success) {
-        _rep.dbh->commit();
-    } else {
-        _rep.dbh->rollback();
-        counter = -1;
-    }
-
-    return counter;
+        return false;
+    });
 }
 
 template <>
-int
-contact_manager<BACKEND>::update (contact::contact const & c, error * perr)
+bool
+contact_manager<BACKEND>::update (contact::contact const & c)
 {
-    return _rep.contacts->update(c, perr);
-}
-
-template <>
-contact::contact
-contact_manager<BACKEND>::get (contact::contact_id id, error * perr) const
-{
-    return _rep.contacts->get(id, perr);
-}
-
-template <>
-contact::contact
-contact_manager<BACKEND>::get (int offset, error * perr) const
-{
-    return _rep.contacts->get(offset, perr);
-}
-
-template <>
-contact_manager<BACKEND>::group_ref
-contact_manager<BACKEND>::gref (contact::contact_id group_id)
-{
-    error err;
-    auto c = get(group_id, & err);
-
-    if (is_valid(c) && c.type == contact::type_enum::group)
-        return group_ref{group_id, this};
-
-    return group_ref{};
+    return _rep.contacts->update(c) > 0;
 }
 
 namespace {
@@ -264,87 +284,70 @@ std::string const REMOVE_GROUP {
     "DELETE from `{}` WHERE `group_id` = :group_id"
 };
 
+std::string const REMOVE_CREATOR {
+    "DELETE from `{}` WHERE `group_id` = :group_id"
+};
+
 } // namespace
 
 template <>
-bool
-contact_manager<BACKEND>::remove (contact::contact_id id, error * perr)
+void
+contact_manager<BACKEND>::remove (contact::contact_id id)
 {
-    debby::error storage_err;
-    auto stmt1 = _rep.dbh->prepare(fmt::format(REMOVE_MEMBERSHIPS, _rep.members_table_name)
-        , true, & storage_err);
-    auto stmt2 = _rep.dbh->prepare(fmt::format(REMOVE_GROUP, _rep.members_table_name)
-        , true, & storage_err);
-    bool success = !!stmt1 && !!stmt2;
+    auto stmt1 = _rep.dbh->prepare(fmt::format(REMOVE_MEMBERSHIPS, _rep.members_table_name));
+    auto stmt2 = _rep.dbh->prepare(fmt::format(REMOVE_GROUP, _rep.members_table_name));
+    auto stmt3 = _rep.dbh->prepare(fmt::format(REMOVE_CREATOR, _rep.group_creator_table_name));
 
-    success = success
-        && stmt1.bind(":member_id", to_storage(id), false, & storage_err)
-        && stmt2.bind(":group_id", to_storage(id), false, & storage_err);
+    CHAT__ASSERT(!!stmt1, "");
+    CHAT__ASSERT(!!stmt2, "");
+    CHAT__ASSERT(!!stmt3, "");
 
-    if (success) {
+    stmt1.bind(":member_id", id);
+    stmt2.bind(":group_id", id);
+    stmt3.bind(":group_id", id);
+
+    TRY {
         _rep.dbh->begin();
 
-        success = _rep.contacts->remove(id, perr);
+        _rep.contacts->remove(id);
 
-        if (success) {
-            for (auto * stmt: {& stmt1, & stmt2}) {
-                auto res = stmt->exec(& storage_err);
-
-                if (res.is_error()) {
-                    success = false;
-                    break;
-                }
-            }
+        for (auto * stmt: {& stmt1, & stmt2, & stmt3}) {
+            auto res = stmt->exec();
         }
-
-        if (success)
-            _rep.dbh->commit();
-        else
-            _rep.dbh->rollback();
+        _rep.dbh->commit();
+    } CATCH (debby::error ex) {
+#if PFS__EXCEPTIONS_ENABLED
+        _rep.dbh->rollback();
+        throw;
+#endif
     }
-
-    if (!success) {
-        error err{errc::storage_error
-            , fmt::format("remove contact failure: #{}"
-                , to_string(id))
-            , storage_err.what()};
-        if (perr) *perr = err; else CHAT__THROW(err);
-        return false;
-    }
-
-    return success;
 }
 
 template <>
-bool
-contact_manager<BACKEND>::wipe (error * perr)
+void
+contact_manager<BACKEND>::wipe ()
 {
-    std::array<std::string, 3> tables = {
+    std::array<std::string, 4> tables = {
           _rep.contacts_table_name
         , _rep.members_table_name
         , _rep.followers_table_name
+        , _rep.group_creator_table_name
     };
 
-    debby::error storage_err;
-    auto success = _rep.dbh->begin();
+    TRY {
+        _rep.dbh->begin();
 
-    if (success) {
         for (auto const & t: tables) {
-            success = success && _rep.dbh->clear(t, & storage_err);
+            _rep.dbh->clear(t);
         }
-    }
 
-    if (success)
         _rep.dbh->commit();
-    else
+    } CATCH (debby::error ex) {
+#if PFS__EXCEPTIONS_ENABLED
         _rep.dbh->rollback();
-
-    if (!success) {
-        error err {errc::storage_error, fmt::format(WIPE_ERROR, storage_err.what())};
-        if (perr) *perr = err; CHAT__THROW(err);
+        throw;
+#endif
     }
-
-    return success;
 }
 
 namespace {
@@ -354,11 +357,10 @@ std::string const SELECT_ALL_CONTACTS {
 } // namespace
 
 template <>
-bool
-contact_manager<BACKEND>::for_each (std::function<void(contact::contact const &)> f
-    , error * perr)
+void
+contact_manager<BACKEND>::for_each (std::function<void(contact::contact const &)> f)
 {
-    return _rep.contacts->for_each(f, perr);
+    _rep.contacts->for_each(f);
 }
 
 } // namespace chat

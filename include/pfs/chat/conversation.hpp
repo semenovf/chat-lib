@@ -9,7 +9,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 #include "contact.hpp"
-#include "error.hpp"
 #include "message.hpp"
 #include "pfs/optional.hpp"
 
@@ -46,13 +45,13 @@ private:
     rep_type _rep;
 
 private:
-    conversation () = default;
     conversation (rep_type && rep);
     conversation (conversation const & other) = delete;
     conversation & operator = (conversation const & other) = delete;
     conversation & operator = (conversation && other) = delete;
 
 public:
+    conversation () = default;
     conversation (conversation && other) = default;
     ~conversation () = default;
 
@@ -76,70 +75,88 @@ public:
 
     /**
      * Mark message dispatched to addressee.
+     *
+     * @throw debby::error on storage error.
+     * @throw chat::error if message not found.
      */
     void mark_dispatched (message::message_id message_id
-        , pfs::utc_time_point dispatched_time
-        , error * perr = nullptr);
+        , pfs::utc_time_point dispatched_time);
 
     /**
      * Mark message delivered by addressee.
+     *
+     * @throw debby::error on storage error.
+     * @throw chat::error if message not found.
      */
     void mark_delivered (message::message_id message_id
-        , pfs::utc_time_point delivered_time
-        , error * perr = nullptr);
+        , pfs::utc_time_point delivered_time);
 
     /**
      * Mark message read by addressee.
+     *
+     * @throw debby::error on storage error.
+     * @throw chat::error if message not found.
      */
     void mark_read (message::message_id message_id
-        , pfs::utc_time_point read_time
-        , error * perr = nullptr);
+        , pfs::utc_time_point read_time);
 
     /**
      * Creates editor for new outgoing message.
      *
      * @return Editor instance.
+     *
+     * @throw debby::error on storage error.
      */
-    editor_type create (error * perr = nullptr);
+    editor_type create ();
 
     /**
      * Opens editor for outgoing message specified by @a id.
      *
-     * @return Editor instance.
+     * @return Editor instance or invalid editor if message not found.
+     *
+     * @throw chat::error if message content is invalid (i.e. bad JSON source).
      */
-    editor_type open (message::message_id id, error * perr = nullptr);
+    editor_type open (message::message_id id);
 
+    /**
+     * Get message credentials by @a message_id.
+     *
+     * @return Message credentials or @c nullopt if message not found.
+     *
+     * @throw debby::error on storage error.
+     * @throw chat::error if message content is invalid (i.e. bad JSON source).
+     */
     pfs::optional<message::message_credentials>
-    message (message::message_id message_id, error * perr = nullptr) const noexcept;
+    message (message::message_id message_id) const;
 
     /**
      * Fetch all conversation messages in order specified by @a sort_flag
      * (see @c conversation_sort_flag).
      *
-     * @return @c true If no error occured or @c false otherwise.
+     * @throw debby::error on storage error.
+     * @throw chat::error if message content is invalid (i.e. bad JSON source).
      */
-    bool for_each (std::function<void(message::message_credentials const &)> f
-        , int sort_flag, error * perr = nullptr);
+    void for_each (std::function<void(message::message_credentials const &)> f
+        , int sort_flag);
 
     /**
      * Convenient function for fetch all conversation messages in order
      * @c conversation_sort_flag::by_lcoal_creation_time | @c conversation_sort_flag::ascending_order
-     *
-     * @return @c true If no error occured or @c false otherwise.
      */
-    bool for_each (std::function<void(message::message_credentials const &)> f
-        , error * perr = nullptr)
+    void for_each (std::function<void(message::message_credentials const &)> f)
     {
-        return for_each(f
-            , conversation_sort_flag::by_local_creation_time
-                | conversation_sort_flag::ascending_order
-            , perr);
+        int sort_flag = conversation_sort_flag::by_local_creation_time
+            | conversation_sort_flag::ascending_order;
+
+        for_each(f, sort_flag);
     }
 
     /**
      * Wipes (erases all messages) conversation.
+     *
+     * @throw debby::error on storage error.
      */
-    bool wipe (error * perr = nullptr) noexcept;
+    void wipe ();
 
 public:
     template <typename ...Args>

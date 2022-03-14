@@ -11,11 +11,16 @@
 cmake_minimum_required (VERSION 3.11)
 project(chat-lib C CXX)
 
+option(CHAT__ENABLE_EXCEPTIONS "Enable exceptions for library" ON)
 option(CHAT__ENABLE_JANSSON_BACKEND "Enable `Jansson` library for JSON support" ON)
 option(CHAT__ENABLE_SQLITE3_CONTACT_MANAGER_BACKEND "Enable `sqlite3` contact manager backend" ON)
 option(CHAT__ENABLE_SQLITE3_MESSAGE_STORE_BACKEND "Enable `sqlite3` message store backend" ON)
 option(CHAT__ENABLE_NETTY_P2P_DELIVERY_MANAGER_BACKEND "Enable `netty-p2p` delivery manager backend " ON)
 option(CHAT__ENABLE_CEREAL_SERIALIZER "Enable serialization based on `Cereal` library" ON)
+
+if (CHAT__ENABLE_EXCEPTIONS)
+    set(PFS__ENABLE_EXCEPTIONS ON CACHE INTERNAL "")
+endif()
 
 portable_target(LIBRARY ${PROJECT_NAME} ALIAS pfs::chat)
 portable_target(SOURCES ${PROJECT_NAME}
@@ -75,8 +80,8 @@ endif()
 if (CHAT__ENABLE_SQLITE3_CONTACT_MANAGER_BACKEND)
     portable_target(SOURCES ${PROJECT_NAME}
         ${CMAKE_CURRENT_LIST_DIR}/src/backend/sqlite3/db_traits.cpp
-        ${CMAKE_CURRENT_LIST_DIR}/src/backend/sqlite3/contact_manager.cpp
         ${CMAKE_CURRENT_LIST_DIR}/src/backend/sqlite3/contact_list.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/src/backend/sqlite3/contact_manager.cpp
         ${CMAKE_CURRENT_LIST_DIR}/src/backend/sqlite3/group_ref.cpp)
 endif()
 

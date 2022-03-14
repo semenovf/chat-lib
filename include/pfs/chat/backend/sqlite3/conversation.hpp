@@ -31,8 +31,7 @@ struct conversation
 
     static rep_type make (contact::contact_id me
         , contact::contact_id addressee
-        , shared_db_handle dbh
-        , error * perr = nullptr);
+        , shared_db_handle dbh);
 };
 
 }}} // namespace chat::backend::sqlite3

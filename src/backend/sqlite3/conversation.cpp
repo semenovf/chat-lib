@@ -7,24 +7,18 @@
 //      2021.01.02 Initial version.
 //      2022.02.17 Refactored totally.
 ////////////////////////////////////////////////////////////////////////////////
-#include "pfs/chat//conversation.hpp"
+#include "pfs/chat/conversation.hpp"
+#include "pfs/chat/error.hpp"
 #include "pfs/chat/backend/sqlite3/conversation.hpp"
-#include "pfs/debby/sqlite3/input_record.hpp"
-#include "pfs/debby/sqlite3/time_point_traits.hpp"
-#include "pfs/debby/sqlite3/uuid_traits.hpp"
 #include <array>
 
 namespace chat {
 
-using namespace debby::sqlite3;
+using namespace debby::backend::sqlite3;
 
 namespace {
     // NOTE Must be synchronized with analog in message_store.cpp
     std::string const DEFAULT_TABLE_NAME_PREFIX { "#" };
-
-    std::string const OPEN_CONVERSATION_ERROR { "open converstion table failure: {}: {}" };
-    std::string const CREATE_MESSAGE_ERROR    { "create message failure: {}" };
-    std::string const WIPE_ERROR              { "wipe converstion failure: {}: {}" };
 }
 
 namespace {
@@ -51,8 +45,7 @@ namespace sqlite3 {
 conversation::rep_type
 conversation::make (contact::contact_id me
     , contact::contact_id addressee
-    , shared_db_handle dbh
-    , error * perr)
+    , shared_db_handle dbh)
 {
     rep_type rep;
 
@@ -75,26 +68,20 @@ conversation::make (contact::contact_id me
             , affinity_traits<std::string>::name())
     };
 
-    debby::error storage_err;
-    auto success = rep.dbh->begin();
+    TRY {
+        rep.dbh->begin();
 
-    if (success) {
-        for (auto const & sql: sqls) {
-            success = success && rep.dbh->query(sql, & storage_err);
-        }
-    }
+        for (auto const & sql: sqls)
+            rep.dbh->query(sql);
 
-    if (success)
         rep.dbh->commit();
-    else
+    } CATCH (debby::error ex) {
+#if PFS__EXCEPTIONS_ENABLED
         rep.dbh->rollback();
-
-    if (!success) {
         shared_db_handle empty;
         rep.dbh.swap(empty);
-        error err {errc::storage_error
-            , fmt::format(OPEN_CONVERSATION_ERROR, storage_err.what())};
-        if (perr) *perr = err; CHAT__THROW(err);
+        throw;
+#endif
     }
 
     return rep;
@@ -155,76 +142,63 @@ static void mark_message_status (
     , std::string const & table_name
     , message::message_id message_id
     , pfs::utc_time_point time
-    , std::string const & status_str
-    , error * perr)
+    , std::string const & status_str)
 {
-    debby::error storage_err;
-    auto stmt = dbh->prepare(fmt::format(sql, table_name), true, & storage_err);
-    bool success = !!stmt;
+    auto stmt = dbh->prepare(fmt::format(sql, table_name));
 
-    success = success
-        && stmt.bind(":time", to_storage(time), & storage_err)
-        && stmt.bind(":message_id", to_storage(message_id), false, & storage_err);
+    CHAT__ASSERT(!!stmt, "");
 
-    if (success) {
-        auto res = stmt.exec(& storage_err);
+    stmt.bind(":time", time);
+    stmt.bind(":message_id", message_id);
 
-        if (res.is_error())
-            success = false;
-    }
+    auto res = stmt.exec();
 
-    if (!success) {
-        auto err = error{errc::storage_error
-            , fmt::format("mark message {} failure: #{}", status_str, to_string(message_id))
-            , storage_err.what()};
-        if (perr) *perr = err; else CHAT__THROW(err);
-    } else if (stmt.rows_affected() == 0) {
-        auto err = error{errc::message_not_found
-            , fmt::format("no message mark {}: #{}", status_str, to_string(message_id))};
-        if (perr) *perr = err; else CHAT__THROW(err);
+    if (stmt.rows_affected() == 0) {
+        auto err = error{
+              errc::message_not_found
+            , fmt::format("no message mark {}: #{}"
+                , status_str
+                , to_string(message_id))
+        };
+
+        CHAT__THROW(err);
     }
 }
 
 template <>
 void conversation<BACKEND>::mark_dispatched (message::message_id message_id
-    , pfs::utc_time_point dispatched_time
-    , error * perr)
+    , pfs::utc_time_point dispatched_time)
 {
     mark_message_status(_rep.dbh
         , UPDATE_DISPATCHED_TIME
         , _rep.table_name
         , message_id
         , dispatched_time
-        , "dispatched"
-        , perr);
+        , "dispatched");
 }
 
 template <>
 void conversation<BACKEND>::mark_delivered (message::message_id message_id
-    , pfs::utc_time_point delivered_time
-    , error * perr)
+    , pfs::utc_time_point delivered_time)
 {
     mark_message_status(_rep.dbh
         , UPDATE_DELIVERED_TIME
         , _rep.table_name
         , message_id
         , delivered_time
-        , "delivered"
-        , perr);
+        , "delivered");
 }
 
 template <>
 void conversation<BACKEND>::mark_read (message::message_id message_id
-    , pfs::utc_time_point read_time
-    , error * perr)
+    , pfs::utc_time_point read_time)
 {
     mark_message_status(_rep.dbh
         , UPDATE_READ_TIME
         , _rep.table_name
         , message_id
         , read_time
-        , "read"
-        , perr);
+        , "read");
 }
 
 namespace {
@@ -236,42 +210,26 @@ std::string const INSERT_MESSAGE {
 
 template <>
 conversation<BACKEND>::editor_type
-conversation<BACKEND>::create (error * perr)
+conversation<BACKEND>::create ()
 {
     auto message_id = message::id_generator{}.next();
     auto creation_time = pfs::current_utc_time_point();
 
-    debby::error storage_err;
-    auto stmt = _rep.dbh->prepare(fmt::format(INSERT_MESSAGE, _rep.table_name)
-        , true, & storage_err);
-    bool success = !!stmt;
+    auto stmt = _rep.dbh->prepare(fmt::format(INSERT_MESSAGE, _rep.table_name));
 
-    success = success
-        && stmt.bind(":message_id", to_storage(message_id), false, & storage_err)
-        && stmt.bind(":author_id", to_storage(_rep.me), false, & storage_err)
-        && stmt.bind(":creation_time", to_storage(creation_time), & storage_err)
-        && stmt.bind(":local_creation_time", to_storage(creation_time), & storage_err)
-        && stmt.bind(":modification_time", to_storage(creation_time), & storage_err);
+    CHAT__ASSERT(!!stmt, "");
 
-    if (success) {
-        auto res = stmt.exec(& storage_err);
+    stmt.bind(":message_id", message_id);
+    stmt.bind(":author_id", _rep.me);
+    stmt.bind(":creation_time", creation_time);
+    stmt.bind(":local_creation_time", creation_time);
+    stmt.bind(":modification_time", creation_time);
 
-        if (res.is_error()) {
-            success = false;
-        }
-    }
+    stmt.exec();
 
-    if (!success) {
-        error err {errc::storage_error
-            , fmt::format(CREATE_MESSAGE_ERROR, storage_err.what())};
-        if (perr) *perr = err; else CHAT__THROW(err);
-    } else {
-        PFS__ASSERT(stmt.rows_affected() > 0, "Non-unique ID generated for message");
-    }
+    CHAT__ASSERT(stmt.rows_affected() > 0, "Non-unique ID generated for message");
 
-    return success
-        ? editor_type::make(message_id, _rep.dbh, _rep.table_name)
-        : editor_type{};
+    return editor_type::make(message_id, _rep.dbh, _rep.table_name);
 }
 
 namespace {
@@ -286,51 +244,31 @@ std::string const SELECT_OUTGOING_CONTENT {
 
 template <>
 conversation<BACKEND>::editor_type
-conversation<BACKEND>::open (message::message_id message_id, error * perr)
+conversation<BACKEND>::open (message::message_id message_id)
 {
-    debby::error storage_err;
-    auto stmt = _rep.dbh->prepare(fmt::format(SELECT_OUTGOING_CONTENT, _rep.table_name)
-        , true, & storage_err);
-    bool success = !!stmt;
+    auto stmt = _rep.dbh->prepare(fmt::format(SELECT_OUTGOING_CONTENT, _rep.table_name));
 
-    success = success
-        && stmt.bind(":message_id", to_storage(message_id), false, & storage_err)
-        && stmt.bind(":author_id", to_storage(_rep.me), false, & storage_err);
+    CHAT__ASSERT(!!stmt, "");
 
-    if (success) {
-        auto res = stmt.exec(& storage_err);
+    stmt.bind(":message_id", message_id);
+    stmt.bind(":author_id", _rep.me);
 
-        if (res.has_more()) {
-            input_record in {res};
-            message::message_id message_id;
-            std::string content_data;
+    auto res = stmt.exec();
 
-            success = in["message_id"] >> message_id
-                && in["content"]       >> content_data;
+    if (res.has_more()) {
+        message::message_id message_id;
+        pfs::optional<std::string> content_data;
 
-            if (success) {
-                error err;
-                message::content content{content_data, & err};
+        res["message_id"] >> message_id;
+        res["content"]    >> content_data;
 
-                if (!content) {
-                    if (perr) *perr = err; else CHAT__THROW(err);
-                    return editor_type{};
-                }
+        message::content content;
 
-                return editor_type::make(message_id, std::move(content)
-                    , _rep.dbh, _rep.table_name);
-            }
-        }
+        if (content_data)
+            content = message::content{*content_data};
 
-        if (res.is_error())
-            success = false;
-    }
-
-    if (!success) {
-        auto err = error{errc::storage_error
-            , fmt::format("fetch outgoing message failure: #{}", to_string(message_id))
-            , storage_err.what()};
-        if (perr) *perr = err; else CHAT__THROW(err);
+        return editor_type::make(message_id, std::move(content)
+            , _rep.dbh, _rep.table_name);
     }
 
     return editor_type{};
@@ -355,57 +293,34 @@ std::string const SELECT_MESSAGE {
 
 template <>
 pfs::optional<message::message_credentials>
-conversation<BACKEND>::message (message::message_id message_id, error * perr) const noexcept
+conversation<BACKEND>::message (message::message_id message_id) const
 {
-    debby::error storage_err;
-    auto stmt = _rep.dbh->prepare(fmt::format(SELECT_MESSAGE, _rep.table_name)
-        , true, & storage_err);
-    bool success = !!stmt;
+    auto stmt = _rep.dbh->prepare(fmt::format(SELECT_MESSAGE, _rep.table_name));
 
-    success = success
-        && stmt.bind(":message_id", to_storage(message_id), false, & storage_err);
+    CHAT__ASSERT(!!stmt, "");
 
-    if (success) {
-        auto res = stmt.exec(& storage_err);
+    stmt.bind(":message_id", message_id);
 
-        if (res.has_more()) {
-            input_record in {res};
-            std::string content_data;
-            pfs::optional<message::message_credentials> result(pfs::in_place, message::message_credentials{});
+    auto res = stmt.exec();
 
-            success = in["message_id"]       >> result->id
-                && in["author_id"]           >> result->author_id
-                && in["creation_time"]       >> result->creation_time
-                && in["local_creation_time"] >> result->local_creation_time
-                && in["modification_time"]   >> result->modification_time
-                && in["dispatched_time"]     >> result->dispatched_time
-                && in["delivered_time"]      >> result->delivered_time
-                && in["read_time"]           >> result->read_time
-                && in["content"]             >> content_data;
+    if (res.has_more()) {
+        std::string content_data;
+        pfs::optional<message::message_credentials> result(pfs::in_place
+            , message::message_credentials{});
 
-            if (success) {
-                error err;
-                message::content content{content_data, & err};
+        res["message_id"]          >> result->id;
+        res["author_id"]           >> result->author_id;
+        res["creation_time"]       >> result->creation_time;
+        res["local_creation_time"] >> result->local_creation_time;
+        res["modification_time"]   >> result->modification_time;
+        res["dispatched_time"]     >> result->dispatched_time;
+        res["delivered_time"]      >> result->delivered_time;
+        res["read_time"]           >> result->read_time;
+        res["content"]             >> content_data;
 
-                if (!content) {
-                    if (perr) *perr = err;
-                    return pfs::nullopt;
-                }
-
-                result->contents = std::move(content);
-                return result;
-            }
-        }
-
-        if (res.is_error())
-            success = false;
-    }
-
-    if (!success) {
-        auto err = error{errc::storage_error
-            , fmt::format("fetch message failure: #{}", to_string(message_id))
-            , storage_err.what()};
-        if (perr) *perr = err;
+        message::content content{content_data};
+        result->contents = std::move(content);
+        return result;
     }
 
     return pfs::nullopt;
@@ -429,12 +344,10 @@ std::string const SELECT_ALL_MESSAGES {
 } // namespace
 
 template <>
-bool
+void
 conversation<BACKEND>::for_each (std::function<void(message::message_credentials const &)> f
-    , int sort_flag, error * perr)
+    , int sort_flag)
 {
-    debby::error storage_err;
-
     std::string field = "`local_creation_time`";
     std::string order = "ASC";
 
@@ -457,77 +370,45 @@ conversation<BACKEND>::for_each (std::function<void(message::message_credentials
         order = "DESC";
 
     auto stmt = _rep.dbh->prepare(
-          fmt::format(SELECT_ALL_MESSAGES, _rep.table_name, field, order)
-        , true, & storage_err);
-    bool success = !!stmt;
+        fmt::format(SELECT_ALL_MESSAGES, _rep.table_name, field, order));
 
-    if (success) {
-        auto res = stmt.exec(& storage_err);
+    CHAT__ASSERT(!!stmt, "");
 
-        while (res.has_more()) {
-            input_record in {res};
-            std::string content_data;
-            message::message_credentials m;
+    auto res = stmt.exec();
 
-            success = in["message_id"]       >> m.id
-                && in["author_id"]           >> m.author_id
-                && in["creation_time"]       >> m.creation_time
-                && in["local_creation_time"] >> m.creation_time
-                && in["modification_time"]   >> m.modification_time
-                && in["dispatched_time"]     >> m.dispatched_time
-                && in["delivered_time"]      >> m.delivered_time
-                && in["read_time"]           >> m.read_time
-                && in["content"]             >> content_data;
+    while (res.has_more()) {
+        pfs::optional<std::string> content_data;
+        message::message_credentials m;
 
-            if (success) {
-                error err;
-                message::content content{content_data, & err};
+        res["message_id"]          >> m.id;
+        res["author_id"]           >> m.author_id;
+        res["creation_time"]       >> m.creation_time;
+        res["local_creation_time"] >> m.creation_time;
+        res["modification_time"]   >> m.modification_time;
+        res["dispatched_time"]     >> m.dispatched_time;
+        res["delivered_time"]      >> m.delivered_time;
+        res["read_time"]           >> m.read_time;
+        res["content"]             >> content_data;
 
-                if (!content) {
-                    if (perr) *perr = err;
-                    return false;
-                }
-
-                m.contents = std::move(content);
-
-                f(m);
-            } else {
-                break;
-            }
-
-            res.next();
+        if (content_data) {
+            message::content content{*content_data};
+            m.contents = std::move(content);
         }
 
-        if (res.is_error()) {
-            success = false;
-        }
-    }
+        f(m);
 
-    if (storage_err) {
-        error err {errc::storage_error
-            , fmt::format("scan messages failure")
-            , storage_err.what()};
-        if (perr) *perr = err;
+        res.next();
     }
-
-    return success;
 }
 
-
+////////////////////////////////////////////////////////////////////////////////
+// conversation::wipe
+////////////////////////////////////////////////////////////////////////////////
 template <>
-bool
-conversation<BACKEND>::wipe (error * perr) noexcept
+void
+conversation<BACKEND>::wipe ()
 {
-    debby::error storage_err;
-
-    if (!_rep.dbh->remove(_rep.table_name, & storage_err)) {
-        error err {errc::storage_error, fmt::format(WIPE_ERROR
-            , to_string(_rep.addressee), storage_err.what())};
-        if (perr) *perr = err;
-        return false;
-    }
-
-    return true;
+    _rep.dbh->remove(_rep.table_name);
 }
 
 } // namespace chat

@@ -61,18 +61,22 @@ public:
      */
     void add_emoji (std::string const & shortcode);
 
-//     bool add_audio (message::resource_id rc, error * perr = nullptr)
-//     bool add_video (message::resource_id rc, error * perr = nullptr)
+//     bool add_audio (message::resource_id rc)
+//     bool add_video (message::resource_id rc)
 
     /**
      * Add attachment to message content.
+     *
+     * @throw chat::error @c errc::attachment_failure.
      */
-    bool attach (pfs::filesystem::path const & path, error * perr = nullptr);
+    void attach (pfs::filesystem::path const & path);
 
     /**
      * Save message content.
+     *
+     * @throw debby::error.
      */
-    bool save (error * perr = nullptr);
+    void save ();
 
     /**
      * Get message content.

@@ -9,32 +9,28 @@
 ////////////////////////////////////////////////////////////////////////////////
 #include "contact_type_enum.hpp"
 #include "pfs/chat/contact_list.hpp"
+#include "pfs/chat/error.hpp"
 #include "pfs/chat/backend/sqlite3/contact_list.hpp"
-#include "pfs/debby/sqlite3/input_record.hpp"
-#include "pfs/debby/sqlite3/time_point_traits.hpp"
-#include "pfs/debby/sqlite3/uuid_traits.hpp"
+#include "pfs/debby/backend/sqlite3/time_point_traits.hpp"
+#include "pfs/debby/backend/sqlite3/uuid_traits.hpp"
 #include <cassert>
 
 namespace chat {
 
-using namespace debby::sqlite3;
+using namespace debby::backend::sqlite3;
 
 namespace {
     constexpr std::size_t CACHE_WINDOW_SIZE = 100;
 } // namespace
 
-static bool fill_contact (backend::sqlite3::db_traits::result_type * res
-    , contact::contact * c)
+static void fill_contact (backend::sqlite3::db_traits::result_type & result
+    , contact::contact & c)
 {
-    input_record in {*res};
-
-    auto success = in["id"]  >> c->id
-        && in["alias"]       >> c->alias
-        && in["avatar"]      >> c->avatar
-        && in["description"] >> c->description
-        && in["type"]        >> c->type;
-
-    return success;
+    result["id"]          >> c.id;
+    result["alias"]       >> c.alias;
+    result["avatar"]      >> c.avatar;
+    result["description"] >> c.description;
+    result["type"]        >> c.type;
 }
 
 namespace backend {
@@ -47,8 +43,7 @@ void contact_list::invalidate_cache (rep_type * rep)
 
 contact_list::rep_type
 contact_list::make (shared_db_handle dbh
-    , std::string const & table_name
-    , error *)
+    , std::string const & table_name)
 {
     rep_type rep;
     rep.dbh = dbh;
@@ -65,14 +60,14 @@ std::string const SELECT_ROWS_RANGE {
 };
 } // namespace
 
-bool contact_list::prefetch (rep_type const * rep, int offset, int limit, error * perr)
+void contact_list::prefetch (rep_type const * rep, int offset, int limit)
 {
     bool prefetch_required = rep->cache.dirty
         || offset < rep->cache.offset
         || offset + limit > rep->cache.offset + rep->cache.limit;
 
     if (!prefetch_required)
-        return true;
+        return;
 
     rep->cache.data.clear();
     rep->cache.map.clear();
@@ -80,39 +75,24 @@ bool contact_list::prefetch (rep_type const * rep, int offset, int limit, error 
     rep->cache.limit = 0;
     rep->cache.dirty = true;
 
-    debby::error storage_err;
-    auto stmt = rep->dbh->prepare(fmt::format(SELECT_ROWS_RANGE, rep->table_name
-        , limit, offset), true, & storage_err);
-    auto success = !!stmt;
+    auto stmt = rep->dbh->prepare(
+          fmt::format(SELECT_ROWS_RANGE, rep->table_name
+        , limit, offset));
 
-    if (success) {
-        auto res = stmt.exec(& storage_err);
+    CHAT__ASSERT(!!stmt, "");
 
-        for (; success && res.has_more(); res.next()) {
-            contact::contact c;
-            success = fill_contact(& res, & c);
+    auto res = stmt.exec();
 
-            if (success) {
-                rep->cache.data.push_back(std::move(c));
-                rep->cache.map.emplace(c.id, rep->cache.data.size() - 1);
-                rep->cache.limit++;
-            }
-        }
+    for (; res.has_more(); res.next()) {
+        contact::contact c;
+        fill_contact(res, c);
 
-        if (res.is_error())
-            success = false;
+        rep->cache.data.push_back(std::move(c));
+        rep->cache.map.emplace(c.id, rep->cache.data.size() - 1);
+        rep->cache.limit++;
     }
 
-    if (success) {
-        rep->cache.dirty = false;
-    } else {
-        auto err = error{errc::storage_error
-            , "cache contacts failure"
-            , storage_err.what()};
-        if (perr) *perr = err; else CHAT__THROW(err);
-    }
-
-    return success;
+    rep->cache.dirty = false;
 }
 
 }} // namespace backend::sqlite3
@@ -142,28 +122,19 @@ std::size_t
 contact_list<BACKEND>::count (contact::type_enum type) const
 {
     std::size_t count = 0;
-    debby::error err;
-    auto stmt = _rep.dbh->prepare(fmt::format(COUNT_CONTACTS_BY_TYPE, _rep.table_name)
-        , true, & err);
-    bool success = !!stmt;
+    auto stmt = _rep.dbh->prepare(fmt::format(COUNT_CONTACTS_BY_TYPE, _rep.table_name));
+    CHAT__ASSERT(!!stmt, "");
 
-    success = success && stmt.bind(":type" , to_storage(type), & err);
+    stmt.bind(":type", to_storage(type));
 
-    if (success) {
-        auto res = stmt.exec(& err);
+    auto res = stmt.exec();
 
-        if (res.has_more()) {
-            auto opt = res.get<std::size_t>(0);
-            assert(opt.has_value());
-            count = *opt;
-            res.next();
-        }
-
-        if (res.is_error())
-            success = false;
+    if (res.has_more()) {
+        count = res.get<std::size_t>(0);
+        res.next();
     }
 
-    return success ? count : 0;
+    return count;
 }
 
 namespace {
@@ -175,37 +146,21 @@ std::string const INSERT_CONTACT {
 
 template <>
 int
-contact_list<BACKEND>::add (contact::contact const & c, error * perr)
+contact_list<BACKEND>::add (contact::contact const & c)
 {
     BACKEND::invalidate_cache(& _rep);
 
-    debby::error storage_err;
-    auto stmt = _rep.dbh->prepare(fmt::format(INSERT_CONTACT, _rep.table_name)
-        , true, & storage_err);
-    bool success = !!stmt;
+    auto stmt = _rep.dbh->prepare(fmt::format(INSERT_CONTACT, _rep.table_name));
 
-    success = success
-        && stmt.bind(":id"    , to_storage(c.id), false, & storage_err)
-        && stmt.bind(":alias" , to_storage(c.alias), false, & storage_err)
-        && stmt.bind(":avatar", to_storage(c.avatar), false, & storage_err)
-        && stmt.bind(":description", to_storage(c.description), false, & storage_err)
-        && stmt.bind(":type"  , to_storage(c.type), & storage_err);
+    CHAT__ASSERT(!!stmt, "");
 
-    if (success) {
-        auto res = stmt.exec(& storage_err);
+    stmt.bind(":id"    , to_storage(c.id));
+    stmt.bind(":alias" , to_storage(c.alias));
+    stmt.bind(":avatar", to_storage(c.avatar));
+    stmt.bind(":description", to_storage(c.description));
+    stmt.bind(":type"  , to_storage(c.type));
 
-        if (res.is_error())
-            success = false;
-    }
-
-    if (!success) {
-        auto err = error{errc::storage_error
-            , fmt::format("add contact failure: #{}", to_string(c.id))
-            , storage_err.what()};
-        if (perr) *perr = err; else CHAT__THROW(err);
-        return -1;
-    }
-
+    auto res = stmt.exec();
     return stmt.rows_affected();
 }
 
@@ -220,37 +175,21 @@ std::string const UPDATE_CONTACT {
 
 template <>
 int
-contact_list<BACKEND>::update (contact::contact const & c, error * perr)
+contact_list<BACKEND>::update (contact::contact const & c)
 {
     BACKEND::invalidate_cache(& _rep);
 
-    debby::error storage_err;
-    auto stmt = _rep.dbh->prepare(fmt::format(UPDATE_CONTACT, _rep.table_name)
-        , true, & storage_err);
-    bool success = !!stmt;
+    auto stmt = _rep.dbh->prepare(fmt::format(UPDATE_CONTACT, _rep.table_name));
 
-    success = success
-        && stmt.bind(":alias" , to_storage(c.alias), false, & storage_err)
-        && stmt.bind(":avatar", to_storage(c.avatar), false, & storage_err)
-        && stmt.bind(":description", to_storage(c.description), false, & storage_err)
-        && stmt.bind(":id"    , to_storage(c.id), false, & storage_err)
-        && stmt.bind(":type"  , to_storage(c.type), & storage_err);
+    CHAT__ASSERT(!!stmt, "");
 
-    if (success) {
-        auto res = stmt.exec(& storage_err);
+    stmt.bind(":alias" , to_storage(c.alias));
+    stmt.bind(":avatar", to_storage(c.avatar));
+    stmt.bind(":description", to_storage(c.description));
+    stmt.bind(":id", to_storage(c.id));
+    stmt.bind(":type", to_storage(c.type));
 
-        if (res.is_error())
-            success = false;
-    }
-
-    if (!success) {
-        auto err = error{errc::storage_error
-            , fmt::format("update contact failure: #{}", to_string(c.id))
-            , storage_err.what()};
-        if (perr) *perr = err; else CHAT__THROW(err);
-        return -1;
-    }
-
+    auto res = stmt.exec();
     return stmt.rows_affected();
 }
 
@@ -261,36 +200,18 @@ std::string const REMOVE_CONTACT {
 } // namespace
 
 template <>
-bool
-contact_list<BACKEND>::remove (contact::contact_id id, error * perr)
+void
+contact_list<BACKEND>::remove (contact::contact_id id)
 {
     BACKEND::invalidate_cache(& _rep);
 
-    debby::error storage_err;
-    auto stmt = _rep.dbh->prepare(fmt::format(REMOVE_CONTACT, _rep.table_name)
-        , true, & storage_err);
-    bool success = !!stmt;
+    auto stmt = _rep.dbh->prepare(fmt::format(REMOVE_CONTACT, _rep.table_name));
 
-    success = success
-        && stmt.bind(":id", to_storage(id), false, & storage_err);
+    CHAT__ASSERT(!!stmt, "");
 
-    if (success) {
-        auto res = stmt.exec(& storage_err);
+    stmt.bind(":id", id);
 
-        if (res.is_error())
-            success = false;
-    }
-
-    if (!success) {
-        error err{errc::storage_error
-            , fmt::format("remove contact failure: #{}"
-                , to_string(id))
-            , storage_err.what()};
-        if (perr) *perr = err; else CHAT__THROW(err);
-        return false;
-    }
-
-    return success;
+    auto res = stmt.exec();
 }
 
 namespace {
@@ -301,7 +222,7 @@ std::string const SELECT_CONTACT {
 
 template <>
 contact::contact
-contact_list<BACKEND>::get (contact::contact_id id, error * perr) const
+contact_list<BACKEND>::get (contact::contact_id id) const
 {
     // Check cache
     if (!_rep.cache.dirty) {
@@ -312,38 +233,18 @@ contact_list<BACKEND>::get (contact::contact_id id, error * perr) const
         }
     }
 
-    debby::error storage_err;
-    auto stmt = _rep.dbh->prepare(fmt::format(SELECT_CONTACT, _rep.table_name)
-        , true, & storage_err);
-    bool success = !!stmt;
+    auto stmt = _rep.dbh->prepare(fmt::format(SELECT_CONTACT, _rep.table_name));
 
-    success = success && stmt.bind(":id", to_storage(id), false, & storage_err);
+    CHAT__ASSERT(!!stmt, "");
 
-    if (success) {
-        auto res = stmt.exec(& storage_err);
+    stmt.bind(":id", id);
 
-        if (res.has_more()) {
-            contact::contact c;
-            success = fill_contact(& res, & c);
+    auto res = stmt.exec();
 
-            if (success)
-                return std::move(c);
-        } else {
-            auto err = error{errc::contact_not_found
-                , fmt::format("contact not found by id: #{}", to_string(id))};
-            if (perr) *perr = err; else CHAT__THROW(err);
-            return contact::contact{};
-        }
-
-        if (res.is_error())
-            success = false;
-    }
-
-    if (!success) {
-        auto err = error{errc::storage_error
-            , fmt::format("load contact failure: #{}", to_string(id))
-            , storage_err.what()};
-        if (perr) *perr = err; else CHAT__THROW(err);
+    if (res.has_more()) {
+        contact::contact c;
+        fill_contact(res, c);
+        return std::move(c);
     }
 
     return contact::contact{};
@@ -351,7 +252,7 @@ contact_list<BACKEND>::get (contact::contact_id id, error * perr) const
 
 template <>
 contact::contact
-contact_list<BACKEND>::get (int offset, error * perr) const
+contact_list<BACKEND>::get (int offset) const
 {
     bool force_populate_cache = _rep.cache.dirty;
 
@@ -361,19 +262,10 @@ contact_list<BACKEND>::get (int offset, error * perr) const
 
     // Populate cache if dirty
     if (force_populate_cache) {
-        error err;
-        auto success = BACKEND::prefetch(& _rep, offset, CACHE_WINDOW_SIZE, & err);
-
-        if (!success) {
-            if (perr) *perr = err; else CHAT__THROW(err);
-            return contact::contact{};
-        }
+        BACKEND::prefetch(& _rep, offset, CACHE_WINDOW_SIZE);
     }
 
     if (offset < _rep.cache.offset || offset >= _rep.cache.offset + _rep.cache.limit) {
-        error err{errc::contact_not_found
-            , fmt::format("contact not found by offset: {}", offset)};
-        if (perr) *perr = err; else CHAT__THROW(err);
         return contact::contact{};
     }
 
@@ -387,38 +279,20 @@ std::string const SELECT_ALL_CONTACTS {
 } // namespace
 
 template <>
-bool
-contact_list<BACKEND>::for_each (std::function<void(contact::contact const &)> f
-    , error * perr)
+void
+contact_list<BACKEND>::for_each (std::function<void(contact::contact const &)> f)
 {
-    debby::error storage_err;
-    auto stmt = _rep.dbh->prepare(fmt::format(SELECT_ALL_CONTACTS, _rep.table_name)
-        , true, & storage_err);
-    auto success = !!stmt;
+    auto stmt = _rep.dbh->prepare(fmt::format(SELECT_ALL_CONTACTS, _rep.table_name));
 
-    if (success) {
-        auto res = stmt.exec(& storage_err);
+    CHAT__ASSERT(!!stmt, "");
 
-        for (; success && res.has_more(); res.next()) {
-            contact::contact c;
-            success = fill_contact(& res, & c);
+    auto res = stmt.exec();
 
-            if (success)
-                f(c);
-        }
-
-        if (res.is_error())
-            success = false;
+    for (; res.has_more(); res.next()) {
+        contact::contact c;
+        fill_contact(res, c);
+        f(c);
     }
-
-    if (!success) {
-        auto err = error{errc::storage_error
-            , "load contacts failure"
-            , storage_err.what()};
-        if (perr) *perr = err; else CHAT__THROW(err);
-    }
-
-    return success;
 }
 
 } // namespace chat
