@@ -77,7 +77,7 @@ private:
     typename delivery_manager_type::message_read_callback       _message_read;
 
 public: // signals
-    mutable Emitter<error const &> failure;
+    mutable Emitter<std::string const &> failure;
     mutable Emitter<contact::contact_id /*addressee*/
             , message::message_id /*message_id*/
             , pfs::utc_time_point /*dispatched_time*/> message_dispatched;
@@ -99,8 +99,8 @@ public:
         , _delivery_manager(std::move(delivery_manager))
     {
         // Set default failure callback
-        failure.connect([] (error const & err) {
-            fmt::print(stderr, "ERROR: {}\n", err.what());
+        failure.connect([] (std::string const & errstr) {
+            fmt::print(stderr, "ERROR: {}\n", errstr);
         });
 
         _message_dispatched = [this] (contact::contact_id addressee
@@ -176,8 +176,6 @@ public:
         */
     std::vector<contact::contact> members (contact::contact_id group_id) const
     {
-        error err;
-
         auto group_ref = _contact_manager->gref(group_id);
 
         if (!group_ref) {
@@ -186,7 +184,7 @@ public:
             return std::vector<contact::contact>{};
         }
 
-        return group_ref.members(& err);
+        return group_ref.members();
     }
 
     /**
@@ -244,6 +242,17 @@ public:
     }
 
     /**
+     * Add group contact with own id.
+     *
+     * @return Identifier of just added contact or @c chat::contact::contact_id{}
+     *         on error.
+     */
+    contact::contact_id add (contact::group g)
+    {
+        return add(g, my_contact().id);
+    }
+
+    /**
      * Update contact.
      *
      * @return @c true if contact updated successfully, @c false on error or
@@ -294,10 +303,27 @@ public:
         return _contact_manager->get(offset);
     }
 
+    /**
+     * Fetch all contacts and process them by @a f
+     *
+     * @throw debby::error on storage error.
+     */
     template <typename F>
     void for_each_contact (F && f) const
     {
         _contact_manager->for_each(std::forward<F>(f));
+    }
+
+    /**
+     * Fetch all contacts and process them by @a f until @f does not
+     * return @c false.
+     *
+     * @throw debby::error on storage error.
+     */
+    template <typename F>
+    void for_each_until (F && f)
+    {
+        _contact_manager->for_each_until(std::forward<F>(f));
     }
 
     /**
@@ -317,6 +343,23 @@ public:
         }
 
         return group_ref.add_member(member_id);
+    }
+
+    /**
+     * Removes all members from the group specified by @a group_id.
+     *
+     */
+    void remove_all_members (contact::contact_id group_id)
+    {
+        auto group_ref = _contact_manager->gref(group_id);
+
+        if (!group_ref) {
+            failure(fmt::format("attempt to remove all members from non-existent group: #{}"
+                , to_string(group_id)));
+            return;
+        }
+
+        group_ref.remove_all_members();
     }
 
     /**
@@ -352,6 +395,12 @@ public:
 //         auto conv = _message_store->conversation(id);
 //         return conv.unread_messages_count();
 //     }
+
+    template <typename F>
+    bool transaction (F && op) noexcept
+    {
+        return _contact_manager->transaction(std::forward<F>(op));
+    }
 
     /**
      * Dispatch message (original or edited)

@@ -96,6 +96,13 @@ public:
         void remove_member (contact::contact_id member_id);
 
         /**
+         * Removes all members from group.
+         *
+         * @throw debby::error on storage error.
+         */
+        void remove_all_members ();
+
+        /**
          * Get members of the specified group.
          *
          * @throw debby::error on storage error.
@@ -117,7 +124,6 @@ public:
 
 private:
     rep_type _rep;
-    std::function<void(error const &)> _on_error;
 
 private:
     contact_manager () = delete;
@@ -266,6 +272,14 @@ public:
      * @throw debby::error on storage error.
      */
     void for_each (std::function<void(contact::contact const &)> f);
+
+    /**
+     * Fetch all contacts and process them by @a f until @f does not
+     * return @c false.
+     *
+     * @throw debby::error on storage error.
+     */
+    void for_each_until (std::function<bool(contact::contact const &)> f);
 
     /**
      * Execute transaction (batch execution). Useful for storages that support

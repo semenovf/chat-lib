@@ -295,4 +295,22 @@ contact_list<BACKEND>::for_each (std::function<void(contact::contact const &)> f
     }
 }
 
+template <>
+void
+contact_list<BACKEND>::for_each_until (std::function<bool(contact::contact const &)> f)
+{
+    auto stmt = _rep.dbh->prepare(fmt::format(SELECT_ALL_CONTACTS, _rep.table_name));
+
+    CHAT__ASSERT(!!stmt, "");
+
+    auto res = stmt.exec();
+
+    for (; res.has_more(); res.next()) {
+        contact::contact c;
+        fill_contact(res, c);
+        if (!f(c))
+            break;
+    }
+}
+
 } // namespace chat

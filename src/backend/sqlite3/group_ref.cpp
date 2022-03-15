@@ -148,6 +148,27 @@ contact_manager<BACKEND>::group_ref::remove_member (contact::contact_id member_i
 }
 
 namespace {
+std::string const REMOVE_ALL_MEMBERS {
+    "DELETE from `{}` WHERE `group_id` = :group_id"
+};
+} // namespace
+
+template <>
+void
+contact_manager<BACKEND>::group_ref::remove_all_members ()
+{
+    PFS__ASSERT(_pmanager, "");
+
+    auto & rep = _pmanager->_rep;
+    auto stmt = rep.dbh->prepare(fmt::format(REMOVE_ALL_MEMBERS, rep.members_table_name));
+
+    CHAT__ASSERT(!!stmt, "");
+
+    stmt.bind(":group_id", _id);
+    auto res = stmt.exec();
+}
+
+namespace {
 std::string const SELECT_MEMBERS {
     "SELECT B.`id`, B.`alias`, B.`type` FROM `{}` A JOIN `{}` B"
     " ON A.`group_id` = :group_id AND A.`member_id` = B.`id`"

@@ -363,4 +363,11 @@ contact_manager<BACKEND>::for_each (std::function<void(contact::contact const &)
     _rep.contacts->for_each(f);
 }
 
+template <>
+void
+contact_manager<BACKEND>::for_each_until (std::function<bool(contact::contact const &)> f)
+{
+    _rep.contacts->for_each_until(f);
+}
+
 } // namespace chat

@@ -91,6 +91,14 @@ public:
      */
     void for_each (std::function<void(contact::contact const &)> f);
 
+    /**
+     * Fetch all contacts and process them by @a f until @f does not
+     * return @c false.
+     *
+     * @throw debby::error on storage error.
+     */
+    void for_each_until (std::function<bool(contact::contact const &)> f);
+
 public:
     template <typename ...Args>
     static contact_list make (Args &&... args)
