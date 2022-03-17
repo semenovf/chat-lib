@@ -66,6 +66,11 @@ std::string const CREATE_MEMBERS_INDEX {
     "CREATE INDEX IF NOT EXISTS `{0}_index` ON `{0}` (`group_id`)"
 };
 
+// Preventing duplicate pairs of group_id:member_id
+std::string const CREATE_MEMBERS_UNIQUE_INDEX {
+    "CREATE UNIQUE INDEX IF NOT EXISTS `{0}_unique_index` ON `{0}` (`group_id`, `member_id`)"
+};
+
 std::string const CREATE_FOLLOWERS_INDEX {
     "CREATE INDEX IF NOT EXISTS `{0}_index` ON `{0}` (`channel_id`)"
 };
@@ -91,7 +96,7 @@ contact_manager::make (contact::person const & me, shared_db_handle dbh)
     rep.followers_table_name     = DEFAULT_FOLLOWERS_TABLE_NAME;
     rep.group_creator_table_name = DEFAULT_GROUP_CREATOR_TABLE_NAME;
 
-    std::array<std::string, 8> sqls = {
+    std::array<std::string, 9> sqls = {
           fmt::format(CREATE_CONTACTS_TABLE
             , rep.contacts_table_name
             , affinity_traits<contact::contact_id>::name()
@@ -113,6 +118,7 @@ contact_manager::make (contact::person const & me, shared_db_handle dbh)
             , affinity_traits<contact::contact_id>::name())
         , fmt::format(CREATE_CONTACTS_INDEX , rep.contacts_table_name)
         , fmt::format(CREATE_MEMBERS_INDEX  , rep.members_table_name)
+        , fmt::format(CREATE_MEMBERS_UNIQUE_INDEX, rep.members_table_name)
         , fmt::format(CREATE_FOLLOWERS_INDEX, rep.followers_table_name)
         , fmt::format(CREATE_GROUP_CREATOR_INDEX, rep.group_creator_table_name)
     };
