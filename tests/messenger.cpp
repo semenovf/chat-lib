@@ -16,7 +16,6 @@
 #include "pfs/chat/message_store.hpp"
 #include "pfs/chat/backend/sqlite3/contact_manager.hpp"
 #include "pfs/chat/backend/sqlite3/message_store.hpp"
-#include "pfs/chat/backend/delivery_manager/buffer.hpp"
 #include <fstream>
 
 namespace fs = pfs::filesystem;
@@ -39,14 +38,9 @@ auto on_failure = [] (std::string const & errstr) {
 using Messenger = chat::messenger<
       chat::backend::sqlite3::contact_manager
     , chat::backend::sqlite3::message_store
-    , chat::backend::delivery_manager::buffer
     , pfs::emitter>;
 
 using SharedMessenger = std::shared_ptr<Messenger>;
-using Queue = chat::backend::delivery_manager::buffer::queue_type;
-
-auto q1 = std::make_shared<Queue>();
-auto q2 = std::make_shared<Queue>();
 
 ////////////////////////////////////////////////////////////////////////////////
 // Step 2. Define makers for messenger components
@@ -120,18 +114,6 @@ public:
 
         return messageStore;
     }
-
-    // Mandatory dispatcher builder
-    std::unique_ptr<Messenger::delivery_manager_type> make_delivery_manager (
-        std::shared_ptr<Queue> out, std::shared_ptr<Queue> in) const
-    {
-        auto deliveryManager = Messenger::delivery_manager_type::make_unique(out, in);
-
-        if (!*deliveryManager)
-            return nullptr;
-
-        return deliveryManager;
-    }
 };
 
 TEST_CASE("messenger") {
@@ -158,15 +140,26 @@ TEST_CASE("messenger") {
 ////////////////////////////////////////////////////////////////////////////////
 // Step 4. Instantiate messenger
 ////////////////////////////////////////////////////////////////////////////////
+    auto send_message = [] (chat::contact::contact_id addressee
+        , chat::message::message_id message_id
+        , std::string const & /*data*/) {
+
+        fmt::print(fmt::format("Send message #{} to #{}\n"
+            , to_string(addressee)
+            , to_string(message_id)));
+
+        return true;
+    };
+
     auto messenger1 = std::make_shared<Messenger>(
           messengerBuilder1.make_contact_manager()
         , messengerBuilder1.make_message_store()
-        , messengerBuilder1.make_delivery_manager(q1, q2));
+        , send_message);
 
     auto messenger2 = std::make_shared<Messenger>(
           messengerBuilder2.make_contact_manager()
         , messengerBuilder2.make_message_store()
-        , messengerBuilder2.make_delivery_manager(q2, q1));
+        , send_message);
 
     REQUIRE(*messenger1);
     REQUIRE(*messenger2);
@@ -337,6 +330,9 @@ TEST_CASE("messenger") {
         REQUIRE_EQ(m->id, last_message_id);
 
         messenger1->dispatch(contactId2, *m);
+        messenger1->dispatched(contactId2, last_message_id, pfs::current_utc_time_point());
+        messenger1->delivered(contactId2, last_message_id, pfs::current_utc_time_point());
+        messenger1->read(contactId2, last_message_id, pfs::current_utc_time_point());
     }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -15,7 +15,7 @@ option(CHAT__ENABLE_EXCEPTIONS "Enable exceptions for library" ON)
 option(CHAT__ENABLE_JANSSON_BACKEND "Enable `Jansson` library for JSON support" ON)
 option(CHAT__ENABLE_SQLITE3_CONTACT_MANAGER_BACKEND "Enable `sqlite3` contact manager backend" ON)
 option(CHAT__ENABLE_SQLITE3_MESSAGE_STORE_BACKEND "Enable `sqlite3` message store backend" ON)
-option(CHAT__ENABLE_NETTY_P2P_DELIVERY_MANAGER_BACKEND "Enable `netty-p2p` delivery manager backend " ON)
+# option(CHAT__ENABLE_NETTY_P2P_DELIVERY_MANAGER_BACKEND "Enable `netty-p2p` delivery manager backend " ON)
 option(CHAT__ENABLE_CEREAL_SERIALIZER "Enable serialization based on `Cereal` library" ON)
 
 if (CHAT__ENABLE_EXCEPTIONS)
@@ -27,8 +27,7 @@ portable_target(SOURCES ${PROJECT_NAME}
     ${CMAKE_CURRENT_LIST_DIR}/src/contact.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/emoji_db.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/error.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/src/mime.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/src/backend/delivery_manager/buffer.cpp)
+    ${CMAKE_CURRENT_LIST_DIR}/src/mime.cpp)
 
 if (CHAT__ENABLE_CEREAL_SERIALIZER)
     if (NOT TARGET cereal)
@@ -52,20 +51,20 @@ if (CHAT__ENABLE_SQLITE3_CONTACT_MANAGER_BACKEND
     endif()
 endif()
 
-if (CHAT__ENABLE_NETTY_P2P_DELIVERY_MANAGER_BACKEND)
-    if (NOT TARGET pfs::netty)
-        portable_target(INCLUDE_PROJECT
-            ${CMAKE_CURRENT_LIST_DIR}/3rdparty/pfs/netty/library.cmake)
-    endif()
-
-    if (NOT TARGET pfs::netty::p2p)
-        portable_target(INCLUDE_PROJECT
-            ${CMAKE_CURRENT_LIST_DIR}/3rdparty/pfs/netty/library-p2p.cmake)
-    endif()
-
-    portable_target(SOURCES ${PROJECT_NAME}
-        ${CMAKE_CURRENT_LIST_DIR}/src/backend/delivery_manager/netty_p2p.cpp)
-endif()
+# if (CHAT__ENABLE_NETTY_P2P_DELIVERY_MANAGER_BACKEND)
+#     if (NOT TARGET pfs::netty)
+#         portable_target(INCLUDE_PROJECT
+#             ${CMAKE_CURRENT_LIST_DIR}/3rdparty/pfs/netty/library.cmake)
+#     endif()
+#
+#     if (NOT TARGET pfs::netty::p2p)
+#         portable_target(INCLUDE_PROJECT
+#             ${CMAKE_CURRENT_LIST_DIR}/3rdparty/pfs/netty/library-p2p.cmake)
+#     endif()
+#
+#     portable_target(SOURCES ${PROJECT_NAME}
+#         ${CMAKE_CURRENT_LIST_DIR}/src/backend/delivery_manager/netty_p2p.cpp)
+# endif()
 
 if (NOT TARGET pfs::jeyson)
     if (CHAT__ENABLE_JANSSON_BACKEND)
@@ -95,7 +94,7 @@ endif()
 
 portable_target(INCLUDE_DIRS ${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_LIST_DIR}/include)
 portable_target(LINK ${PROJECT_NAME} PUBLIC pfs::jeyson pfs::debby pfs::common)
-portable_target(LINK ${PROJECT_NAME} PRIVATE pfs::netty::p2p pfs::netty)
+# portable_target(LINK ${PROJECT_NAME} PRIVATE pfs::netty::p2p pfs::netty)
 portable_target(EXPORTS ${PROJECT_NAME} CHAT__EXPORTS CHAT__STATIC)
 
 if (CHAT__ENABLE_JANSSON_BACKEND)

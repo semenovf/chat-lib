@@ -9,18 +9,21 @@
 #pragma once
 #include "contact.hpp"
 #include "contact_manager.hpp"
-#include "delivery_manager.hpp"
 #include "error.hpp"
 #include "message.hpp"
 #include "message_store.hpp"
+#include "protocol.hpp"
+#include "serializer.hpp"
 #include "pfs/emitter.hpp"
 #include "pfs/fmt.hpp"
+#include <functional>
 #include <memory>
 #include <vector>
 #include <cassert>
 
 namespace chat {
 
+////////////////////////////////////////////////////////////////////////////////
 //
 //     ------------------------      -----------------------
 //     |    Contact manager   |      |Message store manager|
@@ -50,31 +53,71 @@ namespace chat {
 // Communication media refers to the ways, means or channels of transmitting
 // message from sender to the receiver.
 //
+////////////////////////////////////////////////////////////////////////////////
+//                      Message lifecycle
+//   Author                                               Addressee
+// ---------                                              ---------
+//     |                                                      |
+//     |          1. message ID                               |
+//     |          2. author ID                                |
+//     |          3. creation time                            |
+//     | (1)      4. content                             (1') |
+//     |----------------------------------------------------->|
+//     |                                                      |
+//     |          1. message ID                               |
+//     |          2. addressee ID                             |
+//     | (2')     3. delivered time                       (2) |
+//     |<-----------------------------------------------------|
+//     |                                                      |
+//     |          1. message ID                               |
+//     |          2. addressee ID                             |
+//     | (3')     3. read time                            (3) |
+//     |<-----------------------------------------------------|
+//     |                                                      |
+//     |          1. message ID                               |
+//     |          2. author ID                                |
+//     |          3. modification time                        |
+//     | (4)      4. content                             (4') |
+//     |----------------------------------------------------->|
+//     |                                                      |
+//     |                         ...                          |
+//     |                                                      |
+//     | (4)                                             (4') |
+//     |----------------------------------------------------->|
+//     |                                                      |
+//
+// Step (1-1') - dispatching message
+// Step (2-2') - delivery notification
+// Step (3-3') - read notification
+// Step (4-4') - modification notification
+//
+// Step (4-4') can happen zero or more times.
+//
 template <typename ContactManagerBackend
     , typename MessageStoreBackend
-    , typename DeliveryManagerBackend
     , template <typename ...Args> class Emitter = pfs::emitter_mt>
 class messenger
 {
 public:
     using contact_manager_type  = contact_manager<ContactManagerBackend>;
     using message_store_type    = message_store<MessageStoreBackend>;
-    using delivery_manager_type = delivery_manager<DeliveryManagerBackend>;
-//     using icon_library_type    = typename PersistentStorageAPI::icon_library_type;
-//     using media_cache_type     = typename PersistentStorageAPI::media_cache_type;
+//     using icon_library_type    = typename ...;
+//     using media_cache_type     = typename ...;
 
     using conversation_type = typename message_store_type::conversation_type;
+
+    using send_message_proc = std::function<bool (
+          contact::contact_id /*addressee*/
+        , message::message_id /*message_id*/
+        , std::string const & /*data*/)>;
 
 private:
     std::unique_ptr<contact_manager_type>  _contact_manager;
     std::unique_ptr<message_store_type>    _message_store;
-    std::unique_ptr<delivery_manager_type> _delivery_manager;
     contact::id_generator _contact_id_generator;
     message::id_generator _message_id_generator;
 
-    typename delivery_manager_type::message_dispatched_callback _message_dispatched;
-    typename delivery_manager_type::message_delivered_callback  _message_delivered;
-    typename delivery_manager_type::message_read_callback       _message_read;
+    send_message_proc _send_message;
 
 public: // signals
     mutable Emitter<std::string const &> failure;
@@ -93,51 +136,15 @@ public: // signals
 public:
     messenger (std::unique_ptr<contact_manager_type> && contact_manager
         , std::unique_ptr<message_store_type> && message_store
-        , std::unique_ptr<delivery_manager_type> && delivery_manager)
+        , send_message_proc send_message)
         : _contact_manager(std::move(contact_manager))
         , _message_store(std::move(message_store))
-        , _delivery_manager(std::move(delivery_manager))
+        , _send_message(send_message)
     {
         // Set default failure callback
         failure.connect([] (std::string const & errstr) {
             fmt::print(stderr, "ERROR: {}\n", errstr);
         });
-
-        _message_dispatched = [this] (contact::contact_id addressee
-            , message::message_id message_id
-            , pfs::utc_time_point dispatched_time) {
-
-            auto conv = this->conversation(addressee);
-
-            if (conv) {
-                conv.mark_dispatched(message_id, dispatched_time);
-                this->message_dispatched(addressee, message_id, dispatched_time);
-            }
-        };
-
-        _message_delivered = [this] (contact::contact_id addressee
-            , message::message_id message_id
-            , pfs::utc_time_point delivered_time) {
-
-            auto conv = this->conversation(addressee);
-
-            if (conv) {
-                conv.mark_delivered(message_id, delivered_time);
-                this->message_delivered(addressee, message_id, delivered_time);
-            }
-        };
-
-        _message_read = [this] (contact::contact_id addressee
-            , message::message_id message_id
-            , pfs::utc_time_point read_time) {
-
-            auto conv = this->conversation(addressee);
-
-            if (conv) {
-                conv.mark_read(message_id, read_time);
-                this->message_read(addressee, message_id, read_time);
-            }
-        };
     }
 
     ~messenger () = default;
@@ -151,8 +158,7 @@ public:
     operator bool () const noexcept
     {
         return *_contact_manager
-            && *_message_store
-            && *_delivery_manager;
+            && *_message_store;
     }
 
     /**
@@ -405,14 +411,63 @@ public:
     /**
      * Dispatch message (original or edited)
      */
-    void dispatch (contact::contact_id addressee
+    bool dispatch (contact::contact_id addressee
         , message::message_credentials const & msg)
     {
-        auto result = _delivery_manager->dispatch(addressee
-            , msg
-            , _message_dispatched
-            , _message_delivered
-            , _message_read);
+        protocol::original_message m;
+        m.message_id    = msg.id;
+        m.author_id     = msg.author_id;
+        m.creation_time = msg.creation_time;
+        m.content       = msg.contents.has_value() ? to_string(*msg.contents) : std::string{};
+
+        auto data = serialize<protocol::original_message>(m);
+        auto success = _send_message(addressee, msg.id, data);
+        return success;
+    }
+
+    /**
+     * Process notification of message dispatched to @a addressee.
+     */
+    void dispatched (contact::contact_id addressee
+        , message::message_id message_id
+        , pfs::utc_time_point dispatched_time)
+    {
+        auto conv = this->conversation(addressee);
+
+        if (conv) {
+            conv.mark_dispatched(message_id, dispatched_time);
+            this->message_dispatched(addressee, message_id, dispatched_time);
+        }
+    }
+
+    /**
+     * Process notification of message delivered to @a addressee.
+     */
+    void delivered (contact::contact_id addressee
+        , message::message_id message_id
+        , pfs::utc_time_point delivered_time)
+    {
+        auto conv = this->conversation(addressee);
+
+        if (conv) {
+            conv.mark_delivered(message_id, delivered_time);
+            this->message_delivered(addressee, message_id, delivered_time);
+        }
+    }
+
+    /**
+     * Process notification of message read by @a addressee.
+     */
+    void read (contact::contact_id addressee
+        , message::message_id message_id
+        , pfs::utc_time_point read_time)
+    {
+        auto conv = this->conversation(addressee);
+
+        if (conv) {
+            conv.mark_read(message_id, read_time);
+            this->message_read(addressee, message_id, read_time);
+        }
     }
 
     void wipe ()
