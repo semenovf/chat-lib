@@ -95,12 +95,14 @@ namespace chat {
 //
 template <typename ContactManagerBackend
     , typename MessageStoreBackend
+    , typename SerializerBackend
     , template <typename ...Args> class Emitter = pfs::emitter_mt>
 class messenger
 {
 public:
     using contact_manager_type  = contact_manager<ContactManagerBackend>;
     using message_store_type    = message_store<MessageStoreBackend>;
+    using serializer_type       = serializer<SerializerBackend>;
 //     using icon_library_type    = typename ...;
 //     using media_cache_type     = typename ...;
 
@@ -121,9 +123,8 @@ private:
 
 public: // signals
     mutable Emitter<std::string const &> failure;
-    mutable Emitter<contact::contact_id /*addressee*/
-            , message::message_id /*message_id*/
-            , pfs::utc_time_point /*dispatched_time*/> message_dispatched;
+    mutable Emitter<contact::contact_id /*author*/
+            , message::message_id /*message_id*/> message_received;
 
     mutable Emitter<contact::contact_id /*addressee*/
             , message::message_id /*message_id*/
@@ -132,6 +133,9 @@ public: // signals
     mutable Emitter<contact::contact_id /*addressee*/
             , message::message_id /*message_id*/
             , pfs::utc_time_point /*read_time*/> message_read;
+    mutable Emitter<contact::contact_id /*addressee*/
+            , message::message_id /*message_id*/
+            , pfs::utc_time_point /*dispatched_time*/> message_dispatched;
 
 public:
     messenger (std::unique_ptr<contact_manager_type> && contact_manager
@@ -420,9 +424,69 @@ public:
         m.creation_time = msg.creation_time;
         m.content       = msg.contents.has_value() ? to_string(*msg.contents) : std::string{};
 
-        auto data = serialize<protocol::original_message>(m);
-        auto success = _send_message(addressee, msg.id, data);
+        typename serializer_type::output_packet_type out {};
+        out << m;
+        auto success = _send_message(addressee, msg.id, out.data());
         return success;
+    }
+
+    /**
+     * Process received data.
+     */
+    void received (contact::contact_id author, std::string const & data)
+    {
+        typename serializer_type::input_packet_type in {data};
+        protocol::packet_type_enum packet_type;
+        in >> packet_type;
+
+        switch (packet_type) {
+            case protocol::packet_type_enum::original_message: {
+                protocol::original_message m;
+                in >> m;
+                auto conv = this->conversation(m.author_id);
+
+                if (conv) {
+                    TRY {
+                        message::content content{m.content};
+                        conv.save(m.message_id
+                            , m.author_id
+                            , m.creation_time
+                            , to_string(content));
+                        this->message_received(m.author_id, m.message_id);
+                    } CATCH (error ex) {
+#if PFS__EXCEPTIONS_ENABLED
+                        failure(fmt::format("Bad/corrupted content in "
+                            "incoming message #{} from: #{}"
+                            , to_string(m.message_id)
+                            , to_string(author)));
+#endif
+                    }
+                }
+                break;
+            }
+            case protocol::packet_type_enum::delivery_notification: {
+                protocol::delivery_notification m;
+                in >> m;
+                delivered(m.addressee_id, m.message_id, m.delivered_time);
+                break;
+            }
+            case protocol::packet_type_enum::read_notification: {
+                protocol::read_notification m;
+                in >> m;
+                read(m.addressee_id, m.message_id, m.read_time);
+                break;
+            }
+            case protocol::packet_type_enum::edited_message: {
+                protocol::edited_message m;
+                in >> m;
+                // TODO Implement
+                break;
+            }
+            default:
+                failure(fmt::format("Bad message received from: #{}"
+                    , to_string(author)));
+                break;
+        }
     }
 
     /**

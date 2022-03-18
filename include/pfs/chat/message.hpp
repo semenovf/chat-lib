@@ -107,6 +107,9 @@ public:
     content & operator = (content && other);
     ~content ();
 
+    /**
+     * Checks if content is initialized (loaded from source).
+     */
     operator bool () const
     {
         return !!_d;

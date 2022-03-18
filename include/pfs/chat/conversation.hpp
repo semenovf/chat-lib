@@ -119,6 +119,14 @@ public:
     editor_type open (message::message_id id);
 
     /**
+     * Save incoming message
+     */
+    void save (message::message_id message_id
+        , contact::contact_id author_id
+        , pfs::utc_time_point const & creation_time
+        , std::string const & content);
+
+    /**
      * Get message credentials by @a message_id.
      *
      * @return Message credentials or @c nullopt if message not found.

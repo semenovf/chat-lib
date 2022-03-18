@@ -106,5 +106,5 @@ endif()
 if (CHAT__ENABLE_CEREAL_SERIALIZER)
     portable_target(LINK ${PROJECT_NAME} PUBLIC cereal)
     portable_target(SOURCES ${PROJECT_NAME}
-        ${CMAKE_CURRENT_LIST_DIR}/src/cereal_serializer.cpp)
+        ${CMAKE_CURRENT_LIST_DIR}/src/backend/serializer/cereal.cpp)
 endif()

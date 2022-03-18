@@ -14,8 +14,10 @@
 #include "pfs/chat/messenger.hpp"
 #include "pfs/chat/contact_manager.hpp"
 #include "pfs/chat/message_store.hpp"
+#include "pfs/chat/serializer.hpp"
 #include "pfs/chat/backend/sqlite3/contact_manager.hpp"
 #include "pfs/chat/backend/sqlite3/message_store.hpp"
+#include "pfs/chat/backend/serializer/cereal.hpp"
 #include <fstream>
 
 namespace fs = pfs::filesystem;
@@ -38,6 +40,7 @@ auto on_failure = [] (std::string const & errstr) {
 using Messenger = chat::messenger<
       chat::backend::sqlite3::contact_manager
     , chat::backend::sqlite3::message_store
+    , chat::backend::cereal::serializer
     , pfs::emitter>;
 
 using SharedMessenger = std::shared_ptr<Messenger>;
@@ -140,14 +143,17 @@ TEST_CASE("messenger") {
 ////////////////////////////////////////////////////////////////////////////////
 // Step 4. Instantiate messenger
 ////////////////////////////////////////////////////////////////////////////////
-    auto send_message = [] (chat::contact::contact_id addressee
+    std::string last_data_sent;
+
+    auto send_message = [& last_data_sent] (chat::contact::contact_id addressee
         , chat::message::message_id message_id
-        , std::string const & /*data*/) {
+        , std::string const & data) {
 
         fmt::print(fmt::format("Send message #{} to #{}\n"
             , to_string(addressee)
             , to_string(message_id)));
 
+        last_data_sent = data;
         return true;
     };
 
@@ -163,6 +169,14 @@ TEST_CASE("messenger") {
 
     REQUIRE(*messenger1);
     REQUIRE(*messenger2);
+
+    auto received_callback = [] (chat::contact::contact_id author_id
+        , chat::message::message_id message_id) {
+
+        fmt::print("Message received from #{}: #{}\n"
+            , to_string(author_id)
+            , to_string(message_id));
+    };
 
     auto dispatched_callback = [] (chat::contact::contact_id addressee
         , chat::message::message_id message_id
@@ -190,6 +204,9 @@ TEST_CASE("messenger") {
             , to_string(addressee)
             , to_string(message_id));
     };
+
+    messenger1->message_received.connect(received_callback);
+    messenger2->message_received.connect(received_callback);
 
     messenger1->message_dispatched.connect(dispatched_callback);
     messenger2->message_dispatched.connect(dispatched_callback);
@@ -331,6 +348,9 @@ TEST_CASE("messenger") {
 
         messenger1->dispatch(contactId2, *m);
         messenger1->dispatched(contactId2, last_message_id, pfs::current_utc_time_point());
+
+        messenger2->received(contactId1, last_data_sent);
+
         messenger1->delivered(contactId2, last_message_id, pfs::current_utc_time_point());
         messenger1->read(contactId2, last_message_id, pfs::current_utc_time_point());
     }

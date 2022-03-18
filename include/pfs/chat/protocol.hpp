@@ -13,8 +13,9 @@
 namespace chat {
 namespace protocol {
 
-enum class packet_type {
-      original_message      = 1
+enum class packet_type_enum: std::int8_t {
+      unknown_packet        = 0
+    , original_message      = 1
     , delivery_notification = 2
     , read_notification     = 3
     , edited_message        = 4

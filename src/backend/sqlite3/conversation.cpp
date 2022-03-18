@@ -274,6 +274,44 @@ conversation<BACKEND>::open (message::message_id message_id)
     return editor_type{};
 }
 
+
+namespace {
+std::string const INSERT_INCOMING_MESSAGE {
+    "INSERT INTO `{}` (`message_id`, `author_id`, `creation_time`"
+    ", `modification_time`, `local_creation_time`, `content`)"
+    " VALUES (:message_id, :author_id, :creation_time, :modification_time"
+    ", :local_creation_time, :content)"
+};
+} // namespace
+
+/**
+ *
+ */
+template <>
+void
+conversation<BACKEND>::save (message::message_id message_id
+    , contact::contact_id author_id
+    , pfs::utc_time_point const & creation_time
+    , std::string const & content)
+{
+    auto local_creation_time = pfs::current_utc_time_point();
+
+    auto stmt = _rep.dbh->prepare(fmt::format(INSERT_INCOMING_MESSAGE, _rep.table_name));
+
+    CHAT__ASSERT(!!stmt, "");
+
+    stmt.bind(":message_id", message_id);
+    stmt.bind(":author_id", author_id);
+    stmt.bind(":creation_time", creation_time);
+    stmt.bind(":modification_time", creation_time);
+    stmt.bind(":local_creation_time", local_creation_time);
+    stmt.bind(":content", content);
+
+    stmt.exec();
+
+    CHAT__ASSERT(stmt.rows_affected() > 0, "May be non-unique ID for incoming message");
+}
+
 namespace {
 
 std::string const SELECT_MESSAGE {
