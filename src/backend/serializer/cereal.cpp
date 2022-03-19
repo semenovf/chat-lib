@@ -58,11 +58,11 @@ void load (cereal::PortableBinaryInputArchive & ar, chat::message::content & con
     content = chat::message::content{source};
 }
 
-void save (cereal::PortableBinaryOutputArchive & ar, packet_type_enum const & packet_type)
-{
-    ar << static_cast<std::underlying_type<packet_type_enum>
-        ::type>(packet_type);
-}
+// void save (cereal::PortableBinaryOutputArchive & ar, packet_type_enum const & packet_type)
+// {
+//     ar << static_cast<std::underlying_type<packet_type_enum>
+//         ::type>(packet_type);
+// }
 
 // void load (cereal::PortableBinaryInputArchive & ar, packet_type_enum & packet_type)
 // {
@@ -152,7 +152,7 @@ serializer::output_packet &
 serializer::output_packet::operator << <protocol::original_message> (
     protocol::original_message const & payload)
 {
-    _ar << static_cast<std::int8_t>(protocol::packet_type_enum::original_message)
+    _ar << protocol::packet_type_enum::original_message
         << payload.message_id
         << payload.author_id
         << payload.creation_time
@@ -181,7 +181,7 @@ serializer::output_packet &
 serializer::output_packet::operator << <protocol::delivery_notification> (
     protocol::delivery_notification const & payload)
 {
-    _ar << static_cast<std::int8_t>(protocol::packet_type_enum::delivery_notification)
+    _ar << protocol::packet_type_enum::delivery_notification
         << payload.message_id
         << payload.addressee_id
         << payload.delivered_time;
@@ -210,7 +210,7 @@ serializer::output_packet &
 serializer::output_packet::operator << <protocol::read_notification> (
     protocol::read_notification const & payload)
 {
-    _ar << static_cast<std::int8_t>(protocol::packet_type_enum::read_notification)
+    _ar << protocol::packet_type_enum::read_notification
         << payload.message_id
         << payload.addressee_id
         << payload.read_time;
@@ -239,7 +239,7 @@ serializer::output_packet &
 serializer::output_packet::operator << <protocol::edited_message> (
     protocol::edited_message const & payload)
 {
-    _ar << static_cast<std::int8_t>(protocol::packet_type_enum::edited_message)
+    _ar << protocol::packet_type_enum::edited_message
         << payload.message_id
         << payload.author_id
         << payload.modification_time
