@@ -14,7 +14,7 @@ set(TESTS
 #     file_cache
     message_store
     messenger
-    serialization)
+    serializer)
 
 foreach (t ${TESTS})
     portable_target(ADD_TEST ${t}

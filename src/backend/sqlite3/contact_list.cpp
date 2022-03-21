@@ -19,9 +19,7 @@ namespace chat {
 
 using namespace debby::backend::sqlite3;
 
-namespace {
-    constexpr std::size_t CACHE_WINDOW_SIZE = 100;
-} // namespace
+constexpr std::size_t CACHE_WINDOW_SIZE = 100;
 
 static void fill_contact (backend::sqlite3::db_traits::result_type & result
     , contact::contact & c)
@@ -54,11 +52,9 @@ contact_list::make (shared_db_handle dbh
     return rep;
 }
 
-namespace {
-std::string const SELECT_ROWS_RANGE {
+static std::string const SELECT_ROWS_RANGE {
     "SELECT `id`, `alias`, `avatar`, `description`, `type` FROM `{}` LIMIT {} OFFSET {}"
 };
-} // namespace
 
 void contact_list::prefetch (rep_type const * rep, int offset, int limit)
 {

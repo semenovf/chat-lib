@@ -399,12 +399,31 @@ public:
         return _message_store->conversation(addressee_id);
     }
 
-    // TODO
-//     auto unread_messages_count (contact::contact_id id) const -> std::size_t
+//     std::size_t messages_count (contact::contact_id opponent_id) const
 //     {
-//         auto conv = _message_store->conversation(id);
-//         return conv.unread_messages_count();
+//         auto conv = _message_store->conversation(opponent_id);
+//         return conv.count();
 //     }
+//
+//
+//     pfs::optional<message::message_credentials>
+//     message (int offset) const
+//     {
+//
+//     }
+//
+//     std::size_t messages_count (contact::contact_id opponent_id) const
+//     {
+//         auto conv = _message_store->conversation(opponent_id);
+//         return conv.count();
+//     }
+//
+//     // TODO
+// //     auto unread_messages_count (contact::contact_id id) const -> std::size_t
+// //     {
+// //         auto conv = _message_store->conversation(id);
+// //         return conv.unread_messages_count();
+// //     }
 
     template <typename F>
     bool transaction (F && op) noexcept

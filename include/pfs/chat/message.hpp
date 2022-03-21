@@ -101,9 +101,9 @@ public:
      */
     content (std::string const & source);
 
-    content (content const & other) = delete;
+    content (content const & other);
     content (content && other);
-    content & operator = (content const & other) = delete;
+    content & operator = (content const & other);
     content & operator = (content && other);
     ~content ();
 

@@ -12,6 +12,9 @@
 #include "editor.hpp"
 #include "pfs/chat/editor.hpp"
 #include "pfs/chat/contact.hpp"
+#include <map>
+#include <string>
+#include <vector>
 
 namespace chat {
 namespace backend {
@@ -21,14 +24,39 @@ struct conversation
 {
     using editor_type = chat::editor<editor>;
 
+    struct in_memory_cache
+    {
+        int offset;
+        int limit;
+        bool dirty;
+        int sort_flag;
+        std::vector<message::message_credentials> data;
+        std::map<message::message_id, std::size_t> map;
+    };
+
     struct rep_type
     {
         shared_db_handle dbh;
         contact::contact_id me;
         contact::contact_id addressee;
+        mutable in_memory_cache cache;
         std::string table_name;
     };
 
+    /**
+     */
+    static void invalidate_cache (rep_type * rep);
+
+    /**
+     * @throw @c chat::error(errc::storage_error) on storage failure.
+     */
+    static void prefetch (rep_type const * rep
+        , int offset
+        , int limit
+        , int sort_flag);
+
+    /**
+     */
     static rep_type make (contact::contact_id me
         , contact::contact_id addressee
         , shared_db_handle dbh);

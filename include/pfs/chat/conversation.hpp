@@ -138,26 +138,42 @@ public:
     message (message::message_id message_id) const;
 
     /**
-     * Fetch all conversation messages in order specified by @a sort_flag
-     * (see @c conversation_sort_flag).
+     * Get message credentials by @a offset. On error returns invalid contact.
+     *
+     * @return Message credentials or @c nullopt if message not found.
      *
      * @throw debby::error on storage error.
      * @throw chat::error if message content is invalid (i.e. bad JSON source).
+     *
+     * @note By default, messages are sorted by local time of writing in the
+     *       storage. Thus the messages can be displayed in the correct chronological order.
      */
-    void for_each (std::function<void(message::message_credentials const &)> f
-        , int sort_flag);
+    pfs::optional<message::message_credentials>
+    message (int offset, int sort_flag = conversation_sort_flag::by_local_creation_time
+            | conversation_sort_flag::ascending_order) const;
 
-    /**
-     * Convenient function for fetch all conversation messages in order
-     * @c conversation_sort_flag::by_lcoal_creation_time | @c conversation_sort_flag::ascending_order
-     */
-    void for_each (std::function<void(message::message_credentials const &)> f)
-    {
-        int sort_flag = conversation_sort_flag::by_local_creation_time
-            | conversation_sort_flag::ascending_order;
-
-        for_each(f, sort_flag);
-    }
+    // NOT NEEDED YET
+//     /**
+//      * Fetch all conversation messages in order specified by @a sort_flag
+//      * (see @c conversation_sort_flag).
+//      *
+//      * @throw debby::error on storage error.
+//      * @throw chat::error if message content is invalid (i.e. bad JSON source).
+//      */
+//     void for_each (std::function<void(message::message_credentials const &)> f
+//         , int sort_flag);
+//
+//     /**
+//      * Convenient function for fetch all conversation messages in order
+//      * @c conversation_sort_flag::by_lcoal_creation_time | @c conversation_sort_flag::ascending_order
+//      */
+//     void for_each (std::function<void(message::message_credentials const &)> f)
+//     {
+//         int sort_flag = conversation_sort_flag::by_local_creation_time
+//             | conversation_sort_flag::ascending_order;
+//
+//         for_each(f, sort_flag);
+//     }
 
     /**
      * Wipes (erases all messages) conversation.

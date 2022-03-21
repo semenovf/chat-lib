@@ -38,16 +38,16 @@ struct contact_list
 
     /**
      */
-    static rep_type make (shared_db_handle dbh, std::string const & table_name);
-
-    /**
-     */
     static void invalidate_cache (rep_type * rep);
 
     /**
      * @throw @c chat::error(errc::storage_error) on storage failure.
      */
     static void prefetch (rep_type const * rep, int offset, int limit);
+
+    /**
+     */
+    static rep_type make (shared_db_handle dbh, std::string const & table_name);
 };
 
 }}} // namespace chat::backend::sqlite3
