@@ -14,7 +14,6 @@
 #include "message_store.hpp"
 #include "protocol.hpp"
 #include "serializer.hpp"
-#include "pfs/emitter.hpp"
 #include "pfs/fmt.hpp"
 #include <functional>
 #include <memory>
@@ -95,8 +94,7 @@ namespace chat {
 //
 template <typename ContactManagerBackend
     , typename MessageStoreBackend
-    , typename SerializerBackend
-    , template <typename ...Args> class Emitter = pfs::emitter_mt>
+    , typename SerializerBackend>
 class messenger
 {
 public:
@@ -109,33 +107,40 @@ public:
     using conversation_type = typename message_store_type::conversation_type;
 
     using send_message_proc = std::function<bool (
-          contact::contact_id /*addressee*/
-        , message::message_id /*message_id*/
+          contact::contact_id
+        , message::message_id
         , std::string const & /*data*/)>;
 
+public:
+    static message::message_id const SERVICE_MESSAGE;
+
 private:
-    std::unique_ptr<contact_manager_type>  _contact_manager;
-    std::unique_ptr<message_store_type>    _message_store;
+    std::unique_ptr<contact_manager_type> _contact_manager;
+    std::unique_ptr<message_store_type>   _message_store;
     contact::id_generator _contact_id_generator;
     message::id_generator _message_id_generator;
 
     send_message_proc _send_message;
 
-public: // signals
-    mutable Emitter<std::string const &> failure;
-    mutable Emitter<contact::contact_id /*author*/
-            , message::message_id /*message_id*/> message_received;
+public: // Callbacks
+    mutable std::function<void (std::string const &)> failure;
 
-    mutable Emitter<contact::contact_id /*addressee*/
-            , message::message_id /*message_id*/
-            , pfs::utc_time_point /*delivered_time*/> message_delivered;
+    mutable std::function<void (contact::contact_id /*author*/
+        , message::message_id /*message_id*/)> message_received;
 
-    mutable Emitter<contact::contact_id /*addressee*/
-            , message::message_id /*message_id*/
-            , pfs::utc_time_point /*read_time*/> message_read;
-    mutable Emitter<contact::contact_id /*addressee*/
-            , message::message_id /*message_id*/
-            , pfs::utc_time_point /*dispatched_time*/> message_dispatched;
+    mutable std::function<void (contact::contact_id /*addressee*/
+        , message::message_id /*message_id*/
+        , pfs::utc_time_point /*delivered_time*/)> message_delivered;
+
+    mutable std::function<void (contact::contact_id /*addressee*/
+        , message::message_id /*message_id*/
+        , pfs::utc_time_point /*read_time*/)> message_read;
+
+    mutable std::function<void (contact::contact_id /*addressee*/
+        , message::message_id /*message_id*/
+        , pfs::utc_time_point /*dispatched_time*/)> message_dispatched;
+
+    mutable std::function<void (contact::contact_id)> contact_added;
 
 public:
     messenger (std::unique_ptr<contact_manager_type> && contact_manager
@@ -146,9 +151,9 @@ public:
         , _send_message(send_message)
     {
         // Set default failure callback
-        failure.connect([] (std::string const & errstr) {
+        failure = [] (std::string const & errstr) {
             fmt::print(stderr, "ERROR: {}\n", errstr);
-        });
+        };
     }
 
     ~messenger () = default;
@@ -242,24 +247,13 @@ public:
      * @return Identifier of just added contact or @c chat::contact::contact_id{}
      *         on error.
      */
-    contact::contact_id add (contact::group g, contact::contact_id creator_id)
+    contact::contact_id add (contact::group g)
     {
         if (g.id == contact::contact_id{})
             g.id = _contact_id_generator.next();
 
-        auto success = _contact_manager->add(g, creator_id);
+        auto success = _contact_manager->add(g);
         return success ? g.id : contact::contact_id{};
-    }
-
-    /**
-     * Add group contact with own id.
-     *
-     * @return Identifier of just added contact or @c chat::contact::contact_id{}
-     *         on error.
-     */
-    contact::contact_id add (contact::group g)
-    {
-        return add(g, my_contact().id);
     }
 
     /**
@@ -399,25 +393,6 @@ public:
         return _message_store->conversation(addressee_id);
     }
 
-//     std::size_t messages_count (contact::contact_id opponent_id) const
-//     {
-//         auto conv = _message_store->conversation(opponent_id);
-//         return conv.count();
-//     }
-//
-//
-//     pfs::optional<message::message_credentials>
-//     message (int offset) const
-//     {
-//
-//     }
-//
-//     std::size_t messages_count (contact::contact_id opponent_id) const
-//     {
-//         auto conv = _message_store->conversation(opponent_id);
-//         return conv.count();
-//     }
-//
 //     // TODO
 // //     auto unread_messages_count (contact::contact_id id) const -> std::size_t
 // //     {
@@ -450,6 +425,28 @@ public:
     }
 
     /**
+     * Dispatch contact credentials.
+     */
+    bool dispatch_contact (contact::contact_id addressee)
+    {
+        auto me = my_contact();
+
+        protocol::contact_credentials m {{
+              me.id
+            , me.id
+            , me.alias
+            , me.avatar
+            , me.description
+            , chat::contact::type_enum::person
+        }};
+
+        typename serializer_type::output_packet_type out {};
+        out << m;
+        auto success = _send_message(addressee, SERVICE_MESSAGE, out.data());
+        return success;
+    }
+
+    /**
      * Process received data.
      */
     void received (contact::contact_id author, std::string const & data)
@@ -459,6 +456,54 @@ public:
         in >> packet_type;
 
         switch (packet_type) {
+            case protocol::packet_type_enum::contact_credentials: {
+                protocol::contact_credentials m;
+                in >> m;
+
+                switch (m.contact.type) {
+                    case contact::type_enum::person: {
+                        contact::person p;
+                        p.id = m.contact.id;
+                        p.alias = std::move(m.contact.alias);
+                        p.avatar = std::move(m.contact.avatar);
+                        p.description = std::move(m.contact.description);
+
+                        auto id = add(std::move(p));
+
+                        if (id != contact::contact_id{})
+                            contact_added(id);
+                        break;
+                    }
+
+                    case contact::type_enum::group: {
+                        contact::group g;
+                        g.id = m.contact.id;
+                        g.creator_id = m.contact.creator_id;
+                        g.alias = std::move(m.contact.alias);
+                        g.avatar = std::move(m.contact.avatar);
+                        g.description = std::move(m.contact.description);
+
+                        auto id = add(std::move(g));
+
+                        if (id != contact::contact_id{})
+                            contact_added(id);
+
+                        break;
+                    }
+
+                    case contact::type_enum::channel:
+                        // TODO Implement
+                        break;
+
+                    default:
+                        failure(fmt::format("Unsupported contact type: {}"
+                            , static_cast<int>(m.contact.type)));
+                        break;
+                }
+
+                break;
+            }
+
             case protocol::packet_type_enum::original_message: {
                 protocol::original_message m;
                 in >> m;
@@ -483,6 +528,7 @@ public:
                 }
                 break;
             }
+
             case protocol::packet_type_enum::delivery_notification: {
                 protocol::delivery_notification m;
                 in >> m;
@@ -515,6 +561,10 @@ public:
         , message::message_id message_id
         , pfs::utc_time_point dispatched_time)
     {
+        // This is a service message, ignore it
+        if (message_id == SERVICE_MESSAGE)
+            return;
+
         auto conv = this->conversation(addressee);
 
         if (conv) {
@@ -559,5 +609,12 @@ public:
         _message_store->wipe();
     }
 };
+
+template <typename ContactManagerBackend
+    , typename MessageStoreBackend
+    , typename SerializerBackend>
+message::message_id const
+messenger<ContactManagerBackend, MessageStoreBackend, SerializerBackend>
+    ::SERVICE_MESSAGE {"01FV1KFY7WCBKDQZ5B4T5ZJMSA"_uuid};
 
 } // namespace chat

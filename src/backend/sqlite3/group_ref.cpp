@@ -15,66 +15,6 @@ namespace chat {
 #define BACKEND backend::sqlite3::contact_manager
 
 namespace {
-std::string const SET_CREATOR {
-    "INSERT OR IGNORE INTO `{}` (`group_id`, `creator_id`)"
-    " VALUES (:group_id, :creator_id)"
-};
-} // namespace
-
-template <>
-void
-contact_manager<BACKEND>::group_ref::set_creator_unchecked (
-      contact::contact_id creator_id)
-{
-    PFS__ASSERT(_pmanager, "");
-    auto & rep = _pmanager->_rep;
-
-    auto stmt = rep.dbh->prepare(fmt::format(SET_CREATOR, rep.group_creator_table_name));
-
-    CHAT__ASSERT(!!stmt, "");
-
-    stmt.bind(":group_id", _id);
-    stmt.bind(":creator_id", creator_id);
-
-    stmt.exec();
-
-    // If stmt.rows_affected() > 0 then new member added;
-    // If stmt.rows_affected() == 0 then new member not added (already added earlier);
-    // The last situation is not en error.
-    if (stmt.rows_affected() <= 0) {
-        error err {
-              errc::group_creator_already_set
-            , to_string(_id)
-            , "group creator already set"
-        };
-
-        CHAT__THROW(err);
-    }
-}
-
-template <>
-void
-contact_manager<BACKEND>::group_ref::set_creator (contact::contact_id creator_id)
-{
-    PFS__ASSERT(_pmanager, "");
-
-    auto & rep = _pmanager->_rep;
-    auto c = rep.contacts->get(creator_id);
-
-    if (c.type != contact::type_enum::person) {
-        error err {
-              errc::unsuitable_group_creator
-            , to_string(creator_id)
-            , "group creator must be a person"
-        };
-
-        CHAT__THROW(err);
-    }
-
-    set_creator_unchecked(creator_id);
-}
-
-namespace {
 std::string const INSERT_MEMBER {
     "INSERT OR IGNORE INTO `{}` (`group_id`, `member_id`)"
     " VALUES (:group_id, :member_id)"

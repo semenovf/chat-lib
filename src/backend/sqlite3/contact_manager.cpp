@@ -33,6 +33,7 @@ namespace {
 std::string const CREATE_CONTACTS_TABLE {
     "CREATE TABLE IF NOT EXISTS `{}` ("
         "`id` {} NOT NULL UNIQUE"
+        ", `creator_id` {} NOT NULL UNIQUE"
         ", `alias` {} NOT NULL"
         ", `avatar` {}"
         ", `description` {}"
@@ -52,12 +53,6 @@ std::string const CREATE_FOLLOWERS_TABLE {
         ", `follower_id` {} NOT NULL)"
 };
 
-std::string const CREATE_GROUP_CREATOR_TABLE {
-    "CREATE TABLE IF NOT EXISTS `{}` ("
-        "`group_id` {} NOT NULL"
-        ", `creator_id` {} NOT NULL)"
-};
-
 std::string const CREATE_CONTACTS_INDEX {
     "CREATE UNIQUE INDEX IF NOT EXISTS `{0}_index` ON `{0}` (`id`)"
 };
@@ -73,10 +68,6 @@ std::string const CREATE_MEMBERS_UNIQUE_INDEX {
 
 std::string const CREATE_FOLLOWERS_INDEX {
     "CREATE INDEX IF NOT EXISTS `{0}_index` ON `{0}` (`channel_id`)"
-};
-
-std::string const CREATE_GROUP_CREATOR_INDEX {
-    "CREATE INDEX IF NOT EXISTS `{0}_index` ON `{0}` (`group_id`)"
 };
 
 } // namespace
@@ -96,9 +87,10 @@ contact_manager::make (contact::person const & me, shared_db_handle dbh)
     rep.followers_table_name     = DEFAULT_FOLLOWERS_TABLE_NAME;
     rep.group_creator_table_name = DEFAULT_GROUP_CREATOR_TABLE_NAME;
 
-    std::array<std::string, 9> sqls = {
+    std::array<std::string, 7> sqls = {
           fmt::format(CREATE_CONTACTS_TABLE
             , rep.contacts_table_name
+            , affinity_traits<contact::contact_id>::name()
             , affinity_traits<contact::contact_id>::name()
             , affinity_traits<decltype(contact::contact{}.alias)>::name()
             , affinity_traits<decltype(contact::contact{}.avatar)>::name()
@@ -112,15 +104,10 @@ contact_manager::make (contact::person const & me, shared_db_handle dbh)
             , rep.followers_table_name
             , affinity_traits<contact::contact_id>::name()
             , affinity_traits<contact::contact_id>::name())
-        , fmt::format(CREATE_GROUP_CREATOR_TABLE
-            , rep.group_creator_table_name
-            , affinity_traits<contact::contact_id>::name()
-            , affinity_traits<contact::contact_id>::name())
         , fmt::format(CREATE_CONTACTS_INDEX , rep.contacts_table_name)
         , fmt::format(CREATE_MEMBERS_INDEX  , rep.members_table_name)
         , fmt::format(CREATE_MEMBERS_UNIQUE_INDEX, rep.members_table_name)
         , fmt::format(CREATE_FOLLOWERS_INDEX, rep.followers_table_name)
-        , fmt::format(CREATE_GROUP_CREATOR_INDEX, rep.group_creator_table_name)
     };
 
     TRY {
@@ -211,7 +198,8 @@ template <>
 contact::person
 contact_manager<BACKEND>::my_contact () const
 {
-    return contact::person {_rep.me.id
+    return contact::person {
+          _rep.me.id
         , _rep.me.alias
         , _rep.me.avatar
         , _rep.me.description
@@ -238,21 +226,24 @@ contact_manager<BACKEND>::add (contact::person const & p)
 {
     contact::contact c {
           p.id
+        , p.id
         , p.alias
         , p.avatar
         , p.description
-        , chat::contact::type_enum::person};
+        , chat::contact::type_enum::person
+    };
+
     return _rep.contacts->add(c) > 0;
 }
 
 template <>
 bool
-contact_manager<BACKEND>::add (contact::group const & g
-    , contact::contact_id creator_id)
+contact_manager<BACKEND>::add (contact::group const & g)
 {
-    return transaction([this, & g, & creator_id] {
+    return transaction([this, & g] {
         contact::contact c {
               g.id
+            , g.creator_id
             , g.alias
             , g.avatar
             , g.description
@@ -264,8 +255,7 @@ contact_manager<BACKEND>::add (contact::group const & g
             if (!gr)
                 return false;
 
-            gr.set_creator_unchecked(creator_id);
-            gr.add_member_unchecked(creator_id);
+            gr.add_member_unchecked(g.creator_id);
 
             return true;
         }
@@ -355,12 +345,6 @@ contact_manager<BACKEND>::wipe ()
 #endif
     }
 }
-
-namespace {
-std::string const SELECT_ALL_CONTACTS {
-    "SELECT `id`, `alias`, `avatar`, `description`, `type` FROM `{}`"
-};
-} // namespace
 
 template <>
 void

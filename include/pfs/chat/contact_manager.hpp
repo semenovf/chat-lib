@@ -49,26 +49,6 @@ public:
         }
 
         /**
-         * Set creator for group without checking @a creator_id is person contact.
-         *
-         * @throw debby::error on storage error.
-         * @throw chat::error @c errc::group_creator_already_set if group
-         *        creator already set.
-         */
-        void set_creator_unchecked (contact::contact_id creator_id);
-
-        /**
-         * Set creator for group with checking @a creator_id is person contact.
-         *
-         * @throw debby::error on storage error.
-         * @throw chat::error @c unsuitable_group_creator if @a creator_id is
-         *        not a person contact id.
-         * @throw chat::error @c errc::group_creator_already_set if group
-         *        creator already set.
-         */
-        void set_creator (contact::contact_id creator_id);
-
-        /**
          * Adds member specified by @a member_id to the group specified by @a group_id
          * without checking @a member_id is person contact.
          *
@@ -178,7 +158,7 @@ public:
     /**
      * Add group contact.
      */
-    bool add (contact::group const & g, contact::contact_id creator_id);
+    bool add (contact::group const & g);
 
     /**
      * Updates contact.
@@ -219,6 +199,7 @@ public:
     {
         contact::contact c {
               g.id
+            , g.creator_id
             , g.alias
             , g.avatar
             , g.description

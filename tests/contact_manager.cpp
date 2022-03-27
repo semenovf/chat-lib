@@ -297,9 +297,10 @@ TEST_CASE("groups") {
         // NOTE This behavior is subject to change in the future.
         group_t c3;
         c3.id = pfs::generate_uuid();
+        c3.creator_id = my_uuid;
         c3.alias = "Contact 3 for " + g.alias;
 
-        REQUIRE(contact_manager.add(c3, my_uuid));
+        REQUIRE(contact_manager.add(c3));
 
         REQUIRE(contact_manager.gref(g.id).add_member(c1.id));
         REQUIRE(contact_manager.gref(g.id).add_member(c2.id));
