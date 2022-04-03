@@ -178,6 +178,7 @@ public:
     {
         contact::contact c {
               p.id
+            , p.id
             , p.alias
             , p.avatar
             , p.description

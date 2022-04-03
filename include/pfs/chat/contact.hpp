@@ -45,9 +45,9 @@ enum class type_enum
 struct contact
 {
     contact_id  id;
-    contact_id  creator_id; // For person same as id
+    contact_id  creator_id; // For person same as ID.
     std::string alias;
-    std::string avatar; // application specific image path/name/code
+    std::string avatar;     // Application specific image path/name/code.
     std::string description;
     type_enum type;
 };

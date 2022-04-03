@@ -102,11 +102,9 @@ contact_list<BACKEND>::contact_list (rep_type && rep)
     : _rep(std::move(rep))
 {}
 
-namespace {
-std::string const COUNT_CONTACTS_BY_TYPE {
+static std::string const COUNT_CONTACTS_BY_TYPE {
     "SELECT COUNT(1) as count FROM {} WHERE `type` = :type"
 };
-} // namespace
 
 template <>
 std::size_t

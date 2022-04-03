@@ -163,20 +163,16 @@ editor<BACKEND>::attach (fs::path const & path)
     CHAT__THROW(err);
 }
 
-namespace {
-
-std::string const SAVE_CONTENT {
+static std::string const SAVE_CONTENT {
     "UPDATE OR IGNORE `{}` SET `content` = :content"
     " WHERE `message_id` = :message_id"
 };
 
-std::string const MODIFY_CONTENT {
+static std::string const MODIFY_CONTENT {
     "UPDATE OR IGNORE `{}` SET `content` = :content"
     ", `modification_time` = :modification_time"
     " WHERE `message_id` = :message_id"
 };
-
-} // namespace
 
 template <>
 void
@@ -187,17 +183,15 @@ editor<BACKEND>::save ()
 
     CHAT__ASSERT(!!stmt, "");
 
+    auto now = pfs::current_utc_time_point();
+
     stmt.bind(":content", _rep.content);
     stmt.bind(":message_id", _rep.message_id);
 
-    if (_rep.modification) {
-        auto modification_time = pfs::current_utc_time_point();
-        stmt.bind(":modification_time", modification_time);
-    }
+    if (_rep.modification)
+        stmt.bind(":modification_time", now);
 
     stmt.exec();
-
-    //return stmt.rows_affected() > 0;
 }
 
 template <>

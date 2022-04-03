@@ -23,23 +23,28 @@
 namespace chat {
 
 ////////////////////////////////////////////////////////////////////////////////
-//
-//     ------------------------      -----------------------
-//     |    Contact manager   |      |Message store manager|
-//     ------------------------      -----------------------
-//                 ^                           ^
-//                 |                           |
-//                 |                           |
-//                 v                           v
-//         --------------------------------------------
-//         |                                          |
-//         |           M E S S E N G E R              |
-//         |                                          |
-//         --------------------------------------------
-//                                             ^
-//                                             |
-//                                             |
-//                                             v
+//  ______________________________________________________________
+//  |                                                            |
+//  |   chat-lib                                                 |
+//  |                                                            |
+//  |   ------------------------      -----------------------    |
+//  |   |    Contact manager   |      |Message store manager|    |
+//  |   ------------------------      -----------------------    |
+//  |               ^                           ^                |
+//  |               |                           |                |
+//  |               |                           |                |
+//  |               v                           v                |
+//  |       --------------------------------------------         |
+//  |       |                                          |         |
+//  |       |           M E S S E N G E R              |         |
+//  |       |                                          |         |
+//  |       --------------------------------------------         |
+//  |                                           ^                |
+//  |                                           |                |
+//  |___________________________________________|________________|
+//                                              |
+//                                              |
+//                                              v
 //                                   -----------------------
 //                                   |   Delivery manager  |
 //                                   -----------------------
@@ -53,37 +58,39 @@ namespace chat {
 // message from sender to the receiver.
 //
 ////////////////////////////////////////////////////////////////////////////////
-//                      Message lifecycle
-//   Author                                               Addressee
-// ---------                                              ---------
-//     |                                                      |
-//     |          1. message ID                               |
-//     |          2. author ID                                |
-//     |          3. creation time                            |
-//     | (1)      4. content                             (1') |
-//     |----------------------------------------------------->|
-//     |                                                      |
-//     |          1. message ID                               |
-//     |          2. addressee ID                             |
-//     | (2')     3. delivered time                       (2) |
-//     |<-----------------------------------------------------|
-//     |                                                      |
-//     |          1. message ID                               |
-//     |          2. addressee ID                             |
-//     | (3')     3. read time                            (3) |
-//     |<-----------------------------------------------------|
-//     |                                                      |
-//     |          1. message ID                               |
-//     |          2. author ID                                |
-//     |          3. modification time                        |
-//     | (4)      4. content                             (4') |
-//     |----------------------------------------------------->|
-//     |                                                      |
-//     |                         ...                          |
-//     |                                                      |
-//     | (4)                                             (4') |
-//     |----------------------------------------------------->|
-//     |                                                      |
+//                          Message lifecycle
+//
+// Frontend               Messenger                     Delivery      Messenger
+//                          author                      manager       addressee
+// ---------              ---------                     --------      ---------
+//     |                      |                            |              |
+//     |                      |      1. message ID         |              |
+//     |                      |      2. author ID          |              |
+//     |   dispatch_message   |      3. creation time      |              |
+//     |--------------------->| (1)  4. content            |          (1')|
+//     |                      |--------------------------->|------------->|
+//     |                      |                            |              |
+//     |                      |      1. message ID         |              |
+//     |                      |      2. addressee ID       |              |
+//     |                      | (2') 3. delivered time     |           (2)|
+//     |                      |<---------------------------|<-------------|
+//     |                      |                            |              |
+//     |                      |      1. message ID         |              |
+//     |                      |      2. addressee ID       |              |
+//     |                      | (3') 3. read time          |           (3)|
+//     |                      |<---------------------------|<-------------|
+//     |                      |                            |              |
+//     |                      |      1. message ID         |              |
+//     |                      |      2. author ID          |              |
+//     |                      |      3. modification time  |              |
+//     |                      | (4)  4. content            |          (4')|
+//     |                      |----------------------------|<------------>|
+//     |                      |                            |              |
+//     |                      |               ...          |              |
+//     |                      |                            |              |
+//     |                      | (4)                        |          (4')|
+//     |                      |----------------------------|------------->|
+//     |                      |                            |              |
 //
 // Step (1-1') - dispatching message
 // Step (2-2') - delivery notification
@@ -98,21 +105,20 @@ template <typename ContactManagerBackend
 class messenger
 {
 public:
-    using contact_manager_type  = contact_manager<ContactManagerBackend>;
-    using message_store_type    = message_store<MessageStoreBackend>;
-    using serializer_type       = serializer<SerializerBackend>;
+    using contact_type = contact::contact;
+    using person_type  = contact::person;
+    using group_type   = contact::group;
+//     using message_credentials_type = message::message_credentials;
+    using contact_manager_type     = contact_manager<ContactManagerBackend>;
+    using message_store_type       = message_store<MessageStoreBackend>;
+    using serializer_type          = serializer<SerializerBackend>;
 //     using icon_library_type    = typename ...;
 //     using media_cache_type     = typename ...;
 
     using conversation_type = typename message_store_type::conversation_type;
 
-    using send_message_proc = std::function<bool (
-          contact::contact_id
-        , message::message_id
-        , std::string const & /*data*/)>;
-
 public:
-    static message::message_id const SERVICE_MESSAGE;
+    static message::message_id const CONTACT_MESSAGE;
 
 private:
     std::unique_ptr<contact_manager_type> _contact_manager;
@@ -120,10 +126,17 @@ private:
     contact::id_generator _contact_id_generator;
     message::id_generator _message_id_generator;
 
-    send_message_proc _send_message;
-
 public: // Callbacks
     mutable std::function<void (std::string const &)> failure;
+
+    mutable std::function<bool (
+          contact::contact_id
+        , message::message_id
+        , std::string const & /*data*/)> dispatch_data;
+
+    mutable std::function<void (contact::contact_id /*addressee*/
+        , message::message_id /*message_id*/
+        , pfs::utc_time_point /*dispatched_time*/)> message_dispatched;
 
     mutable std::function<void (contact::contact_id /*author*/
         , message::message_id /*message_id*/)> message_received;
@@ -136,19 +149,13 @@ public: // Callbacks
         , message::message_id /*message_id*/
         , pfs::utc_time_point /*read_time*/)> message_read;
 
-    mutable std::function<void (contact::contact_id /*addressee*/
-        , message::message_id /*message_id*/
-        , pfs::utc_time_point /*dispatched_time*/)> message_dispatched;
-
     mutable std::function<void (contact::contact_id)> contact_added;
 
 public:
     messenger (std::unique_ptr<contact_manager_type> && contact_manager
-        , std::unique_ptr<message_store_type> && message_store
-        , send_message_proc send_message)
+        , std::unique_ptr<message_store_type> && message_store)
         : _contact_manager(std::move(contact_manager))
         , _message_store(std::move(message_store))
-        , _send_message(send_message)
     {
         // Set default failure callback
         failure = [] (std::string const & errstr) {
@@ -194,8 +201,8 @@ public:
         auto group_ref = _contact_manager->gref(group_id);
 
         if (!group_ref) {
-            failure(fmt::format("attempt to get members of non-existent group: #{}"
-                , to_string(group_id)));
+            failure(fmt::format("attempt to get members of non-existent group: {}"
+                , group_id));
             return std::vector<contact::contact>{};
         }
 
@@ -210,8 +217,8 @@ public:
         auto group_ref = _contact_manager->gref(group_id);
 
         if (!group_ref) {
-            failure(fmt::format("attempt to get members count of non-existent group: #{}"
-                , to_string(group_id)));
+            failure(fmt::format("attempt to get members count of non-existent group: {}"
+                , group_id));
             return 0;
         }
 
@@ -341,8 +348,8 @@ public:
         auto group_ref = _contact_manager->gref(group_id);
 
         if (!group_ref) {
-            failure(fmt::format("attempt to add member into non-existent group: #{}"
-                , to_string(group_id)));
+            failure(fmt::format("attempt to add member into non-existent group: {}"
+                , group_id));
             return false;
         }
 
@@ -358,8 +365,8 @@ public:
         auto group_ref = _contact_manager->gref(group_id);
 
         if (!group_ref) {
-            failure(fmt::format("attempt to remove all members from non-existent group: #{}"
-                , to_string(group_id)));
+            failure(fmt::format("attempt to remove all members from non-existent group: {}"
+                , group_id));
             return;
         }
 
@@ -386,6 +393,7 @@ public:
 
         if (!is_valid(c)) {
             // Invalid addressee ID to generate invalid conversation
+            failure(fmt::format("No contact found: {}", addressee_id));
             addressee_id = contact::contact_id{};
             return conversation_type{};
         }
@@ -393,12 +401,22 @@ public:
         return _message_store->conversation(addressee_id);
     }
 
-//     // TODO
-// //     auto unread_messages_count (contact::contact_id id) const -> std::size_t
-// //     {
-// //         auto conv = _message_store->conversation(id);
-// //         return conv.unread_messages_count();
-// //     }
+    /**
+     * Total unread messages count.
+     */
+    std::size_t unread_messages_count () const
+    {
+        std::size_t result = 0;
+
+        for_each_contact([this, & result] (contact::contact const & c) {
+            auto conv = conversation(c.id);
+
+            if (conv)
+                result += conv.unread_messages_count();
+        });
+
+        return result;
+    }
 
     template <typename F>
     bool transaction (F && op) noexcept
@@ -409,7 +427,7 @@ public:
     /**
      * Dispatch message (original or edited)
      */
-    bool dispatch (contact::contact_id addressee
+    bool dispatch_message (contact::contact_id addressee
         , message::message_credentials const & msg)
     {
         protocol::original_message m;
@@ -420,7 +438,43 @@ public:
 
         typename serializer_type::output_packet_type out {};
         out << m;
-        auto success = _send_message(addressee, msg.id, out.data());
+        auto success = dispatch_data(addressee, msg.id, out.data());
+        return success;
+    }
+
+    /**
+     * Dispatch received notification.
+     */
+    bool dispatch_received (contact::contact_id addressee_id
+        , message::message_id message_id
+        , pfs::utc_time_point received_time)
+    {
+        protocol::delivery_notification m;
+        m.message_id     = message_id;
+        m.addressee_id   = my_contact().id; // Addressee is me
+        m.delivered_time = received_time;
+
+        typename serializer_type::output_packet_type out {};
+        out << m;
+        auto success = dispatch_data(addressee_id, message_id, out.data());
+        return success;
+    }
+
+    /**
+     * Dispatch read notification.
+     */
+    bool dispatch_read (contact::contact_id addressee_id
+        , message::message_id message_id
+        , pfs::utc_time_point read_time)
+    {
+        protocol::read_notification m;
+        m.message_id = message_id;
+        m.addressee_id = my_contact().id; // Addressee is me
+        m.read_time = read_time;
+
+        typename serializer_type::output_packet_type out {};
+        out << m;
+        auto success = dispatch_data(addressee_id, message_id, out.data());
         return success;
     }
 
@@ -442,8 +496,28 @@ public:
 
         typename serializer_type::output_packet_type out {};
         out << m;
-        auto success = _send_message(addressee, SERVICE_MESSAGE, out.data());
+        auto success = dispatch_data(addressee, CONTACT_MESSAGE, out.data());
         return success;
+    }
+
+    /**
+     * Dispatch messages that not dispatched or not delivered
+     * (received on opponent side) status.
+     */
+    void dispatch_delayed_messages (contact::contact_id addressee_id)
+    {
+        auto conv = conversation(addressee_id);
+
+        if (conv) {
+            conv.for_each([this, addressee_id] (message::message_credentials const & m) {
+                if (m.author_id != addressee_id) {
+                    if (!m.dispatched_time)
+                        dispatch_message(addressee_id, m);
+                    else if (!m.delivered_time)
+                        dispatch_message(addressee_id, m);
+                }
+            });
+        }
     }
 
     /**
@@ -512,17 +586,25 @@ public:
                 if (conv) {
                     TRY {
                         message::content content{m.content};
-                        conv.save(m.message_id
+                        conv.save_incoming(m.message_id
                             , m.author_id
                             , m.creation_time
                             , to_string(content));
+
+                        auto received_time = pfs::current_utc_time_point();
+                        conv.mark_received(m.message_id, received_time);
+
+                        // Send notification
+                        dispatch_received(m.author_id, m.message_id, received_time);
+
+                        // Notify message received
                         this->message_received(m.author_id, m.message_id);
                     } CATCH (error ex) {
 #if PFS__EXCEPTIONS_ENABLED
                         failure(fmt::format("Bad/corrupted content in "
-                            "incoming message #{} from: #{}"
-                            , to_string(m.message_id)
-                            , to_string(author)));
+                            "incoming message {} from: {}"
+                            , m.message_id
+                            , author));
 #endif
                     }
                 }
@@ -535,21 +617,23 @@ public:
                 delivered(m.addressee_id, m.message_id, m.delivered_time);
                 break;
             }
+
             case protocol::packet_type_enum::read_notification: {
                 protocol::read_notification m;
                 in >> m;
                 read(m.addressee_id, m.message_id, m.read_time);
                 break;
             }
+
             case protocol::packet_type_enum::edited_message: {
                 protocol::edited_message m;
                 in >> m;
                 // TODO Implement
                 break;
             }
+
             default:
-                failure(fmt::format("Bad message received from: #{}"
-                    , to_string(author)));
+                failure(fmt::format("Bad message received from: {}", author));
                 break;
         }
     }
@@ -561,8 +645,8 @@ public:
         , message::message_id message_id
         , pfs::utc_time_point dispatched_time)
     {
-        // This is a service message, ignore it
-        if (message_id == SERVICE_MESSAGE)
+        // This is a contact message, ignore it
+        if (message_id == CONTACT_MESSAGE)
             return;
 
         auto conv = this->conversation(addressee);
@@ -615,6 +699,6 @@ template <typename ContactManagerBackend
     , typename SerializerBackend>
 message::message_id const
 messenger<ContactManagerBackend, MessageStoreBackend, SerializerBackend>
-    ::SERVICE_MESSAGE {"01FV1KFY7WCBKDQZ5B4T5ZJMSA"_uuid};
+    ::CONTACT_MESSAGE {"00000000000000000000000001"_uuid};
 
 } // namespace chat

@@ -28,8 +28,9 @@ content::content () = default;
 content::content (std::string const & source)
 {
     jeyson::error jerror;
+    json::failure = [& jerror] (jeyson::error x) { jerror = x; };
 
-    auto j = json::parse(source.empty() ? "[]" : source, & jerror);
+    auto j = json::parse(source.empty() ? "[]" : source);
 
     if (!j) {
         error err {errc::json_error, jerror.what()};
