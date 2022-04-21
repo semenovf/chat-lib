@@ -28,7 +28,6 @@ content::content () = default;
 content::content (std::string const & source)
 {
     jeyson::error jerror;
-    json::failure = [& jerror] (jeyson::error x) { jerror = x; };
 
     auto j = json::parse(source.empty() ? "[]" : source);
 
