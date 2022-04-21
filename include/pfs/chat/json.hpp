@@ -16,7 +16,7 @@
 namespace chat {
 
 #if CHAT__JANSSON_BACKEND_ENABLED
-using json = jeyson::json<jeyson::jansson_backend>;
+using json = jeyson::json<jeyson::backend::jansson>;
 #endif
 
 } // namespace chat

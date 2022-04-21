@@ -29,7 +29,7 @@ content::content (std::string const & source)
 {
     jeyson::error jerror;
 
-    auto j = json::parse(source, & jerror);
+    auto j = json::parse(source.empty() ? "[]" : source);
 
     if (!j) {
         error err {errc::json_error, jerror.what()};
@@ -44,7 +44,9 @@ content::content (std::string const & source)
     }
 }
 
+content::content (content const & other) = default;
 content::content (content && other) = default;
+content & content::operator = (content const & other) = default;
 content & content::operator = (content && other) = default;
 content::~content () = default;
 

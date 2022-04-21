@@ -14,14 +14,13 @@
 
 namespace chat {
 
-enum conversation_sort_flag
+enum conversation_sort_flag: std::uint32_t
 {
       by_creation_time       = 1 << 0
-    , by_local_creation_time = 1 << 1
-    , by_modification_time   = 1 << 2
-    , by_dispatched_time     = 1 << 3
-    , by_delivered_time      = 1 << 4
-    , by_read_time           = 1 << 5
+    , by_modification_time   = 1 << 1
+    , by_dispatched_time     = 1 << 2
+    , by_delivered_time      = 1 << 3
+    , by_read_time           = 1 << 4
 
     , ascending_order  = 1 << 8
     , descending_order = 1 << 9
@@ -48,11 +47,11 @@ private:
     conversation (rep_type && rep);
     conversation (conversation const & other) = delete;
     conversation & operator = (conversation const & other) = delete;
-    conversation & operator = (conversation && other) = delete;
 
 public:
     conversation () = default;
     conversation (conversation && other) = default;
+    conversation & operator = (conversation && other) = default;
     ~conversation () = default;
 
 public:
@@ -70,7 +69,6 @@ public:
      *
      * Number of unread messages for conversation.
      */
-    // TODO Implement
     std::size_t unread_messages_count () const;
 
     /**
@@ -90,6 +88,18 @@ public:
      */
     void mark_delivered (message::message_id message_id
         , pfs::utc_time_point delivered_time);
+
+    /**
+     * Mark message received.
+     *
+     * @throw debby::error on storage error.
+     * @throw chat::error if message not found.
+     */
+    void mark_received (message::message_id message_id
+        , pfs::utc_time_point received_time)
+    {
+        mark_delivered(message_id, received_time);
+    }
 
     /**
      * Mark message read by addressee.
@@ -119,9 +129,12 @@ public:
     editor_type open (message::message_id id);
 
     /**
-     * Save incoming message
+     * Save incoming message.
+     *
+     * If message already exists content will be updated if different from
+     * original.
      */
-    void save (message::message_id message_id
+    void save_incoming (message::message_id message_id
         , contact::contact_id author_id
         , pfs::utc_time_point const & creation_time
         , std::string const & content);
@@ -136,6 +149,21 @@ public:
      */
     pfs::optional<message::message_credentials>
     message (message::message_id message_id) const;
+
+    /**
+     * Get message credentials by @a offset. On error returns invalid contact.
+     *
+     * @return Message credentials or @c nullopt if message not found.
+     *
+     * @throw debby::error on storage error.
+     * @throw chat::error if message content is invalid (i.e. bad JSON source).
+     *
+     * @note By default, messages are sorted by create time. Thus the messages
+     *       can be displayed in the correct chronological order.
+     */
+    pfs::optional<message::message_credentials>
+    message (int offset, int sort_flag = conversation_sort_flag::by_creation_time
+            | conversation_sort_flag::ascending_order) const;
 
     /**
      * Fetch all conversation messages in order specified by @a sort_flag
@@ -153,7 +181,7 @@ public:
      */
     void for_each (std::function<void(message::message_credentials const &)> f)
     {
-        int sort_flag = conversation_sort_flag::by_local_creation_time
+        int sort_flag = conversation_sort_flag::by_creation_time
             | conversation_sort_flag::ascending_order;
 
         for_each(f, sort_flag);

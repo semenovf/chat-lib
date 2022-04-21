@@ -19,14 +19,13 @@ namespace chat {
 
 using namespace debby::backend::sqlite3;
 
-namespace {
-    constexpr std::size_t CACHE_WINDOW_SIZE = 100;
-} // namespace
+constexpr std::size_t CACHE_WINDOW_SIZE = 100;
 
 static void fill_contact (backend::sqlite3::db_traits::result_type & result
     , contact::contact & c)
 {
     result["id"]          >> c.id;
+    result["creator_id"]  >> c.creator_id;
     result["alias"]       >> c.alias;
     result["avatar"]      >> c.avatar;
     result["description"] >> c.description;
@@ -54,11 +53,10 @@ contact_list::make (shared_db_handle dbh
     return rep;
 }
 
-namespace {
-std::string const SELECT_ROWS_RANGE {
-    "SELECT `id`, `alias`, `avatar`, `description`, `type` FROM `{}` LIMIT {} OFFSET {}"
+static std::string const SELECT_ROWS_RANGE {
+    "SELECT `id`, `creator_id`,  `alias`, `avatar`, `description`, `type`"
+    " FROM `{}` LIMIT {} OFFSET {}"
 };
-} // namespace
 
 void contact_list::prefetch (rep_type const * rep, int offset, int limit)
 {
@@ -104,11 +102,9 @@ contact_list<BACKEND>::contact_list (rep_type && rep)
     : _rep(std::move(rep))
 {}
 
-namespace {
-std::string const COUNT_CONTACTS_BY_TYPE {
+static std::string const COUNT_CONTACTS_BY_TYPE {
     "SELECT COUNT(1) as count FROM {} WHERE `type` = :type"
 };
-} // namespace
 
 template <>
 std::size_t
@@ -139,8 +135,9 @@ contact_list<BACKEND>::count (contact::type_enum type) const
 
 namespace {
 std::string const INSERT_CONTACT {
-    "INSERT OR IGNORE INTO `{}` (`id`, `alias`, `avatar`, `description`, `type`)"
-    " VALUES (:id, :alias, :avatar, :description, :type)"
+    "INSERT OR IGNORE INTO `{}` (`id`, `creator_id`, `alias`, `avatar`"
+    ", `description`, `type`)"
+    " VALUES (:id, :creator_id, :alias, :avatar, :description, :type)"
 };
 } // namespace
 
@@ -154,11 +151,12 @@ contact_list<BACKEND>::add (contact::contact const & c)
 
     CHAT__ASSERT(!!stmt, "");
 
-    stmt.bind(":id"    , to_storage(c.id));
-    stmt.bind(":alias" , to_storage(c.alias));
-    stmt.bind(":avatar", to_storage(c.avatar));
+    stmt.bind(":id"         , to_storage(c.id));
+    stmt.bind(":creator_id" , to_storage(c.creator_id));
+    stmt.bind(":alias"      , to_storage(c.alias));
+    stmt.bind(":avatar"     , to_storage(c.avatar));
     stmt.bind(":description", to_storage(c.description));
-    stmt.bind(":type"  , to_storage(c.type));
+    stmt.bind(":type"       , to_storage(c.type));
 
     auto res = stmt.exec();
     return stmt.rows_affected();
@@ -216,7 +214,8 @@ contact_list<BACKEND>::remove (contact::contact_id id)
 
 namespace {
 std::string const SELECT_CONTACT {
-    "SELECT `id`, `alias`, `avatar`, `description`, `type` FROM `{}` WHERE `id` = :id"
+    "SELECT `id`, `creator_id`, `alias`, `avatar`, `description`, `type`"
+    " FROM `{}` WHERE `id` = :id"
 };
 } // namespace
 
@@ -274,7 +273,7 @@ contact_list<BACKEND>::get (int offset) const
 
 namespace {
 std::string const SELECT_ALL_CONTACTS {
-    "SELECT `id`, `alias`, `avatar`, `description`, `type` FROM `{}`"
+    "SELECT `id`, `creator_id`, `alias`, `avatar`, `description`, `type` FROM `{}`"
 };
 } // namespace
 

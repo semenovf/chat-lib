@@ -132,6 +132,41 @@ serializer::input_packet::operator >> <protocol::packet_type_enum> (
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// contact_credentials serializer/deserializer
+////////////////////////////////////////////////////////////////////////////////
+template <>
+serializer::input_packet &
+serializer::input_packet::operator >> <protocol::contact_credentials> (
+    protocol::contact_credentials & target)
+{
+    // Note: packet type must be read before
+    _ar >> target.contact.id
+        >> target.contact.creator_id
+        >> target.contact.alias
+        >> target.contact.avatar
+        >> target.contact.description
+        >> target.contact.type;
+
+    return *this;
+}
+
+template <>
+serializer::output_packet &
+serializer::output_packet::operator << <protocol::contact_credentials> (
+    protocol::contact_credentials const & payload)
+{
+    _ar << protocol::packet_type_enum::contact_credentials
+        << payload.contact.id
+        << payload.contact.creator_id
+        << payload.contact.alias
+        << payload.contact.avatar
+        << payload.contact.description
+        << payload.contact.type;
+
+    return *this;
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // original_message serializer/deserializer
 ////////////////////////////////////////////////////////////////////////////////
 template <>

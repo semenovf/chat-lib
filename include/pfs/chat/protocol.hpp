@@ -15,10 +15,16 @@ namespace protocol {
 
 enum class packet_type_enum: std::int8_t {
       unknown_packet        = 0
-    , original_message      = 1
-    , delivery_notification = 2
-    , read_notification     = 3
-    , edited_message        = 4
+    , contact_credentials   = 1
+    , original_message      = 2
+    , delivery_notification = 3
+    , read_notification     = 4
+    , edited_message        = 5
+};
+
+struct contact_credentials
+{
+    contact::contact contact;
 };
 
 struct original_message

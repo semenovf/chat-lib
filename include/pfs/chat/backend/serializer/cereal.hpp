@@ -25,8 +25,6 @@ struct serializer
         input_archive_type _ar;
 
     public:
-        input_packet (input_packet &&) = default;
-
         input_packet (std::string const & data)
             : _buf(data)
             , _ar(_buf)
@@ -48,7 +46,6 @@ struct serializer
         output_archive_type _ar;
 
     public:
-        output_packet (output_packet &&) = default;
         output_packet () : _ar(_buf) {}
 
         template <typename T>

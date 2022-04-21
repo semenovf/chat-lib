@@ -40,8 +40,7 @@ auto on_failure = [] (std::string const & errstr) {
 using Messenger = chat::messenger<
       chat::backend::sqlite3::contact_manager
     , chat::backend::sqlite3::message_store
-    , chat::backend::cereal::serializer
-    , pfs::emitter>;
+    , chat::backend::cereal::serializer>;
 
 using SharedMessenger = std::shared_ptr<Messenger>;
 
@@ -205,17 +204,17 @@ TEST_CASE("messenger") {
             , to_string(message_id));
     };
 
-    messenger1->message_received.connect(received_callback);
-    messenger2->message_received.connect(received_callback);
+    messenger1->message_received = received_callback;
+    messenger2->message_received = received_callback;
 
-    messenger1->message_dispatched.connect(dispatched_callback);
-    messenger2->message_dispatched.connect(dispatched_callback);
+    messenger1->message_dispatched = dispatched_callback;
+    messenger2->message_dispatched = dispatched_callback;
 
-    messenger1->message_delivered.connect(delivered_callback);
-    messenger2->message_delivered.connect(delivered_callback);
+    messenger1->message_delivered = delivered_callback;
+    messenger2->message_delivered = delivered_callback;
 
-    messenger1->message_read.connect(read_callback);
-    messenger2->message_read.connect(read_callback);
+    messenger1->message_read = read_callback;
+    messenger2->message_read = read_callback;
 
 ////////////////////////////////////////////////////////////////////////////////
 // Wipe before tests for clear

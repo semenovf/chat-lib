@@ -8,20 +8,10 @@
 ////////////////////////////////////////////////////////////////////////////////
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"
-// #include "pfs/filesystem.hpp"
-// #include "pfs/fmt.hpp"
-// #include "pfs/memory.hpp"
-// #include "pfs/chat/messenger.hpp"
-// #include "pfs/chat/contact_manager.hpp"
-// #include "pfs/chat/message_store.hpp"
 #include "pfs/chat/protocol.hpp"
 #include "pfs/chat/serializer.hpp"
-// #include "pfs/chat/backend/sqlite3/contact_manager.hpp"
-// #include "pfs/chat/backend/sqlite3/message_store.hpp"
 #include "pfs/chat/backend/serializer/cereal.hpp"
 #include <fstream>
-
-// namespace fs = pfs::filesystem;
 
 namespace {
 

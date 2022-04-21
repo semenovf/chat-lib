@@ -32,6 +32,7 @@ enum class errc
     , group_creator_already_set
     , attachment_failure
     , bad_emoji_shortcode
+    , inconsistent_data  //
     , json_error         // Any error of JSON backend
 };
 

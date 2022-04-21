@@ -101,9 +101,9 @@ public:
      */
     content (std::string const & source);
 
-    content (content const & other) = delete;
+    content (content const & other);
     content (content && other);
-    content & operator = (content const & other) = delete;
+    content & operator = (content const & other);
     content & operator = (content && other);
     ~content ();
 
@@ -166,11 +166,6 @@ struct message_credentials
     // Message creation time (UTC).
     // Creation time in the author side.
     pfs::utc_time_point creation_time;
-
-    // Local creation time (UTC).
-    // For outgoing message - it is equivalent to creation_time.
-    // For incoming message - it is equivalent to delivered_time.
-    pfs::utc_time_point local_creation_time;
 
     // Message last modification time (UTC). Reserved for future use.
     pfs::utc_time_point modification_time;
