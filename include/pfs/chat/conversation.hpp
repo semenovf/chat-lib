@@ -188,7 +188,16 @@ public:
     }
 
     /**
+     * Erases all messages for conversation.
+     *
+     * @throw debby::error on storage error.
+     */
+    void clear ();
+
+    /**
      * Wipes (erases all messages) conversation.
+     * This call can perform a hard erasing including tables/databases.
+     * Use clear() method for soft cleaning messages.
      *
      * @throw debby::error on storage error.
      */
