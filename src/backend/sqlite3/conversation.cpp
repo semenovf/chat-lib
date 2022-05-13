@@ -545,7 +545,7 @@ static std::string const SELECT_ALL_MESSAGES {
 template <>
 void
 conversation<BACKEND>::for_each (std::function<void(message::message_credentials const &)> f
-    , int sort_flag)
+    , int sort_flag, int max_count)
 {
     std::string field = "`creation_time`";
     std::string order = "ASC";
@@ -573,7 +573,12 @@ conversation<BACKEND>::for_each (std::function<void(message::message_credentials
 
     auto res = stmt.exec();
 
+    int counter = max_count < 0 ? -1 : max_count;
+
     while (res.has_more()) {
+        if (max_count >= 0 && counter-- == 0)
+            break;
+
         pfs::optional<std::string> content_data;
         message::message_credentials m;
 

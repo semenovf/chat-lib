@@ -72,7 +72,7 @@ public:
     std::size_t unread_messages_count () const;
 
     /**
-     * Mark message dispatched to addressee.
+     * Mark (if not already marked) message dispatched to addressee.
      *
      * @throw debby::error on storage error.
      * @throw chat::error if message not found.
@@ -81,7 +81,7 @@ public:
         , pfs::utc_time_point dispatched_time);
 
     /**
-     * Mark message delivered by addressee.
+     * Mark (if not already marked) message delivered by addressee.
      *
      * @throw debby::error on storage error.
      * @throw chat::error if message not found.
@@ -90,7 +90,7 @@ public:
         , pfs::utc_time_point delivered_time);
 
     /**
-     * Mark message received.
+     * Mark (if not already marked) message received.
      *
      * @throw debby::error on storage error.
      * @throw chat::error if message not found.
@@ -102,7 +102,7 @@ public:
     }
 
     /**
-     * Mark message read by addressee.
+     * Mark (if not already marked) message read by addressee.
      *
      * @throw debby::error on storage error.
      * @throw chat::error if message not found.
@@ -173,18 +173,19 @@ public:
      * @throw chat::error if message content is invalid (i.e. bad JSON source).
      */
     void for_each (std::function<void(message::message_credentials const &)> f
-        , int sort_flag);
+        , int sort_flag, int max_count);
 
     /**
      * Convenient function for fetch all conversation messages in order
      * @c conversation_sort_flag::by_lcoal_creation_time | @c conversation_sort_flag::ascending_order
      */
-    void for_each (std::function<void(message::message_credentials const &)> f)
+    void for_each (std::function<void(message::message_credentials const &)> f
+        , int max_count = -1)
     {
         int sort_flag = conversation_sort_flag::by_creation_time
             | conversation_sort_flag::ascending_order;
 
-        for_each(f, sort_flag);
+        for_each(f, sort_flag, max_count);
     }
 
     /**

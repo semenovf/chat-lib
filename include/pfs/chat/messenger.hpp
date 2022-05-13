@@ -443,30 +443,15 @@ public:
     }
 
     /**
-     * Dispatch received notification.
-     */
-    bool dispatch_received (contact::contact_id addressee_id
-        , message::message_id message_id
-        , pfs::utc_time_point received_time)
-    {
-        protocol::delivery_notification m;
-        m.message_id     = message_id;
-        m.addressee_id   = my_contact().id; // Addressee is me
-        m.delivered_time = received_time;
-
-        typename serializer_type::output_packet_type out {};
-        out << m;
-        auto success = dispatch_data(addressee_id, message_id, out.data());
-        return success;
-    }
-
-    /**
      * Dispatch read notification.
      */
-    bool dispatch_read (contact::contact_id addressee_id
+    bool dispatch_read_notification (contact::contact_id addressee_id
         , message::message_id message_id
         , pfs::utc_time_point read_time)
     {
+        // Process (mark as read) incoming message.
+        process_read_notification(addressee_id, message_id, read_time);
+
         protocol::read_notification m;
         m.message_id = message_id;
         m.addressee_id = my_contact().id; // Addressee is me
@@ -501,10 +486,10 @@ public:
     }
 
     /**
-     * Dispatch messages that not dispatched or not delivered
+     * Dispatch messages limited by @a max_count that not dispatched or not delivered
      * (received on opponent side) status.
      */
-    void dispatch_delayed_messages (contact::contact_id addressee_id)
+    void dispatch_delayed_messages (contact::contact_id addressee_id, int max_count = -1)
     {
         auto conv = conversation(addressee_id);
 
@@ -516,14 +501,14 @@ public:
                     else if (!m.delivered_time)
                         dispatch_message(addressee_id, m);
                 }
-            });
+            }, max_count);
         }
     }
 
     /**
      * Process received data.
      */
-    void received (contact::contact_id author, std::string const & data)
+    void process_received_data (contact::contact_id author, std::string const & data)
     {
         typename serializer_type::input_packet_type in {data};
         protocol::packet_type_enum packet_type;
@@ -595,7 +580,8 @@ public:
                         conv.mark_received(m.message_id, received_time);
 
                         // Send notification
-                        dispatch_received(m.author_id, m.message_id, received_time);
+                        dispatch_received_notification(m.author_id, m.message_id
+                            , received_time);
 
                         // Notify message received
                         this->message_received(m.author_id, m.message_id);
@@ -614,14 +600,16 @@ public:
             case protocol::packet_type_enum::delivery_notification: {
                 protocol::delivery_notification m;
                 in >> m;
-                delivered(m.addressee_id, m.message_id, m.delivered_time);
+                process_delivered_notification(m.addressee_id, m.message_id, m.delivered_time);
                 break;
             }
 
             case protocol::packet_type_enum::read_notification: {
                 protocol::read_notification m;
                 in >> m;
-                read(m.addressee_id, m.message_id, m.read_time);
+
+                // Process (mark as read) outgoing message.
+                process_read_notification(m.addressee_id, m.message_id, m.read_time);
                 break;
             }
 
@@ -657,10 +645,35 @@ public:
         }
     }
 
+    void wipe ()
+    {
+        _contact_manager->wipe();
+        _message_store->wipe();
+    }
+
+private:
+    /**
+     * Dispatch received notification.
+     */
+    bool dispatch_received_notification (contact::contact_id addressee_id
+        , message::message_id message_id
+        , pfs::utc_time_point received_time)
+    {
+        protocol::delivery_notification m;
+        m.message_id     = message_id;
+        m.addressee_id   = my_contact().id; // Addressee is me
+        m.delivered_time = received_time;
+
+        typename serializer_type::output_packet_type out {};
+        out << m;
+        auto success = dispatch_data(addressee_id, message_id, out.data());
+        return success;
+    }
+
     /**
      * Process notification of message delivered to @a addressee.
      */
-    void delivered (contact::contact_id addressee
+    void process_delivered_notification (contact::contact_id addressee
         , message::message_id message_id
         , pfs::utc_time_point delivered_time)
     {
@@ -675,7 +688,7 @@ public:
     /**
      * Process notification of message read by @a addressee.
      */
-    void read (contact::contact_id addressee
+    void process_read_notification (contact::contact_id addressee
         , message::message_id message_id
         , pfs::utc_time_point read_time)
     {
@@ -685,12 +698,6 @@ public:
             conv.mark_read(message_id, read_time);
             this->message_read(addressee, message_id, read_time);
         }
-    }
-
-    void wipe ()
-    {
-        _contact_manager->wipe();
-        _message_store->wipe();
     }
 };
 
