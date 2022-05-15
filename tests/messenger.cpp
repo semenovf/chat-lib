@@ -26,7 +26,6 @@ namespace {
 
 std::string TEXT {"1.Lorem ipsum dolor sit amet, consectetuer adipiscing elit,"};
 std::string HTML {"<html></html>"};
-std::string EMOJI {"smile"};
 
 auto on_failure = [] (std::string const & errstr) {
     fmt::print(stderr, "ERROR: {}\n", errstr);
@@ -158,13 +157,11 @@ TEST_CASE("messenger") {
 
     auto messenger1 = std::make_shared<Messenger>(
           messengerBuilder1.make_contact_manager()
-        , messengerBuilder1.make_message_store()
-        , send_message);
+        , messengerBuilder1.make_message_store());
 
     auto messenger2 = std::make_shared<Messenger>(
           messengerBuilder2.make_contact_manager()
-        , messengerBuilder2.make_message_store()
-        , send_message);
+        , messengerBuilder2.make_message_store());
 
     REQUIRE(*messenger1);
     REQUIRE(*messenger2);
@@ -203,6 +200,9 @@ TEST_CASE("messenger") {
             , to_string(addressee)
             , to_string(message_id));
     };
+
+    messenger1->dispatch_data = send_message;
+    messenger2->dispatch_data = send_message;
 
     messenger1->message_received = received_callback;
     messenger2->message_received = received_callback;
@@ -297,7 +297,6 @@ TEST_CASE("messenger") {
 
         editor.add_text(TEXT);
         editor.add_html(HTML);
-        editor.add_emoji(EMOJI);
 
         editor.attach(f1);
         editor.attach(f2);
@@ -312,25 +311,23 @@ TEST_CASE("messenger") {
 
         REQUIRE_EQ(editor.content().at(0).mime, chat::message::mime_enum::text__plain);
         REQUIRE_EQ(editor.content().at(1).mime, chat::message::mime_enum::text__html);
-        REQUIRE_EQ(editor.content().at(2).mime, chat::message::mime_enum::text__emoji);
+        REQUIRE_EQ(editor.content().at(2).mime, chat::message::mime_enum::attachment);
         REQUIRE_EQ(editor.content().at(3).mime, chat::message::mime_enum::attachment);
-        REQUIRE_EQ(editor.content().at(4).mime, chat::message::mime_enum::attachment);
 
         REQUIRE_EQ(editor.content().at(0).text, TEXT);
         REQUIRE_EQ(editor.content().at(1).text, HTML);
-        REQUIRE_EQ(editor.content().at(2).text, EMOJI);
 
         REQUIRE_EQ(editor.content().attachment(0).name, std::string{});
-        REQUIRE_EQ(editor.content().at(3).text, fs::utf8_encode(f1));
-        REQUIRE_EQ(editor.content().at(4).text, fs::utf8_encode(f2));
+        REQUIRE_EQ(editor.content().at(2).text, fs::utf8_encode(f1));
+        REQUIRE_EQ(editor.content().at(3).text, fs::utf8_encode(f2));
 
-        REQUIRE_EQ(editor.content().attachment(3).name, fs::utf8_encode(f1));
-        REQUIRE_EQ(editor.content().attachment(3).size, f1_size);
-        REQUIRE_EQ(editor.content().attachment(3).sha256, f1_sha256);
+        REQUIRE_EQ(editor.content().attachment(2).name, fs::utf8_encode(f1));
+        REQUIRE_EQ(editor.content().attachment(2).size, f1_size);
+        REQUIRE_EQ(editor.content().attachment(2).sha256, f1_sha256);
 
-        REQUIRE_EQ(editor.content().attachment(4).name, fs::utf8_encode(f2));
-        REQUIRE_EQ(editor.content().attachment(4).size, f2_size);
-        REQUIRE_EQ(editor.content().attachment(4).sha256, f2_sha256);
+        REQUIRE_EQ(editor.content().attachment(3).name, fs::utf8_encode(f2));
+        REQUIRE_EQ(editor.content().attachment(3).size, f2_size);
+        REQUIRE_EQ(editor.content().attachment(3).sha256, f2_sha256);
     }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -345,13 +342,9 @@ TEST_CASE("messenger") {
         REQUIRE(m);
         REQUIRE_EQ(m->id, last_message_id);
 
-        messenger1->dispatch(contactId2, *m);
+        messenger1->dispatch_message(contactId2, *m);
         messenger1->dispatched(contactId2, last_message_id, pfs::current_utc_time_point());
-
-        messenger2->received(contactId1, last_data_sent);
-
-        messenger1->delivered(contactId2, last_message_id, pfs::current_utc_time_point());
-        messenger1->read(contactId2, last_message_id, pfs::current_utc_time_point());
+        messenger2->process_received_data(contactId1, last_data_sent);
     }
 
 ////////////////////////////////////////////////////////////////////////////////

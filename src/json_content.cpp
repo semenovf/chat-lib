@@ -69,7 +69,6 @@ content_credentials content::at (std::size_t index) const
     switch (mime) {
         case mime_enum::text__plain:
         case mime_enum::text__html:
-        case mime_enum::text__emoji:
         case mime_enum::application__octet_stream:
         case mime_enum::attachment: {
             auto key = (mime == mime_enum::attachment) ? FILE_KEY : TEXT_KEY;
@@ -117,7 +116,6 @@ void content::add (mime_enum mime, std::string const & data)
     switch (mime) {
         case mime_enum::text__plain:
         case mime_enum::text__html:
-        case mime_enum::text__emoji:
         case mime_enum::application__octet_stream: {
             json elem;
             elem[MIME_KEY] = json{static_cast<int>(mime)};

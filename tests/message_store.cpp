@@ -30,7 +30,7 @@ TEST_CASE("constructors") {
     REQUIRE_FALSE(std::is_copy_constructible<conversation_t>::value);
     REQUIRE_FALSE(std::is_copy_assignable<conversation_t>::value);
     REQUIRE(std::is_move_constructible<conversation_t>::value);
-    REQUIRE_FALSE(std::is_move_assignable<conversation_t>::value);
+    REQUIRE(std::is_move_assignable<conversation_t>::value);
     REQUIRE(std::is_destructible<conversation_t>::value);
 
     // Editor public constructors/assign operators
@@ -79,7 +79,6 @@ TEST_CASE("outgoing messages") {
 
         ed.add_text("Hello");
         ed.add_html("<html><body><h1>World</h1></body></html>");
-        ed.add_emoji("emoticon");
         REQUIRE_NOTHROW(ed.attach(pfs::filesystem::path{"data/attachment1.bin"}));
         REQUIRE_NOTHROW(ed.attach(pfs::filesystem::path{"data/attachment2.bin"}));
         REQUIRE_NOTHROW(ed.attach(pfs::filesystem::path{"data/attachment3.bin"}));
@@ -103,19 +102,17 @@ TEST_CASE("outgoing messages") {
         if (ed.content().count() > 0) {
             REQUIRE_EQ(ed.content().at(0).mime, chat::message::mime_enum::text__plain);
             REQUIRE_EQ(ed.content().at(1).mime, chat::message::mime_enum::text__html);
-            REQUIRE_EQ(ed.content().at(2).mime, chat::message::mime_enum::text__emoji);
-            REQUIRE_EQ(ed.content().at(3).mime, chat::message::mime_enum::attachment);
+            REQUIRE_EQ(ed.content().at(2).mime, chat::message::mime_enum::attachment);
 
             REQUIRE_EQ(ed.content().at(0).text, std::string{"Hello"});
             REQUIRE_EQ(ed.content().at(1).text, std::string{"<html><body><h1>World</h1></body></html>"});
-            REQUIRE_EQ(ed.content().at(2).text, std::string{"emoticon"});
-            REQUIRE(pfs::string_view{ed.content().at(3).text}.ends_with("data/attachment1.bin"));
-            REQUIRE(pfs::string_view{ed.content().at(4).text}.ends_with("data/attachment2.bin"));
-            REQUIRE(pfs::string_view{ed.content().at(5).text}.ends_with("data/attachment3.bin"));
+            REQUIRE(pfs::string_view{ed.content().at(2).text}.ends_with("data/attachment1.bin"));
+            REQUIRE(pfs::string_view{ed.content().at(3).text}.ends_with("data/attachment2.bin"));
+            REQUIRE(pfs::string_view{ed.content().at(4).text}.ends_with("data/attachment3.bin"));
 
-            REQUIRE(pfs::string_view{ed.content().attachment(3).name}.ends_with("data/attachment1.bin"));
-            REQUIRE_EQ(ed.content().attachment(3).size, 4);
-            REQUIRE_EQ(ed.content().attachment(3).sha256
+            REQUIRE(pfs::string_view{ed.content().attachment(2).name}.ends_with("data/attachment1.bin"));
+            REQUIRE_EQ(ed.content().attachment(2).size, 4);
+            REQUIRE_EQ(ed.content().attachment(2).sha256
                 , std::string{"e12e115acf4552b2568b55e93cbd39394c4ef81c82447fafc997882a02d23677"});
 
             // No attachment at specified position

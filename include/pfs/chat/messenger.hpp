@@ -254,12 +254,12 @@ public:
      * @return Identifier of just added contact or @c chat::contact::contact_id{}
      *         on error.
      */
-    contact::contact_id add (contact::group g)
+    contact::contact_id add (contact::group g, contact::contact_id creator_id)
     {
         if (g.id == contact::contact_id{})
             g.id = _contact_id_generator.next();
 
-        auto success = _contact_manager->add(g);
+        auto success = _contact_manager->add(g, creator_id);
         return success ? g.id : contact::contact_id{};
     }
 
@@ -542,7 +542,7 @@ public:
                         g.avatar = std::move(m.contact.avatar);
                         g.description = std::move(m.contact.description);
 
-                        auto id = add(std::move(g));
+                        auto id = add(std::move(g), m.contact.creator_id);
 
                         if (id != contact::contact_id{})
                             contact_added(id);

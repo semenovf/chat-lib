@@ -49,6 +49,9 @@ std::string error_category::message (int ev) const
         case static_cast<int>(errc::inconsistent_data):
             return std::string{"inconsistent data"};
 
+        case static_cast<int>(errc::storage_error):
+            return std::string{"storage error"};
+
         case static_cast<int>(errc::json_error):
             return std::string{"JSON backend error"};
 

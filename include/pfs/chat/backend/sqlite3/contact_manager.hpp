@@ -30,7 +30,6 @@ struct contact_manager
         std::string      contacts_table_name;
         std::string      members_table_name;
         std::string      followers_table_name;
-        std::string      group_creator_table_name;
         std::shared_ptr<contact_list_type> contacts;
     };
 

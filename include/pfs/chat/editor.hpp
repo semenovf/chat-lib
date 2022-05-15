@@ -56,11 +56,6 @@ public:
      */
     void add_html (std::string const & text);
 
-    /**
-     * Add emoji to message content.
-     */
-    void add_emoji (std::string const & shortcode);
-
 //     bool add_audio (message::resource_id rc)
 //     bool add_video (message::resource_id rc)
 

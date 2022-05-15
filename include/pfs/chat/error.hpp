@@ -22,7 +22,6 @@ namespace chat {
 enum class errc
 {
       success = 0
-    //, storage_error       // Any error of underlying storage subsystem
     , invalid_argument
     , contact_not_found
     , group_not_found
@@ -33,6 +32,7 @@ enum class errc
     , attachment_failure
     , bad_emoji_shortcode
     , inconsistent_data  //
+    , storage_error      // Any error of underlying storage subsystem
     , json_error         // Any error of JSON backend
 };
 

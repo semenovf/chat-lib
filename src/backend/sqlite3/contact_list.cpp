@@ -159,7 +159,8 @@ contact_list<BACKEND>::add (contact::contact const & c)
     stmt.bind(":type"       , to_storage(c.type));
 
     auto res = stmt.exec();
-    return stmt.rows_affected();
+    auto n = stmt.rows_affected();
+    return n;
 }
 
 namespace {

@@ -29,19 +29,28 @@ contact_manager<BACKEND>::group_ref::add_member_unchecked (contact::contact_id m
 
     auto & rep = _pmanager->_rep;
 
-    auto stmt = rep.dbh->prepare(fmt::format(INSERT_MEMBER, rep.members_table_name));
+    TRY {
+        auto stmt = rep.dbh->prepare(fmt::format(INSERT_MEMBER, rep.members_table_name));
 
-    CHAT__ASSERT(!!stmt, "");
+        CHAT__ASSERT(!!stmt, "");
 
-    stmt.bind(":group_id" , _id);
-    stmt.bind(":member_id", member_id);
+        stmt.bind(":group_id" , _id);
+        stmt.bind(":member_id", member_id);
 
-    auto res = stmt.exec();
+        auto res = stmt.exec();
 
-    // If stmt.rows_affected() > 0 then new member added;
-    // If stmt.rows_affected() == 0 then new member not added (already added earlier);
-    // The last situation is not en error.
-    return stmt.rows_affected() > 0;
+        // If stmt.rows_affected() > 0 then new member added;
+        // If stmt.rows_affected() == 0 then new member not added (already added earlier);
+        // The last situation is not en error.
+        return stmt.rows_affected() > 0;
+    } CATCH (debby::error ex) {
+        error err {errc::storage_error
+            , fmt::format("add member {} to group {} failure {}:"
+                , member_id, _id, ex.what())};
+        CHAT__THROW(err);
+    }
+
+    return false;
 }
 
 template <>
@@ -51,14 +60,25 @@ contact_manager<BACKEND>::group_ref::add_member (contact::contact_id member_id)
     PFS__ASSERT(_pmanager, "");
 
     auto & rep = _pmanager->_rep;
-    auto c = rep.contacts->get(member_id);
 
-    if (c.type != contact::type_enum::person) {
-        error err {errc::unsuitable_group_member
-            , to_string(member_id)
-            , "member must be a person to add to group"};
-        CHAT__THROW(err);
-        return false;
+    if (member_id != rep.me.id) {
+        auto c = rep.contacts->get(member_id);
+
+        if (c.id == contact::contact_id{}) {
+            error err {errc::contact_not_found
+                , to_string(member_id)
+                , "contact not found"};
+            CHAT__THROW(err);
+            return false;
+        }
+
+        if (c.type != contact::type_enum::person) {
+            error err {errc::unsuitable_group_member
+                , to_string(member_id)
+                , "member must be a person to add to group"};
+            CHAT__THROW(err);
+            return false;
+        }
     }
 
     return add_member_unchecked(member_id);

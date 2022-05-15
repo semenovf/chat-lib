@@ -76,6 +76,13 @@ auto contact_db_path = pfs::filesystem::temp_directory_path() / "contact.db";
 auto my_uuid = pfs::generate_uuid();
 auto my_alias = std::string{"My Alias"};
 
+REGISTER_EXCEPTION_TRANSLATOR (chat::error & ex)
+{
+    static std::string __s {};
+    __s = ex.what();
+    return doctest::String(__s.c_str(), __s.size());
+}
+
 TEST_CASE("constructors") {
     // Contact list public constructors/assign operators
     REQUIRE_FALSE(std::is_default_constructible<contact_list_t>::value);
@@ -228,9 +235,9 @@ TEST_CASE("groups") {
         REQUIRE(contact_manager.add(g, my_uuid));
 
         // No new group added as it already exist
-        REQUIRE_FALSE(contact_manager.add(g, my_uuid));
+        REQUIRE_FALSE(contact_manager.gref(g.id).add_member(my_uuid));
 
-        REQUIRE_EQ(contact_manager.group_count(), 1);
+        REQUIRE_EQ(contact_manager.groups_count(), 1);
     }
 
     chat::contact::contact_id sample_id;
@@ -246,7 +253,7 @@ TEST_CASE("groups") {
         g.alias = sample_alias;
 
         REQUIRE(contact_manager.update(g));
-        REQUIRE_EQ(contact_manager.group_count(), 2);
+        REQUIRE_EQ(contact_manager.groups_count(), 2);
 
         sample_id = g.id;
     }
@@ -279,7 +286,8 @@ TEST_CASE("groups") {
         g.id = pfs::generate_uuid();
 
         REQUIRE(contact_manager.add(g, my_uuid));
-        REQUIRE_EQ(contact_manager.group_count(), 3);
+
+        REQUIRE_EQ(contact_manager.groups_count(), 3);
 
         person_t c1;
         c1.id = pfs::generate_uuid();
@@ -297,10 +305,9 @@ TEST_CASE("groups") {
         // NOTE This behavior is subject to change in the future.
         group_t c3;
         c3.id = pfs::generate_uuid();
-        c3.creator_id = my_uuid;
         c3.alias = "Contact 3 for " + g.alias;
 
-        REQUIRE(contact_manager.add(c3));
+        REQUIRE(contact_manager.add(c3, my_uuid));
 
         REQUIRE(contact_manager.gref(g.id).add_member(c1.id));
         REQUIRE(contact_manager.gref(g.id).add_member(c2.id));

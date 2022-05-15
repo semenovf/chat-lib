@@ -43,9 +43,6 @@ enum class mime_enum
 
     , text__html
 
-    // Emoji shortcode
-    , text__emoji
-
     // The default value for all other cases. An unknown file type should
     // use this type.
     //

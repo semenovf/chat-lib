@@ -95,13 +95,6 @@ editor<BACKEND>::add_html (std::string const & text)
     _rep.content.add(message::mime_enum::text__html, text);
 }
 
-template <>
-void
-editor<BACKEND>::add_emoji (std::string const & shortcode)
-{
-    _rep.content.add(message::mime_enum::text__emoji, shortcode);
-}
-
 namespace {
     std::string const FILE_NOTFOUND_ERROR {"file not found"};
     std::string const NOT_REGULAR_FILE_ERROR {"attachment must be a regular file"};

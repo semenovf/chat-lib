@@ -64,7 +64,8 @@ public:
          *         or it is already a member of the specified group.
          *
          * @throw debby::error on storage error.
-         * @throw chat::error if @a member_id is not a person contact id.
+         * @throw chat::error{errc::contact_not_found} Contact not found by @a member_id.
+         * @throw chat::error{errc::unsuitable_group_member} @a member_id is not a person contact id
          */
         bool add_member (contact::contact_id member_id);
 
@@ -145,7 +146,7 @@ public:
     /**
      * Count of group contacts.
      */
-    std::size_t group_count () const
+    std::size_t groups_count () const
     {
         return count(contact::type_enum::group);
     }
@@ -156,9 +157,10 @@ public:
     bool add (contact::person const & p);
 
     /**
-     * Add group contact.
+     * Add group contact. @a creator_id also added to group.
+     *
      */
-    bool add (contact::group const & g);
+    bool add (contact::group const & g, contact::contact_id creator_id);
 
     /**
      * Updates contact.

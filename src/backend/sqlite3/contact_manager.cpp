@@ -24,7 +24,6 @@ namespace {
 
     std::string const DEFAULT_CONTACTS_TABLE_NAME  { "chat_contacts" };
     std::string const DEFAULT_MEMBERS_TABLE_NAME   { "chat_members" };
-    std::string const DEFAULT_GROUP_CREATOR_TABLE_NAME  { "chat_group_creator" };
     std::string const DEFAULT_FOLLOWERS_TABLE_NAME { "chat_channels" };
 } // namespace
 
@@ -33,7 +32,7 @@ namespace {
 std::string const CREATE_CONTACTS_TABLE {
     "CREATE TABLE IF NOT EXISTS `{}` ("
         "`id` {} NOT NULL UNIQUE"
-        ", `creator_id` {} NOT NULL UNIQUE"
+        ", `creator_id` {} NOT NULL"
         ", `alias` {} NOT NULL"
         ", `avatar` {}"
         ", `description` {}"
@@ -85,7 +84,6 @@ contact_manager::make (contact::person const & me, shared_db_handle dbh)
     rep.contacts_table_name      = DEFAULT_CONTACTS_TABLE_NAME;
     rep.members_table_name       = DEFAULT_MEMBERS_TABLE_NAME;
     rep.followers_table_name     = DEFAULT_FOLLOWERS_TABLE_NAME;
-    rep.group_creator_table_name = DEFAULT_GROUP_CREATOR_TABLE_NAME;
 
     std::array<std::string, 7> sqls = {
           fmt::format(CREATE_CONTACTS_TABLE
@@ -238,12 +236,12 @@ contact_manager<BACKEND>::add (contact::person const & p)
 
 template <>
 bool
-contact_manager<BACKEND>::add (contact::group const & g)
+contact_manager<BACKEND>::add (contact::group const & g, contact::contact_id creator_id)
 {
-    return transaction([this, & g] {
+    return transaction([this, & g, creator_id] {
         contact::contact c {
               g.id
-            , g.creator_id
+            , creator_id
             , g.alias
             , g.avatar
             , g.description
@@ -255,7 +253,7 @@ contact_manager<BACKEND>::add (contact::group const & g)
             if (!gr)
                 return false;
 
-            gr.add_member_unchecked(g.creator_id);
+            gr.add_member_unchecked(creator_id);
 
             return true;
         }
@@ -280,10 +278,6 @@ std::string const REMOVE_GROUP {
     "DELETE from `{}` WHERE `group_id` = :group_id"
 };
 
-std::string const REMOVE_CREATOR {
-    "DELETE from `{}` WHERE `group_id` = :group_id"
-};
-
 } // namespace
 
 template <>
@@ -292,22 +286,19 @@ contact_manager<BACKEND>::remove (contact::contact_id id)
 {
     auto stmt1 = _rep.dbh->prepare(fmt::format(REMOVE_MEMBERSHIPS, _rep.members_table_name));
     auto stmt2 = _rep.dbh->prepare(fmt::format(REMOVE_GROUP, _rep.members_table_name));
-    auto stmt3 = _rep.dbh->prepare(fmt::format(REMOVE_CREATOR, _rep.group_creator_table_name));
 
     CHAT__ASSERT(!!stmt1, "");
     CHAT__ASSERT(!!stmt2, "");
-    CHAT__ASSERT(!!stmt3, "");
 
     stmt1.bind(":member_id", id);
     stmt2.bind(":group_id", id);
-    stmt3.bind(":group_id", id);
 
     TRY {
         _rep.dbh->begin();
 
         _rep.contacts->remove(id);
 
-        for (auto * stmt: {& stmt1, & stmt2, & stmt3}) {
+        for (auto * stmt: {& stmt1, & stmt2}) {
             auto res = stmt->exec();
         }
         _rep.dbh->commit();
@@ -323,11 +314,10 @@ template <>
 void
 contact_manager<BACKEND>::wipe ()
 {
-    std::array<std::string, 4> tables = {
+    std::array<std::string, 3> tables = {
           _rep.contacts_table_name
         , _rep.members_table_name
         , _rep.followers_table_name
-        , _rep.group_creator_table_name
     };
 
     TRY {
