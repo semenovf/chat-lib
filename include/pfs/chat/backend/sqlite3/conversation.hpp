@@ -12,6 +12,7 @@
 #include "editor.hpp"
 #include "pfs/chat/editor.hpp"
 #include "pfs/chat/contact.hpp"
+#include <atomic>
 #include <map>
 #include <string>
 #include <vector>
@@ -26,9 +27,10 @@ struct conversation
 
     struct in_memory_cache
     {
+        static std::atomic<bool> dirty;
+
         int offset;
         int limit;
-        bool dirty;
         int sort_flag;
         std::vector<message::message_credentials> data;
         std::map<message::message_id, std::size_t> map;

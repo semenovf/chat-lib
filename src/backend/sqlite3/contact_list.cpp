@@ -35,6 +35,8 @@ static void fill_contact (backend::sqlite3::db_traits::result_type & result
 namespace backend {
 namespace sqlite3 {
 
+std::atomic<bool> contact_list::in_memory_cache::dirty {true};
+
 void contact_list::invalidate_cache (rep_type * rep)
 {
     rep->cache.dirty = true;
@@ -145,8 +147,6 @@ template <>
 int
 contact_list<BACKEND>::add (contact::contact const & c)
 {
-    BACKEND::invalidate_cache(& _rep);
-
     auto stmt = _rep.dbh->prepare(fmt::format(INSERT_CONTACT, _rep.table_name));
 
     CHAT__ASSERT(!!stmt, "");
@@ -160,6 +160,10 @@ contact_list<BACKEND>::add (contact::contact const & c)
 
     auto res = stmt.exec();
     auto n = stmt.rows_affected();
+
+    if (n > 0)
+        BACKEND::invalidate_cache(& _rep);
+
     return n;
 }
 
@@ -176,8 +180,6 @@ template <>
 int
 contact_list<BACKEND>::update (contact::contact const & c)
 {
-    BACKEND::invalidate_cache(& _rep);
-
     auto stmt = _rep.dbh->prepare(fmt::format(UPDATE_CONTACT, _rep.table_name));
 
     CHAT__ASSERT(!!stmt, "");
@@ -189,7 +191,12 @@ contact_list<BACKEND>::update (contact::contact const & c)
     stmt.bind(":type", to_storage(c.type));
 
     auto res = stmt.exec();
-    return stmt.rows_affected();
+    auto n = stmt.rows_affected();
+
+    if (n > 0)
+        BACKEND::invalidate_cache(& _rep);
+
+    return n;
 }
 
 namespace {
@@ -202,8 +209,6 @@ template <>
 void
 contact_list<BACKEND>::remove (contact::contact_id id)
 {
-    BACKEND::invalidate_cache(& _rep);
-
     auto stmt = _rep.dbh->prepare(fmt::format(REMOVE_CONTACT, _rep.table_name));
 
     CHAT__ASSERT(!!stmt, "");
@@ -211,6 +216,7 @@ contact_list<BACKEND>::remove (contact::contact_id id)
     stmt.bind(":id", id);
 
     auto res = stmt.exec();
+    BACKEND::invalidate_cache(& _rep);
 }
 
 namespace {

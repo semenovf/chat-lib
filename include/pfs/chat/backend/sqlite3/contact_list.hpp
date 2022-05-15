@@ -10,6 +10,7 @@
 #pragma once
 #include "db_traits.hpp"
 #include "pfs/chat/contact.hpp"
+#include <atomic>
 #include <map>
 #include <string>
 #include <vector>
@@ -22,9 +23,10 @@ struct contact_list
 {
     struct in_memory_cache
     {
+        static std::atomic<bool> dirty;
+
         int offset;
         int limit;
-        bool dirty;
         std::vector<contact::contact> data;
         std::map<contact::contact_id, std::size_t> map;
     };

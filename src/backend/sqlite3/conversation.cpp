@@ -56,6 +56,8 @@ static void fill_message (backend::sqlite3::db_traits::result_type & result
 namespace backend {
 namespace sqlite3 {
 
+std::atomic<bool> conversation::in_memory_cache::dirty {true};
+
 void conversation::invalidate_cache (rep_type * rep)
 {
     rep->cache.dirty = true;
@@ -270,42 +272,39 @@ template <>
 void conversation<BACKEND>::mark_dispatched (message::message_id message_id
     , pfs::utc_time_point dispatched_time)
 {
-    BACKEND::invalidate_cache(& _rep);
-
     mark_message_status(_rep.dbh
         , UPDATE_DISPATCHED_TIME
         , _rep.table_name
         , message_id
         , dispatched_time
         , "dispatched");
+    BACKEND::invalidate_cache(& _rep);
 }
 
 template <>
 void conversation<BACKEND>::mark_delivered (message::message_id message_id
     , pfs::utc_time_point delivered_time)
 {
-    BACKEND::invalidate_cache(& _rep);
-
     mark_message_status(_rep.dbh
         , UPDATE_DELIVERED_TIME
         , _rep.table_name
         , message_id
         , delivered_time
         , "delivered");
+    BACKEND::invalidate_cache(& _rep);
 }
 
 template <>
 void conversation<BACKEND>::mark_read (message::message_id message_id
     , pfs::utc_time_point read_time)
 {
-    BACKEND::invalidate_cache(& _rep);
-
     mark_message_status(_rep.dbh
         , UPDATE_READ_TIME
         , _rep.table_name
         , message_id
         , read_time
         , "read");
+    BACKEND::invalidate_cache(& _rep);
 }
 
 static std::string const INSERT_MESSAGE {
@@ -317,8 +316,6 @@ template <>
 conversation<BACKEND>::editor_type
 conversation<BACKEND>::create ()
 {
-    BACKEND::invalidate_cache(& _rep);
-
     auto message_id = message::id_generator{}.next();
     auto creation_time = pfs::current_utc_time_point();
 
@@ -335,6 +332,7 @@ conversation<BACKEND>::create ()
 
     CHAT__ASSERT(stmt.rows_affected() > 0, "Non-unique ID generated for message");
 
+    BACKEND::invalidate_cache(& _rep);
     return editor_type::make(message_id, _rep.dbh, _rep.table_name);
 }
 
@@ -470,8 +468,6 @@ conversation<BACKEND>::save_incoming (message::message_id message_id
     , pfs::utc_time_point const & creation_time
     , std::string const & content)
 {
-    BACKEND::invalidate_cache(& _rep);
-
     auto m = message(message_id);
 
     // Message already exists
@@ -509,6 +505,7 @@ conversation<BACKEND>::save_incoming (message::message_id message_id
             stmt.bind(":message_id", message_id);
 
             stmt.exec();
+            BACKEND::invalidate_cache(& _rep);
         }
     } else {
         auto stmt = _rep.dbh->prepare(fmt::format(INSERT_INCOMING_MESSAGE, _rep.table_name));
@@ -522,8 +519,8 @@ conversation<BACKEND>::save_incoming (message::message_id message_id
         stmt.bind(":content", content);
 
         stmt.exec();
-
         CHAT__ASSERT(stmt.rows_affected() > 0, "May be non-unique ID for incoming message");
+        BACKEND::invalidate_cache(& _rep);
     }
 }
 
@@ -609,8 +606,8 @@ template <>
 void
 conversation<BACKEND>::clear ()
 {
-    BACKEND::invalidate_cache(& _rep);
     _rep.dbh->clear(_rep.table_name);
+    BACKEND::invalidate_cache(& _rep);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -620,8 +617,8 @@ template <>
 void
 conversation<BACKEND>::wipe ()
 {
-    BACKEND::invalidate_cache(& _rep);
     _rep.dbh->remove(_rep.table_name);
+    BACKEND::invalidate_cache(& _rep);
 }
 
 } // namespace chat
