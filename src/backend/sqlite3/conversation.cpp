@@ -444,6 +444,43 @@ conversation<BACKEND>::message (message::message_id message_id) const
     return pfs::nullopt;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// conversation::last_message
+////////////////////////////////////////////////////////////////////////////////
+static std::string const SELECT_LAST_MESSAGE {
+    "SELECT `message_id`"
+        ", `author_id`"
+        ", `creation_time`"
+        ", `modification_time`"
+        ", `dispatched_time`"
+        ", `delivered_time`"
+        ", `read_time`"
+        ", `content`"
+        " FROM `{}` ORDER BY ROWID DESC LIMIT 1"
+};
+
+template <>
+pfs::optional<message::message_credentials>
+conversation<BACKEND>::last_message () const
+{
+    auto stmt = _rep.dbh->prepare(fmt::format(SELECT_LAST_MESSAGE, _rep.table_name));
+
+    CHAT__ASSERT(!!stmt, "");
+
+    auto res = stmt.exec();
+
+    if (res.has_more()) {
+        message::message_credentials m;
+        fill_message(res, m);
+        return m;
+    }
+
+    return pfs::nullopt;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// conversation::save_incoming
+////////////////////////////////////////////////////////////////////////////////
 static std::string const INSERT_INCOMING_MESSAGE {
     "INSERT INTO `{}` (`message_id`, `author_id`, `creation_time`"
     ", `modification_time`, `content`)"

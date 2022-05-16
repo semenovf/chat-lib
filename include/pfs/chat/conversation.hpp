@@ -151,7 +151,7 @@ public:
     message (message::message_id message_id) const;
 
     /**
-     * Get message credentials by @a offset. On error returns invalid contact.
+     * Get message credentials by @a offset.
      *
      * @return Message credentials or @c nullopt if message not found.
      *
@@ -164,6 +164,14 @@ public:
     pfs::optional<message::message_credentials>
     message (int offset, int sort_flag = conversation_sort_flag::by_creation_time
             | conversation_sort_flag::ascending_order) const;
+
+    /**
+     * Get last message credentials.
+     *
+     * @return Message credentials or @c nullopt if message not found.
+     */
+    pfs::optional<message::message_credentials>
+    last_message () const;
 
     /**
      * Fetch all conversation messages in order specified by @a sort_flag
