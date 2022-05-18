@@ -135,6 +135,9 @@ public: // Callbacks
         , std::string const & /*data*/)> dispatch_data;
 
     mutable std::function<void (contact::contact_id /*addressee*/
+        , message::message_id /*message_id*/)> about_to_dispatch_message;
+
+    mutable std::function<void (contact::contact_id /*addressee*/
         , message::message_id /*message_id*/
         , pfs::utc_time_point /*dispatched_time*/)> message_dispatched;
 
@@ -438,6 +441,7 @@ public:
 
         typename serializer_type::output_packet_type out {};
         out << m;
+        about_to_dispatch_message(addressee, msg.id);
         auto success = dispatch_data(addressee, msg.id, out.data());
         return success;
     }
