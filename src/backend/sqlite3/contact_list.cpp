@@ -57,14 +57,17 @@ contact_list::make (shared_db_handle dbh
 
 static std::string const SELECT_ROWS_RANGE {
     "SELECT `id`, `creator_id`,  `alias`, `avatar`, `description`, `type`"
-    " FROM `{}` LIMIT {} OFFSET {}"
+    " FROM `{}`"
+    " ORDER BY {} {}"
+    " LIMIT {} OFFSET {}"
 };
 
-void contact_list::prefetch (rep_type const * rep, int offset, int limit)
+void contact_list::prefetch (rep_type const * rep, int offset, int limit, int sort_flags)
 {
     bool prefetch_required = rep->cache.dirty
         || offset < rep->cache.offset
-        || offset + limit > rep->cache.offset + rep->cache.limit;
+        || offset + limit > rep->cache.offset + rep->cache.limit
+        || sort_flags != rep->cache.sort_flags;
 
     if (!prefetch_required)
         return;
@@ -74,9 +77,22 @@ void contact_list::prefetch (rep_type const * rep, int offset, int limit)
     rep->cache.offset = offset;
     rep->cache.limit = 0;
     rep->cache.dirty = true;
+    rep->cache.sort_flags = sort_flags;
+
+    std::string field = "`alias`";
+    std::string order = "ASC";
+
+    if (sort_flag_on(sort_flags, contact_sort_flag::by_alias))
+        field = "`alias`";
+
+    if (sort_flag_on(sort_flags, contact_sort_flag::ascending_order))
+        order = "ASC";
+    else if (sort_flag_on(sort_flags, contact_sort_flag::descending_order))
+        order = "DESC";
 
     auto stmt = rep->dbh->prepare(
           fmt::format(SELECT_ROWS_RANGE, rep->table_name
+        , field, order
         , limit, offset));
 
     CHAT__ASSERT(!!stmt, "");
@@ -258,7 +274,7 @@ contact_list<BACKEND>::get (contact::contact_id id) const
 
 template <>
 contact::contact
-contact_list<BACKEND>::get (int offset) const
+contact_list<BACKEND>::get (int offset, int sort_flag) const
 {
     bool force_populate_cache = _rep.cache.dirty;
 
@@ -268,7 +284,7 @@ contact_list<BACKEND>::get (int offset) const
 
     // Populate cache if dirty
     if (force_populate_cache) {
-        BACKEND::prefetch(& _rep, offset, CACHE_WINDOW_SIZE);
+        BACKEND::prefetch(& _rep, offset, CACHE_WINDOW_SIZE, sort_flag);
     }
 
     if (offset < _rep.cache.offset || offset >= _rep.cache.offset + _rep.cache.limit) {

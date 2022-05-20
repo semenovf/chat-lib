@@ -65,15 +65,15 @@ void conversation::invalidate_cache (rep_type * rep)
 
 conversation::rep_type
 conversation::make (contact::contact_id me
-    , contact::contact_id addressee
+    , contact::contact_id opponent
     , shared_db_handle dbh)
 {
     rep_type rep;
 
     rep.dbh = dbh;
     rep.me = me;
-    rep.addressee = addressee;
-    rep.table_name = DEFAULT_TABLE_NAME_PREFIX + to_string(addressee);
+    rep.opponent = opponent;
+    rep.table_name = DEFAULT_TABLE_NAME_PREFIX + to_string(opponent);
 
     std::array<std::string, 1> sqls = {
         fmt::format(CREATE_CONVERSATION_TABLE
@@ -118,19 +118,20 @@ static std::string const SELECT_ROWS_RANGE {
         ", `delivered_time`"
         ", `read_time`"
         ", `content`"
-        " FROM `{}` ORDER BY {} {}"
+        " FROM `{}`"
+        " ORDER BY {} {}"
         " LIMIT {} OFFSET {}"
 };
 
 void conversation::prefetch (rep_type const * rep
     , int offset
     , int limit
-    , int sort_flag)
+    , int sort_flags)
 {
     bool prefetch_required = rep->cache.dirty
         || offset < rep->cache.offset
         || offset + limit > rep->cache.offset + rep->cache.limit
-        || sort_flag != rep->cache.sort_flag;
+        || sort_flags != rep->cache.sort_flags;
 
     if (!prefetch_required)
         return;
@@ -140,25 +141,25 @@ void conversation::prefetch (rep_type const * rep
     rep->cache.offset = offset;
     rep->cache.limit = 0;
     rep->cache.dirty = true;
-    rep->cache.sort_flag = sort_flag;
+    rep->cache.sort_flags = sort_flags;
 
     std::string field = "`creation_time`";
     std::string order = "ASC";
 
-    if (sort_flag & by_creation_time)
+    if (sort_flag_on(sort_flags, conversation_sort_flag::by_creation_time))
         field = "`creation_time`";
-    else if (sort_flag & by_modification_time)
+    else if (sort_flag_on(sort_flags, conversation_sort_flag::by_modification_time))
         field = "`modification_time`";
-    else if (sort_flag & by_dispatched_time)
+    else if (sort_flag_on(sort_flags, conversation_sort_flag::by_dispatched_time))
         field = "`dispatched_time`";
-    else if (sort_flag & by_delivered_time)
+    else if (sort_flag_on(sort_flags, conversation_sort_flag::by_delivered_time))
         field = "`delivered_time`";
-    else if (sort_flag & by_read_time)
+    else if (sort_flag_on(sort_flags, conversation_sort_flag::by_read_time))
         field = "`read_time`";
 
-    if (sort_flag & ascending_order)
+    if (sort_flag_on(sort_flags, conversation_sort_flag::ascending_order))
         order = "ASC";
-    else if (sort_flag & descending_order)
+    else if (sort_flag_on(sort_flags, conversation_sort_flag::descending_order))
         order = "DESC";
 
     auto stmt = rep->dbh->prepare(
@@ -204,7 +205,9 @@ conversation<BACKEND>::count () const
 }
 
 static std::string const UNREAD_MESSAGES_COUNT {
-    "SELECT COUNT(1) as count FROM `{}` WHERE `read_time` IS NULL"
+    "SELECT COUNT(1) as count FROM `{}`"
+    " WHERE `read_time` IS NULL"
+    " AND `author_id` = :opponent"
 };
 
 template <>
@@ -214,6 +217,8 @@ conversation<BACKEND>::unread_messages_count () const
     std::size_t count = 0;
     auto stmt = _rep.dbh->prepare(fmt::format(UNREAD_MESSAGES_COUNT, _rep.table_name));
     CHAT__ASSERT(!!stmt, "");
+
+    stmt.bind(":opponent", _rep.opponent);
 
     auto res = stmt.exec();
 
@@ -579,25 +584,25 @@ static std::string const SELECT_ALL_MESSAGES {
 template <>
 void
 conversation<BACKEND>::for_each (std::function<void(message::message_credentials const &)> f
-    , int sort_flag, int max_count)
+    , int sort_flags, int max_count)
 {
     std::string field = "`creation_time`";
     std::string order = "ASC";
 
-    if (sort_flag & by_creation_time)
+    if (sort_flag_on(sort_flags, conversation_sort_flag::by_creation_time))
         field = "`creation_time`";
-    else if (sort_flag & by_modification_time)
+    else if (sort_flag_on(sort_flags, conversation_sort_flag::by_modification_time))
         field = "`modification_time`";
-    else if (sort_flag & by_dispatched_time)
+    else if (sort_flag_on(sort_flags, conversation_sort_flag::by_dispatched_time))
         field = "`dispatched_time`";
-    else if (sort_flag & by_delivered_time)
+    else if (sort_flag_on(sort_flags, conversation_sort_flag::by_delivered_time))
         field = "`delivered_time`";
-    else if (sort_flag & by_read_time)
+    else if (sort_flag_on(sort_flags, conversation_sort_flag::by_read_time))
         field = "`read_time`";
 
-    if (sort_flag & ascending_order)
+    if (sort_flag_on(sort_flags, conversation_sort_flag::ascending_order))
         order = "ASC";
-    else if (sort_flag & descending_order)
+    else if (sort_flag_on(sort_flags, conversation_sort_flag::descending_order))
         order = "DESC";
 
     auto stmt = _rep.dbh->prepare(

@@ -9,12 +9,13 @@
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 #include "contact.hpp"
+#include "flags.hpp"
 #include "message.hpp"
 #include "pfs/optional.hpp"
 
 namespace chat {
 
-enum conversation_sort_flag: std::uint32_t
+enum class conversation_sort_flag: int
 {
       by_creation_time       = 1 << 0
     , by_modification_time   = 1 << 1
@@ -162,8 +163,8 @@ public:
      *       can be displayed in the correct chronological order.
      */
     pfs::optional<message::message_credentials>
-    message (int offset, int sort_flag = conversation_sort_flag::by_creation_time
-            | conversation_sort_flag::ascending_order) const;
+    message (int offset, int sf = sort_flags(conversation_sort_flag::by_creation_time
+        , conversation_sort_flag::ascending_order)) const;
 
     /**
      * Get last message credentials.
@@ -181,19 +182,20 @@ public:
      * @throw chat::error if message content is invalid (i.e. bad JSON source).
      */
     void for_each (std::function<void(message::message_credentials const &)> f
-        , int sort_flag, int max_count);
+        , int sort_flags, int max_count);
 
     /**
      * Convenient function for fetch all conversation messages in order
-     * @c conversation_sort_flag::by_lcoal_creation_time | @c conversation_sort_flag::ascending_order
+     * @c conversation_sort_flag::by_creation_time | @c conversation_sort_flag::ascending_order
      */
     void for_each (std::function<void(message::message_credentials const &)> f
         , int max_count = -1)
     {
-        int sort_flag = conversation_sort_flag::by_creation_time
-            | conversation_sort_flag::ascending_order;
+        int sf = sort_flags(
+              conversation_sort_flag::by_creation_time
+            , conversation_sort_flag::ascending_order);
 
-        for_each(f, sort_flag, max_count);
+        for_each(f, sf, max_count);
     }
 
     /**
