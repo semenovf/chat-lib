@@ -253,9 +253,7 @@ public:
     }
 
     /**
-      * Get members of the specified group excluding own contact if it is
-      * a group member. Group membershift of own contact can be checked by
-      *
+      * Get members of the specified group.
       */
     std::vector<contact::contact> members (contact::contact_id group_id) const
     {
@@ -503,10 +501,10 @@ public:
 
         protocol::contact_credentials m {{
               me.id
-            , me.id
             , me.alias
             , me.avatar
             , me.description
+            , me.id
             , chat::contact::type_enum::person
         }};
 
