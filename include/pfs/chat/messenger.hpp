@@ -419,7 +419,7 @@ public:
 
         if (!is_valid(c)) {
             // Invalid addressee ID to generate invalid conversation
-            failure(fmt::format("No contact found: {}", addressee_id));
+            //failure(fmt::format("No contact found: {}", addressee_id));
             addressee_id = contact::contact_id{};
             return conversation_type{};
         }

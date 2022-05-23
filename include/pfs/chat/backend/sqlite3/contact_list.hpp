@@ -27,6 +27,7 @@ struct contact_list
 
         int offset;
         int limit;
+        int sort_flags;
         std::vector<contact::contact> data;
         std::map<contact::contact_id, std::size_t> map;
     };
@@ -45,7 +46,7 @@ struct contact_list
     /**
      * @throw @c chat::error(errc::storage_error) on storage failure.
      */
-    static void prefetch (rep_type const * rep, int offset, int limit);
+    static void prefetch (rep_type const * rep, int offset, int limit, int sort_flags);
 
     /**
      */

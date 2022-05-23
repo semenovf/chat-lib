@@ -31,7 +31,7 @@ struct conversation
 
         int offset;
         int limit;
-        int sort_flag;
+        int sort_flags;
         std::vector<message::message_credentials> data;
         std::map<message::message_id, std::size_t> map;
     };
@@ -40,7 +40,7 @@ struct conversation
     {
         shared_db_handle dbh;
         contact::contact_id me;
-        contact::contact_id addressee;
+        contact::contact_id opponent;
         mutable in_memory_cache cache;
         std::string table_name;
     };
@@ -60,7 +60,7 @@ struct conversation
     /**
      */
     static rep_type make (contact::contact_id me
-        , contact::contact_id addressee
+        , contact::contact_id opponent
         , shared_db_handle dbh);
 };
 
