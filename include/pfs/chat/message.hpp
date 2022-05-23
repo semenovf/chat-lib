@@ -179,4 +179,39 @@ struct message_credentials
     pfs::optional<content> contents;
 };
 
+struct group_message_credentials
+{
+    // Unique group message ID
+    message_id id;
+
+    // Author contact ID
+    contact::contact_id author_id;
+
+    // Message creation time (UTC).
+    pfs::utc_time_point creation_time;
+
+    // Message last modification time (UTC). Reserved for future use.
+    pfs::utc_time_point modification_time;
+
+    pfs::optional<content> contents;
+};
+
+struct member_message_credentials
+{
+    // Personal unique message ID
+    message_id id;
+
+    // Group message ID
+    message_id group_id;
+
+    // Message dispatched time (UTC)
+    pfs::optional<pfs::utc_time_point> dispatched_time;
+
+    // Delivered time (for outgoing) or received (for incoming) (UTC)
+    pfs::optional<pfs::utc_time_point> delivered_time;
+
+    // Message read time (UTC)
+    pfs::optional<pfs::utc_time_point> read_time;
+};
+
 }} // namespace chat::message

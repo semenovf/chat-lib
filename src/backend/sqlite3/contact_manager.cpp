@@ -224,10 +224,10 @@ contact_manager<BACKEND>::add (contact::person const & p)
 {
     contact::contact c {
           p.id
-        , p.id
         , p.alias
         , p.avatar
         , p.description
+        , p.id
         , chat::contact::type_enum::person
     };
 
@@ -241,10 +241,10 @@ contact_manager<BACKEND>::add (contact::group const & g, contact::contact_id cre
     return transaction([this, & g, creator_id] {
         contact::contact c {
               g.id
-            , creator_id
             , g.alias
             , g.avatar
             , g.description
+            , creator_id
             , chat::contact::type_enum::group};
 
         if (_rep.contacts->add(c) > 0) {

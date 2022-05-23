@@ -45,10 +45,10 @@ enum class type_enum
 struct contact
 {
     contact_id  id;
-    contact_id  creator_id; // For person same as ID.
     std::string alias;
     std::string avatar;     // Application specific image path/name/code.
     std::string description;
+    contact_id  creator_id; // For person same as ID.
     type_enum type;
 };
 
@@ -63,19 +63,19 @@ struct person
 struct group
 {
     contact_id  id;
-    contact_id  creator_id;
     std::string alias;
     std::string avatar;
     std::string description;
+    contact_id  creator_id;
 };
 
 struct channel
 {
     contact_id  id;
-    contact_id  creator_id;
     std::string alias;
     std::string avatar;
     std::string description;
+    contact_id  creator_id;
 };
 
 template <typename T>

@@ -124,6 +124,10 @@ TEST_CASE("messenger") {
     auto contactAlias1 = std::string{"PERSON_1"};
     auto contactId2 = "01FV1KFY7WWS3WSBV4BFYF7ZC9"_uuid;
     auto contactAlias2 = std::string{"PERSON_2"};
+    auto contactId3 = "01G2HFKWF1MMBBXWHF4VWJGGTN"_uuid;
+    auto contactAlias3 = std::string{"PERSON_3"};
+    auto groupId1 = "01G2Q5AYS18JHKPTW4M8D4WYBW"_uuid;
+    auto groupAlias1 = std::string{"GROUP_1"};
 
 ////////////////////////////////////////////////////////////////////////////////
 // Step 3. Instantiate messenger builder
@@ -147,9 +151,8 @@ TEST_CASE("messenger") {
         , chat::message::message_id message_id
         , std::string const & data) {
 
-        fmt::print(fmt::format("Send message #{} to #{}\n"
-            , to_string(addressee)
-            , to_string(message_id)));
+        fmt::print(fmt::format("Send message {} to {}\n"
+            , message_id, addressee));
 
         last_data_sent = data;
         return true;
@@ -253,6 +256,7 @@ TEST_CASE("messenger") {
 
     auto contact1 = messenger1->my_contact();
     auto contact2 = messenger2->my_contact();
+    chat::contact::person contact3 {contactId3, contactAlias3};
 
     REQUIRE_EQ(contact1.id, contactId1);
     REQUIRE_EQ(contact2.id, contactId2);
@@ -269,8 +273,34 @@ TEST_CASE("messenger") {
     REQUIRE(messenger1->update(contact2)); // Ok, attempt to update
     REQUIRE(messenger2->update(contact1)); // Ok, attempt to update
 
-    REQUIRE_EQ(messenger1->contacts_count(), 1);
-    REQUIRE_EQ(messenger2->contacts_count(), 1);
+    REQUIRE_NE(messenger1->add(contact3), chat::contact::contact_id{});
+    REQUIRE_NE(messenger2->add(contact3), chat::contact::contact_id{});
+
+    REQUIRE_EQ(messenger1->contacts_count(), 2);
+    REQUIRE_EQ(messenger2->contacts_count(), 2);
+
+////////////////////////////////////////////////////////////////////////////////
+// Step 5.1 Add group contact
+////////////////////////////////////////////////////////////////////////////////
+    chat::contact::group group1 {groupId1, groupAlias1};
+    REQUIRE_NE(messenger1->add(group1, contactId1), chat::contact::contact_id{});
+    REQUIRE(messenger1->add_member(groupId1, contactId2));
+    REQUIRE(messenger1->add_member(groupId1, contactId3));
+
+    REQUIRE(messenger1->is_member_of(groupId1, contactId1));
+    REQUIRE(messenger1->is_member_of(groupId1, contactId2));
+    REQUIRE(messenger1->is_member_of(groupId1, contactId3));
+    REQUIRE_FALSE(messenger1->is_member_of(groupId1, unknownContactId));
+
+    REQUIRE_EQ(messenger1->members_count(groupId1), 3);
+
+    auto members = messenger1->members(groupId1);
+
+    // Excluding own contact
+    REQUIRE_EQ(members.size(), 2);
+
+    auto bad_members = messenger1->members(unknownContactId);
+    REQUIRE(bad_members.empty());
 
 ////////////////////////////////////////////////////////////////////////////////
 // Step 6.1 Write message
@@ -344,13 +374,39 @@ TEST_CASE("messenger") {
 
         messenger1->dispatch_message(contactId2, *m);
         messenger1->dispatched(contactId2, last_message_id, pfs::current_utc_time_point());
-        messenger2->process_received_data(contactId1, last_data_sent);
     }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Step 6.3 Receive message
+// Step 7.1 Write group message
+////////////////////////////////////////////////////////////////////////////////
+    chat::message::message_id last_group_message_id;
+
+    {
+        auto conversation = messenger1->conversation(groupId1);
+        REQUIRE(conversation);
+
+        auto editor = conversation.create();
+        REQUIRE(editor);
+
+        last_group_message_id = editor.message_id();
+
+        editor.add_text(TEXT);
+        editor.add_html(HTML);
+
+        editor.attach(f1);
+        editor.attach(f2);
+        editor.save();
+    }
+
+////////////////////////////////////////////////////////////////////////////////
+// Step 7.2 Dispatch group message
+////////////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////////////////////////
+// Step 8.1 Receive message
 ////////////////////////////////////////////////////////////////////////////////
     {
-
+        // `last_data_sent` is the serialized data sent by `messenger1`
+        messenger2->process_received_data(contactId1, last_data_sent);
     }
 }

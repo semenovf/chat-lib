@@ -180,10 +180,10 @@ public:
     {
         contact::contact c {
               p.id
-            , p.id
             , p.alias
             , p.avatar
             , p.description
+            , p.id
             , chat::contact::type_enum::person
         };
 
@@ -202,10 +202,10 @@ public:
     {
         contact::contact c {
               g.id
-            , g.creator_id
             , g.alias
             , g.avatar
             , g.description
+            , g.creator_id
             , chat::contact::type_enum::group };
         return update(c);
     }

@@ -14,11 +14,11 @@
 #include "message_store.hpp"
 #include "protocol.hpp"
 #include "serializer.hpp"
+#include "pfs/assert.hpp"
 #include "pfs/fmt.hpp"
 #include <functional>
 #include <memory>
 #include <vector>
-#include <cassert>
 
 namespace chat {
 
@@ -196,9 +196,67 @@ public:
         return _contact_manager->count();
     }
 
+////////////////////////////////////////////////////////////////////////////////
+// Group contact specific methods
+////////////////////////////////////////////////////////////////////////////////
     /**
-        * Get members of the specified group.
-        */
+     * Adds member specified by @a member_id to the group specified by @a group_id.
+     *
+     * @return @c false on error or @c true if contact added was successfully
+     *         or it is already a member of the specified group.
+     */
+    bool add_member (contact::contact_id group_id, contact::contact_id member_id)
+    {
+        auto group_ref = _contact_manager->gref(group_id);
+
+        if (!group_ref) {
+            failure(fmt::format("attempt to add member into non-existent group: {}"
+                , group_id));
+            return false;
+        }
+
+        return group_ref.add_member(member_id);
+    }
+
+    /**
+     * Removes member specified by @a member_id from the group specified
+     * by @a group_id.
+     */
+    void remove_member (contact::contact_id group_id, contact::contact_id member_id)
+    {
+        auto group_ref = _contact_manager->gref(group_id);
+
+        if (!group_ref) {
+            failure(fmt::format("attempt to remove member from non-existent group: {}"
+                , group_id));
+            return;
+        }
+
+        group_ref.remove_member(member_id);
+    }
+
+    /**
+     * Removes all members from the group specified by @a group_id.
+     *
+     */
+    void remove_all_members (contact::contact_id group_id)
+    {
+        auto group_ref = _contact_manager->gref(group_id);
+
+        if (!group_ref) {
+            failure(fmt::format("attempt to remove all members from non-existent group: {}"
+                , group_id));
+            return;
+        }
+
+        group_ref.remove_all_members();
+    }
+
+    /**
+      * Get members of the specified group excluding own contact if it is
+      * a group member. Group membershift of own contact can be checked by
+      *
+      */
     std::vector<contact::contact> members (contact::contact_id group_id) const
     {
         auto group_ref = _contact_manager->gref(group_id);
@@ -213,7 +271,8 @@ public:
     }
 
     /**
-     * Count of contacts in specified group.
+     * Count of contacts in specified group excluding own contact if it is
+     * a group member.
      */
     std::size_t members_count (contact::contact_id group_id) const
     {
@@ -226,6 +285,19 @@ public:
         }
 
         return group_ref ? group_ref.count() : 0;
+    }
+
+    /**
+     * Checks if contact @a member_id is the member of group @a group_id.
+     */
+    bool is_member_of (contact::contact_id group_id, contact::contact_id member_id) const
+    {
+        auto group_ref = _contact_manager->gref(group_id);
+
+        if (!group_ref)
+            return false;
+
+        return group_ref.is_member_of(member_id);
     }
 
     /**
@@ -340,55 +412,6 @@ public:
         _contact_manager->for_each_until(std::forward<F>(f));
     }
 
-    /**
-     * Adds member specified by @a member_id to the group specified by @a group_id.
-     *
-     * @return @c false on error or @c true if contact added was successfully
-     *         or it is already a member of the specified group.
-     */
-    bool add_member (contact::contact_id group_id, contact::contact_id member_id)
-    {
-        auto group_ref = _contact_manager->gref(group_id);
-
-        if (!group_ref) {
-            failure(fmt::format("attempt to add member into non-existent group: {}"
-                , group_id));
-            return false;
-        }
-
-        return group_ref.add_member(member_id);
-    }
-
-    /**
-     * Removes all members from the group specified by @a group_id.
-     *
-     */
-    void remove_all_members (contact::contact_id group_id)
-    {
-        auto group_ref = _contact_manager->gref(group_id);
-
-        if (!group_ref) {
-            failure(fmt::format("attempt to remove all members from non-existent group: {}"
-                , group_id));
-            return;
-        }
-
-        group_ref.remove_all_members();
-    }
-
-    /**
-     * Checks if contact @a member_id is the member of group @a group_id.
-     */
-    bool is_member_of (contact::contact_id member_id, contact::contact_id group_id) const
-    {
-        auto group_ref = _contact_manager->gref(group_id);
-
-        if (!group_ref)
-            return false;
-
-        return group_ref.is_member_of(member_id);
-    }
-
     conversation_type conversation (contact::contact_id addressee_id) const
     {
         // Check for contact exists
@@ -441,7 +464,11 @@ public:
 
         typename serializer_type::output_packet_type out {};
         out << m;
-        about_to_dispatch_message(addressee, msg.id);
+
+        if (about_to_dispatch_message)
+            about_to_dispatch_message(addressee, msg.id);
+
+        PFS__ASSERT(!!dispatch_data, "dispatch_data callback must be initialized");
         auto success = dispatch_data(addressee, msg.id, out.data());
         return success;
     }
@@ -533,8 +560,11 @@ public:
 
                         auto id = add(std::move(p));
 
-                        if (id != contact::contact_id{})
-                            contact_added(id);
+                        if (id != contact::contact_id{}) {
+                            if (contact_added)
+                                contact_added(id);
+                        }
+
                         break;
                     }
 
@@ -548,8 +578,10 @@ public:
 
                         auto id = add(std::move(g), m.contact.creator_id);
 
-                        if (id != contact::contact_id{})
-                            contact_added(id);
+                        if (id != contact::contact_id{}) {
+                            if (contact_added)
+                                contact_added(id);
+                        }
 
                         break;
                     }
@@ -588,7 +620,8 @@ public:
                             , received_time);
 
                         // Notify message received
-                        this->message_received(m.author_id, m.message_id);
+                        if (message_received)
+                            message_received(m.author_id, m.message_id);
                     } CATCH (error ex) {
 #if PFS__EXCEPTIONS_ENABLED
                         failure(fmt::format("Bad/corrupted content in "
@@ -645,7 +678,9 @@ public:
 
         if (conv) {
             conv.mark_dispatched(message_id, dispatched_time);
-            this->message_dispatched(addressee, message_id, dispatched_time);
+
+            if (message_dispatched)
+                message_dispatched(addressee, message_id, dispatched_time);
         }
     }
 
@@ -685,7 +720,9 @@ private:
 
         if (conv) {
             conv.mark_delivered(message_id, delivered_time);
-            this->message_delivered(addressee, message_id, delivered_time);
+
+            if (message_delivered)
+                message_delivered(addressee, message_id, delivered_time);
         }
     }
 
@@ -700,7 +737,9 @@ private:
 
         if (conv) {
             conv.mark_read(message_id, read_time);
-            this->message_read(addressee, message_id, read_time);
+
+            if (message_read)
+                message_read(addressee, message_id, read_time);
         }
     }
 };
