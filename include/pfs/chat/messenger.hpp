@@ -269,18 +269,15 @@ public:
     }
 
     /**
-     * Count of contacts in specified group excluding own contact if it is
-     * a group member.
+     * Count of contacts in specified group.
      */
     std::size_t members_count (contact::contact_id group_id) const
     {
         auto group_ref = _contact_manager->gref(group_id);
 
-        if (!group_ref) {
-            failure(fmt::format("attempt to get members count of non-existent group: {}"
-                , group_id));
+        // Attempt to get members count of non-existent group
+        if (!group_ref)
             return 0;
-        }
 
         return group_ref ? group_ref.count() : 0;
     }
