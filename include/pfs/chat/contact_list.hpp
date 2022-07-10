@@ -16,7 +16,9 @@ namespace chat {
 
 enum class contact_sort_flag: int
 {
-      by_alias = 1 << 0
+      by_nothing = 0
+    , no_order = 0
+    , by_alias = 1 << 0
 
     , ascending_order  = 1 << 8
     , descending_order = 1 << 9
@@ -91,8 +93,10 @@ public:
      *
      * @throw debby::error on storage error.
      */
-    contact::contact get (int offset, int sf = sort_flags(contact_sort_flag::by_alias
-        , contact_sort_flag::ascending_order)) const;
+    //contact::contact get (int offset, int sf = sort_flags(contact_sort_flag::by_alias
+    //    , contact_sort_flag::ascending_order)) const;
+    contact::contact get (int offset, int sf = sort_flags(contact_sort_flag::by_nothing
+        , contact_sort_flag::no_order)) const;
 
     /**
      * Fetch all contacts and process them by @a f

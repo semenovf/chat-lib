@@ -9,7 +9,7 @@
 #      2021.11.29 Refactored for use `portable_target`.
 ################################################################################
 cmake_minimum_required (VERSION 3.11)
-project(chat-lib C CXX)
+project(chat C CXX)
 
 option(CHAT__ENABLE_EXCEPTIONS "Enable exceptions for library" ON)
 option(CHAT__ENABLE_JANSSON_BACKEND "Enable `Jansson` library for JSON support" ON)

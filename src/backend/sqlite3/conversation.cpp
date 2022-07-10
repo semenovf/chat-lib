@@ -184,7 +184,7 @@ void conversation::prefetch (rep_type const * rep
 
 }} // namespace backend::sqlite3
 
-#define BACKEND backend::sqlite3::conversation
+using BACKEND = backend::sqlite3::conversation;
 
 template <>
 conversation<BACKEND>::conversation (rep_type && rep)

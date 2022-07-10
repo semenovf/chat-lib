@@ -58,7 +58,7 @@ contact_list::make (shared_db_handle dbh
 static std::string const SELECT_ROWS_RANGE {
     "SELECT `id`, `creator_id`,  `alias`, `avatar`, `description`, `type`"
     " FROM `{}`"
-    " ORDER BY {} {}"
+    " {}"        // ORDER BY ...
     " LIMIT {} OFFSET {}"
 };
 
@@ -79,21 +79,25 @@ void contact_list::prefetch (rep_type const * rep, int offset, int limit, int so
     rep->cache.dirty = true;
     rep->cache.sort_flags = sort_flags;
 
-    std::string field = "`alias`";
-    std::string order = "ASC";
+    std::string order_by {"ORDER BY "};
 
     if (sort_flag_on(sort_flags, contact_sort_flag::by_alias))
-        field = "`alias`";
+        order_by += "`alias`";
+    else
+        order_by.clear();
 
-    if (sort_flag_on(sort_flags, contact_sort_flag::ascending_order))
-        order = "ASC";
-    else if (sort_flag_on(sort_flags, contact_sort_flag::descending_order))
-        order = "DESC";
+    if (!order_by.empty()) {
+        if (sort_flag_on(sort_flags, contact_sort_flag::ascending_order))
+            order_by += " ASC";
+        else if (sort_flag_on(sort_flags, contact_sort_flag::descending_order))
+            order_by += " DESC";
+        else 
+            order_by += " ASC";
+    }
 
     auto stmt = rep->dbh->prepare(
           fmt::format(SELECT_ROWS_RANGE, rep->table_name
-        , field, order
-        , limit, offset));
+        , order_by, limit, offset));
 
     CHAT__ASSERT(!!stmt, "");
 
@@ -113,7 +117,7 @@ void contact_list::prefetch (rep_type const * rep, int offset, int limit, int so
 
 }} // namespace backend::sqlite3
 
-#define BACKEND backend::sqlite3::contact_list
+using BACKEND = backend::sqlite3::contact_list;
 
 template <>
 contact_list<BACKEND>::contact_list (rep_type && rep)

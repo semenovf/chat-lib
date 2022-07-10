@@ -12,7 +12,7 @@
 
 namespace chat {
 
-#define BACKEND backend::sqlite3::contact_manager
+using BACKEND = backend::sqlite3::contact_manager;
 
 namespace {
 std::string const INSERT_MEMBER {

@@ -8,7 +8,7 @@
 #      2021.11.17 Updated according new template.
 ################################################################################
 cmake_minimum_required (VERSION 3.11)
-project(pfs-chat-ALL CXX)
+project(chat-ALL CXX)
 
 option(CHAT__BUILD_STRICT "Build with strict policies: C++ standard required, C++ extension is OFF etc" ON)
 option(CHAT__BUILD_TESTS "Build tests" OFF)
@@ -29,7 +29,7 @@ if (CHAT__BUILD_STRICT)
     set(CMAKE_CXX_EXTENSIONS OFF) # use -std=c++XX rather than -std=gnu++XX
 endif()
 
-include(${CMAKE_CURRENT_LIST_DIR}/library.cmake)
+portable_target(INCLUDE_PROJECT ${CMAKE_CURRENT_LIST_DIR}/library.cmake)
 
 if (CHAT__BUILD_TESTS AND EXISTS ${CMAKE_CURRENT_LIST_DIR}/tests)
     enable_testing()

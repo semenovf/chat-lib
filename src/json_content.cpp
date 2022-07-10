@@ -27,13 +27,15 @@ content::content () = default;
 
 content::content (std::string const & source)
 {
-    jeyson::error jerror;
+    json j;
 
-    auto j = json::parse(source.empty() ? "[]" : source);
-
-    if (!j) {
-        error err {errc::json_error, jerror.what()};
+    TRY {
+        j = json::parse(source.empty() ? "[]" : source);
+    } CATCH (jeyson::error ex) {
+#if PFS__EXCEPTIONS_ENABLED
+        error err {errc::json_error, ex.what()};
         CHAT__THROW(err);
+#endif
     }
 
     if (!jeyson::is_array(j)) {

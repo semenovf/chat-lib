@@ -35,7 +35,7 @@ message_store::make (contact::contact_id me, shared_db_handle dbh)
 
 }} // namespace backend::sqlite3
 
-#define BACKEND backend::sqlite3::message_store
+using BACKEND = backend::sqlite3::message_store;
 
 template <>
 message_store<BACKEND>::message_store (rep_type && rep)

@@ -296,8 +296,7 @@ TEST_CASE("messenger") {
 
     auto members = messenger1->members(groupId1);
 
-    // Excluding own contact
-    REQUIRE_EQ(members.size(), 2);
+    REQUIRE_EQ(members.size(), 3);
 
     auto bad_members = messenger1->members(unknownContactId);
     REQUIRE(bad_members.empty());

@@ -133,7 +133,7 @@ contact_manager::make (contact::person const & me, shared_db_handle dbh)
 
 }} // namespace backend::sqlite3
 
-#define BACKEND backend::sqlite3::contact_manager
+using BACKEND = backend::sqlite3::contact_manager;
 
 template <>
 contact_manager<BACKEND>::contact_manager (rep_type && rep)
@@ -267,6 +267,19 @@ bool
 contact_manager<BACKEND>::update (contact::contact const & c)
 {
     return _rep.contacts->update(c) > 0;
+}
+
+template <>
+void
+contact_manager<BACKEND>::add_or_update (contact::person const & p)
+{
+    auto n = update(p);
+
+    if (n == 0) {
+        n = add(p);
+    }
+
+    CHAT__ASSERT(n, "Need to fix unexpected error in `contact_manager::add_or_update`");
 }
 
 namespace {

@@ -68,7 +68,7 @@ editor::make (message::message_id message_id
 
 }} // namespace backend::sqlite3
 
-#define BACKEND backend::sqlite3::editor
+using BACKEND = backend::sqlite3::editor;
 
 template <>
 editor<BACKEND>::editor (rep_type && rep)

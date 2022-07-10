@@ -9,13 +9,13 @@
 #pragma once
 #include "pfs/chat/exports.hpp"
 #include "pfs/time_point.hpp"
-#include "pfs/uuid.hpp"
+#include "pfs/universal_id.hpp"
 #include <string>
 
 namespace chat {
 namespace contact {
 
-using contact_id = pfs::uuid_t;
+using contact_id = pfs::universal_id;
 
 class id_generator
 {
