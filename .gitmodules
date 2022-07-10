@@ -13,3 +13,6 @@
 [submodule "3rdparty/pfs/jeyson"]
 	path = 3rdparty/pfs/jeyson
 	url = git@github.com:semenovf/jeyson-lib.git
+[submodule "3rdparty/cereal"]
+	path = 3rdparty/cereal
+	url = https://github.com/USCiLab/cereal.git

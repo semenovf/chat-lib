@@ -8,7 +8,7 @@
 #      2021.11.17 Updated according new template.
 ################################################################################
 cmake_minimum_required (VERSION 3.11)
-project(chat-ALL CXX)
+project(chat-ALL LANGUAGES CXX C)
 
 option(CHAT__BUILD_STRICT "Build with strict policies: C++ standard required, C++ extension is OFF etc" ON)
 option(CHAT__BUILD_TESTS "Build tests" OFF)

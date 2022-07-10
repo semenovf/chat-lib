@@ -20,7 +20,7 @@ foreach (t ${TESTS})
     portable_target(ADD_TEST ${t}
         ENABLE_COVERAGE ${CHAT__ENABLE_COVERAGE}
         SOURCES ${t}.cpp ${${t}_SOURCES}
-        LINK pfs::chat pfs::debby)
+        LINK pfs::chat)
 endforeach()
 
 file(GENERATE OUTPUT data/attachment1.bin CONTENT "ABCD")
