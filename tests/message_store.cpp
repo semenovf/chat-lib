@@ -51,6 +51,10 @@ TEST_CASE("constructors") {
 }
 
 TEST_CASE("initialization") {
+    if (pfs::filesystem::exists(message_db_path)) {
+        REQUIRE(pfs::filesystem::remove_all(message_db_path) > 0);
+    }
+
     auto dbh = chat::backend::sqlite3::make_handle(message_db_path, true);
 
     REQUIRE(dbh);
@@ -106,11 +110,22 @@ TEST_CASE("outgoing messages") {
 
             REQUIRE_EQ(ed.content().at(0).text, std::string{"Hello"});
             REQUIRE_EQ(ed.content().at(1).text, std::string{"<html><body><h1>World</h1></body></html>"});
-            REQUIRE(pfs::string_view{ed.content().at(2).text}.ends_with("data/attachment1.bin"));
-            REQUIRE(pfs::string_view{ed.content().at(3).text}.ends_with("data/attachment2.bin"));
-            REQUIRE(pfs::string_view{ed.content().at(4).text}.ends_with("data/attachment3.bin"));
 
+#if _MSC_VER
+            REQUIRE(ends_with(pfs::string_view{ed.content().at(2).text}, "data\\attachment1.bin"));
+            REQUIRE(ends_with(pfs::string_view{ed.content().at(3).text}, "data\\attachment2.bin"));
+            REQUIRE(ends_with(pfs::string_view{ed.content().at(4).text}, "data\\attachment3.bin"));
+#else
+            REQUIRE(ends_with(pfs::string_view{ed.content().at(2).text}, "data/attachment1.bin"));
+            REQUIRE(ends_with(pfs::string_view{ed.content().at(3).text}, "data/attachment2.bin"));
+            REQUIRE(ends_with(pfs::string_view{ed.content().at(4).text}, "data/attachment3.bin"));
+#endif
+
+#if _MSC_VER
+            REQUIRE(pfs::string_view{ed.content().attachment(2).name}.ends_with("data\\attachment1.bin"));
+#else
             REQUIRE(pfs::string_view{ed.content().attachment(2).name}.ends_with("data/attachment1.bin"));
+#endif
             REQUIRE_EQ(ed.content().attachment(2).size, 4);
             REQUIRE_EQ(ed.content().attachment(2).sha256
                 , std::string{"e12e115acf4552b2568b55e93cbd39394c4ef81c82447fafc997882a02d23677"});

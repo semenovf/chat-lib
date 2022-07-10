@@ -7,10 +7,10 @@
 //      2022.02.21 Initial version.
 //      2022.03.17 Implementing input_packet and output_packet.
 ////////////////////////////////////////////////////////////////////////////////
+#include "pfs/chat/backend/serializer/cereal.hpp"
 #include "pfs/chat/contact.hpp"
 #include "pfs/chat/message.hpp"
 #include "pfs/chat/serializer.hpp"
-#include "pfs/chat/backend/serializer/cereal.hpp"
 #include "pfs/chat/protocol.hpp"
 #include <cereal/types/string.hpp>
 
@@ -18,16 +18,16 @@ namespace cereal {
 
 using chat::protocol::packet_type_enum;
 
-void save (cereal::PortableBinaryOutputArchive & ar, pfs::uuid_t const & uuid)
+void save (cereal::PortableBinaryOutputArchive & ar, pfs::universal_id const & uuid)
 {
     ar << to_string(uuid);
 }
 
-void load (cereal::PortableBinaryInputArchive & ar, pfs::uuid_t & uuid)
+void load (cereal::PortableBinaryInputArchive & ar, pfs::universal_id & uuid)
 {
     std::string s;
     ar >> s;
-    uuid = pfs::from_string<pfs::uuid_t>(s);
+    uuid = pfs::from_string<pfs::universal_id>(s);
 }
 
 void save (cereal::PortableBinaryOutputArchive & ar, pfs::utc_time_point const & t)
@@ -285,6 +285,6 @@ serializer::output_packet::operator << <protocol::edited_message> (
 
 }} // namespace backend::cereal
 
-#define BACKEND backend::cereal::serializer
+//using BACKEND = backend::cereal::serializer;
 
 } // namespace chat

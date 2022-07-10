@@ -11,7 +11,7 @@
 #include "pfs/filesystem.hpp"
 #include "pfs/fmt.hpp"
 #include "pfs/iterator.hpp"
-#include "pfs/uuid.hpp"
+#include "pfs/universal_id.hpp"
 #include "pfs/time_point.hpp"
 #include "pfs/chat/contact.hpp"
 #include "pfs/chat/contact_manager.hpp"
@@ -80,7 +80,7 @@ REGISTER_EXCEPTION_TRANSLATOR (chat::error & ex)
 {
     static std::string __s {};
     __s = ex.what();
-    return doctest::String(__s.c_str(), __s.size());
+    return doctest::String(__s.c_str(), static_cast<unsigned int>(__s.size()));
 }
 
 TEST_CASE("constructors") {
@@ -102,6 +102,11 @@ TEST_CASE("constructors") {
 }
 
 TEST_CASE("initialization") {
+
+    if (pfs::filesystem::exists(contact_db_path)) {
+        REQUIRE(pfs::filesystem::remove_all(contact_db_path) > 0);
+    }
+
     auto dbh = chat::backend::sqlite3::make_handle(contact_db_path, true);
 
     REQUIRE(dbh);
@@ -181,8 +186,8 @@ TEST_CASE("contacts") {
         auto c = all_contacts[0];
         c.alias = "NewAlias";
 
-        auto count = contact_manager.update(c);
-        REQUIRE_EQ(count, 1);
+        auto success = contact_manager.update(c);
+        REQUIRE(success);
     }
 
     // Contact was not updated - contact not found
@@ -192,8 +197,8 @@ TEST_CASE("contacts") {
         c.alias = "Noname";
         c.type = chat::contact::type_enum::person;
 
-        auto count = contact_manager.update(c);
-        REQUIRE_EQ(count, 0);
+        auto success = contact_manager.update(c);
+        REQUIRE_FALSE(success);
     }
 
     // Get contact by id
@@ -315,11 +320,13 @@ TEST_CASE("groups") {
         REQUIRE_THROWS(contact_manager.gref(g.id).add_member(c3.id));
 
         auto memebers = contact_manager.gref(g.id).members();
-        REQUIRE(memebers.size() == 2);
+        REQUIRE(memebers.size() == 3);
 
-        REQUIRE_EQ(memebers[0].alias, c1.alias);
-        REQUIRE_EQ(memebers[1].alias, c2.alias);
+        REQUIRE_EQ(memebers[0].alias, my_alias);
+        REQUIRE_EQ(memebers[1].alias, c1.alias);
+        REQUIRE_EQ(memebers[2].alias, c2.alias);
 
+        REQUIRE(contact_manager.gref(g.id).is_member_of(my_uuid));
         REQUIRE(contact_manager.gref(g.id).is_member_of(c1.id));
         REQUIRE(contact_manager.gref(g.id).is_member_of(c2.id));
         REQUIRE_FALSE(contact_manager.gref(g.id).is_member_of(c3.id));

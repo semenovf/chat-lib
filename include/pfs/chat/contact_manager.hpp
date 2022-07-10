@@ -211,6 +211,13 @@ public:
     }
 
     /**
+    * Adds person contact if the update attempt fails.
+    * 
+    * @throw debby::error on storage error.
+    */
+    void add_or_update (contact::person const & c);
+
+    /**
      * Group reference if @a group_id is identifier of exist group or invalid
      * reference otherwise.
      *

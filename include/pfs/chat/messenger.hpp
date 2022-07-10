@@ -253,9 +253,7 @@ public:
     }
 
     /**
-      * Get members of the specified group excluding own contact if it is
-      * a group member. Group membershift of own contact can be checked by
-      *
+      * Get members of the specified group.
       */
     std::vector<contact::contact> members (contact::contact_id group_id) const
     {
@@ -271,18 +269,15 @@ public:
     }
 
     /**
-     * Count of contacts in specified group excluding own contact if it is
-     * a group member.
+     * Count of contacts in specified group.
      */
     std::size_t members_count (contact::contact_id group_id) const
     {
         auto group_ref = _contact_manager->gref(group_id);
 
-        if (!group_ref) {
-            failure(fmt::format("attempt to get members count of non-existent group: {}"
-                , group_id));
+        // Attempt to get members count of non-existent group
+        if (!group_ref)
             return 0;
-        }
 
         return group_ref ? group_ref.count() : 0;
     }
@@ -503,10 +498,10 @@ public:
 
         protocol::contact_credentials m {{
               me.id
-            , me.id
             , me.alias
             , me.avatar
             , me.description
+            , me.id
             , chat::contact::type_enum::person
         }};
 

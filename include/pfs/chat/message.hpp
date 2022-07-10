@@ -12,15 +12,14 @@
 #include "json.hpp"
 #include "pfs/optional.hpp"
 #include "pfs/time_point.hpp"
-#include "pfs/uuid.hpp"
-#include "pfs/variant.hpp"
+#include "pfs/universal_id.hpp"
 #include <memory>
 
 namespace chat {
 namespace message {
 
-using message_id  = pfs::uuid_t;
-using resource_id = pfs::uuid_t;
+using message_id  = ::pfs::universal_id;
+using resource_id = ::pfs::universal_id;
 
 // enum class status_enum
 // {

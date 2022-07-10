@@ -12,7 +12,7 @@
 
 namespace chat {
 
-#define BACKEND backend::sqlite3::contact_manager
+using BACKEND = backend::sqlite3::contact_manager;
 
 namespace {
 std::string const INSERT_MEMBER {
@@ -129,46 +129,6 @@ contact_manager<BACKEND>::group_ref::remove_all_members ()
 }
 
 namespace {
-std::string const SELECT_MEMBERS {
-    "SELECT B.`id`, B.`alias`, B.`type` FROM `{}` A JOIN `{}` B"
-    " ON A.`group_id` = :group_id AND A.`member_id` = B.`id`"
-};
-} // namespace
-
-template <>
-std::vector<contact::contact>
-contact_manager<BACKEND>::group_ref::members () const
-{
-    PFS__ASSERT(_pmanager, "");
-
-    auto & rep = _pmanager->_rep;
-
-    auto stmt = rep.dbh->prepare(fmt::format(SELECT_MEMBERS
-        , rep.members_table_name, rep.contacts_table_name));
-
-    CHAT__ASSERT(!!stmt, "");
-
-    stmt.bind(":group_id", _id);
-
-    std::vector<contact::contact> members;
-
-    auto res = stmt.exec();
-
-    while (res.has_more()) {
-        contact::contact c;
-
-        res["id"]    >> c.id;
-        res["alias"] >> c.alias;
-        res["type"]  >> c.type;
-
-        members.push_back(std::move(c));
-        res.next();
-    }
-
-    return members;
-}
-
-namespace {
 std::string const IS_MEMBER_OF {
     "SELECT COUNT(1) as count FROM `{}`"
     " WHERE `group_id` = :group_id AND `member_id` = :member_id"
@@ -196,6 +156,65 @@ contact_manager<BACKEND>::group_ref::is_member_of (contact::contact_id member_id
         count = res.get<std::size_t>(0);
 
     return count > 0;
+}
+
+namespace {
+std::string const SELECT_MEMBERS {
+    "SELECT B.`id`, B.`creator_id`, B.`alias`, B.`avatar`, B.`description`, B.`type`"
+    " FROM `{}` A JOIN `{}` B"
+    " ON A.`group_id` = :group_id AND A.`member_id` = B.`id`"
+};
+} // namespace
+
+template <>
+std::vector<contact::contact>
+contact_manager<BACKEND>::group_ref::members () const
+{
+    PFS__ASSERT(_pmanager, "");
+
+    auto & rep = _pmanager->_rep;
+
+    auto stmt = rep.dbh->prepare(fmt::format(SELECT_MEMBERS
+        , rep.members_table_name, rep.contacts_table_name));
+
+    CHAT__ASSERT(!!stmt, "");
+
+    stmt.bind(":group_id", _id);
+
+    std::vector<contact::contact> members;
+
+    // Add own contact if need
+    if (is_member_of(_pmanager->my_contact().id)) {
+        auto me = _pmanager->my_contact();
+        contact::contact c;
+
+        c.id          = me.id;
+        c.creator_id  = me.id;
+        c.alias       = me.alias;
+        c.avatar      = me.avatar;
+        c.description = me.description;
+        c.type        = contact::type_enum::person;
+
+        members.push_back(std::move(c));
+    }
+
+    auto res = stmt.exec();
+
+    while (res.has_more()) {
+        contact::contact c;
+
+        res["id"]          >> c.id;
+        res["creator_id"]  >> c.creator_id;
+        res["alias"]       >> c.alias;
+        res["avatar"]      >> c.avatar;
+        res["description"] >> c.description;
+        res["type"]        >> c.type;
+
+        members.push_back(std::move(c));
+        res.next();
+    }
+
+    return members;
 }
 
 namespace {

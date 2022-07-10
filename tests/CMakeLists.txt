@@ -7,7 +7,7 @@
 #      2021.08.14 Initial version.
 #      2021.12.11 Refactored for using portable_target `ADD_TEST`.
 ################################################################################
-project(chat-lib-TESTS CXX C)
+project(chat-TESTS CXX C)
 
 set(TESTS
     contact_manager
