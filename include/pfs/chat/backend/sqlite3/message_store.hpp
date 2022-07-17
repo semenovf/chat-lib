@@ -13,6 +13,7 @@
 #include "conversation.hpp"
 #include "pfs/chat/contact.hpp"
 #include "pfs/chat/conversation.hpp"
+#include "pfs/chat/exports.hpp"
 
 namespace chat {
 namespace backend {
@@ -28,7 +29,7 @@ struct message_store
         contact::contact_id me;
     };
 
-    static rep_type make (contact::contact_id me, shared_db_handle dbh);
+    static CHAT__EXPORT rep_type make (contact::contact_id me, shared_db_handle dbh);
 };
 
 }}} // namespace chat::backend::sqlite3

@@ -15,17 +15,17 @@ namespace chat {
 namespace persistent_storage {
 namespace sqlite3 {
 
-CHAT__EXPORT class file_cache: public entity_storage<file_cache>
+class file_cache: public entity_storage<file_cache>
 {
     friend class entity_storage<file_cache>;
     using database_handle = entity_storage<file_cache>::database_handle;
 
 protected:
-    bool open_impl (database_handle dbh, std::string const & table_name);
-    void close_impl () {};
+    CHAT__EXPORT bool open_impl (database_handle dbh, std::string const & table_name);
+    CHAT__EXPORT void close_impl () {};
 
     // Wipe data from database
-    void wipe_impl ();
+    CHAT__EXPORT void wipe_impl ();
 
 public:
     file_cache ();
@@ -33,17 +33,17 @@ public:
     /**
      * Save file credentials into database.
      */
-    bool save (message::file_credentials const & f);
+    CHAT__EXPORT bool save (message::file_credentials const & f);
 
     /**
      * Load file credentials specified by @a id from database.
      */
-    std::vector<message::file_credentials> load (message::message_id msg_id);
+    CHAT__EXPORT std::vector<message::file_credentials> load (message::message_id msg_id);
 
     /**
      * Fetch all file credentials from database and process them by @a f
      */
-    void all_of (std::function<void(message::file_credentials const &)> f);
+    CHAT__EXPORT void all_of (std::function<void(message::file_credentials const &)> f);
 };
 
 }}} // namespace chat::persistent_storage::sqlite3

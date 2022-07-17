@@ -9,6 +9,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 #include "contact.hpp"
+#include "exports.hpp"
 #include "flags.hpp"
 #include "message.hpp"
 #include "pfs/optional.hpp"
@@ -45,7 +46,7 @@ private:
     rep_type _rep;
 
 private:
-    conversation (rep_type && rep);
+    CHAT__EXPORT conversation (rep_type && rep);
     conversation (conversation const & other) = delete;
     conversation & operator = (conversation const & other) = delete;
 
@@ -59,18 +60,18 @@ public:
     /**
      * Checks if message store opened/initialized successfully.
      */
-    operator bool () const noexcept;
+    CHAT__EXPORT operator bool () const noexcept;
 
     /**
      * Total number of messages in conversation.
      */
-    std::size_t count () const;
+    CHAT__EXPORT std::size_t count () const;
 
     /**
      *
      * Number of unread messages for conversation.
      */
-    std::size_t unread_messages_count () const;
+    CHAT__EXPORT std::size_t unread_messages_count () const;
 
     /**
      * Mark (if not already marked) message dispatched to addressee.
@@ -78,7 +79,7 @@ public:
      * @throw debby::error on storage error.
      * @throw chat::error if message not found.
      */
-    void mark_dispatched (message::message_id message_id
+    CHAT__EXPORT void mark_dispatched (message::message_id message_id
         , pfs::utc_time_point dispatched_time);
 
     /**
@@ -87,7 +88,7 @@ public:
      * @throw debby::error on storage error.
      * @throw chat::error if message not found.
      */
-    void mark_delivered (message::message_id message_id
+    CHAT__EXPORT void mark_delivered (message::message_id message_id
         , pfs::utc_time_point delivered_time);
 
     /**
@@ -108,7 +109,7 @@ public:
      * @throw debby::error on storage error.
      * @throw chat::error if message not found.
      */
-    void mark_read (message::message_id message_id
+    CHAT__EXPORT void mark_read (message::message_id message_id
         , pfs::utc_time_point read_time);
 
     /**
@@ -118,7 +119,7 @@ public:
      *
      * @throw debby::error on storage error.
      */
-    editor_type create ();
+    CHAT__EXPORT editor_type create ();
 
     /**
      * Opens editor for outgoing message specified by @a id.
@@ -127,7 +128,7 @@ public:
      *
      * @throw chat::error if message content is invalid (i.e. bad JSON source).
      */
-    editor_type open (message::message_id id);
+    CHAT__EXPORT editor_type open (message::message_id id);
 
     /**
      * Save incoming message.
@@ -135,7 +136,7 @@ public:
      * If message already exists content will be updated if different from
      * original.
      */
-    void save_incoming (message::message_id message_id
+    CHAT__EXPORT void save_incoming (message::message_id message_id
         , contact::contact_id author_id
         , pfs::utc_time_point const & creation_time
         , std::string const & content);
@@ -148,7 +149,7 @@ public:
      * @throw debby::error on storage error.
      * @throw chat::error if message content is invalid (i.e. bad JSON source).
      */
-    pfs::optional<message::message_credentials>
+    CHAT__EXPORT pfs::optional<message::message_credentials>
     message (message::message_id message_id) const;
 
     /**
@@ -162,7 +163,7 @@ public:
      * @note By default, messages are sorted by create time. Thus the messages
      *       can be displayed in the correct chronological order.
      */
-    pfs::optional<message::message_credentials>
+    CHAT__EXPORT pfs::optional<message::message_credentials>
     message (int offset, int sf = sort_flags(conversation_sort_flag::by_creation_time
         , conversation_sort_flag::ascending_order)) const;
 
@@ -171,7 +172,7 @@ public:
      *
      * @return Message credentials or @c nullopt if message not found.
      */
-    pfs::optional<message::message_credentials>
+    CHAT__EXPORT pfs::optional<message::message_credentials>
     last_message () const;
 
     /**
@@ -181,7 +182,7 @@ public:
      * @throw debby::error on storage error.
      * @throw chat::error if message content is invalid (i.e. bad JSON source).
      */
-    void for_each (std::function<void(message::message_credentials const &)> f
+    CHAT__EXPORT void for_each (std::function<void(message::message_credentials const &)> f
         , int sort_flags, int max_count);
 
     /**
@@ -203,7 +204,7 @@ public:
      *
      * @throw debby::error on storage error.
      */
-    void clear ();
+    CHAT__EXPORT void clear ();
 
     /**
      * Wipes (erases all messages) conversation.
@@ -212,7 +213,7 @@ public:
      *
      * @throw debby::error on storage error.
      */
-    void wipe ();
+    CHAT__EXPORT void wipe ();
 
 public:
     template <typename ...Args>

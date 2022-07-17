@@ -7,6 +7,8 @@
 //      2022.03.17 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
+#include "pfs/chat/exports.hpp"
+#include "pfs/chat/protocol.hpp"
 #include <cereal/archives/portable_binary.hpp>
 #include <sstream>
 
@@ -37,7 +39,7 @@ struct serializer
         }
 
         template <typename T>
-        input_packet & operator >> (T & target);
+        CHAT__EXPORT input_packet & operator >> (T & target);
     };
 
     class output_packet
@@ -49,7 +51,7 @@ struct serializer
         output_packet () : _ar(_buf) {}
 
         template <typename T>
-        output_packet & operator << (T const & payload);
+        CHAT__EXPORT output_packet & operator << (T const & payload);
 
         std::string data () const
         {
@@ -57,9 +59,75 @@ struct serializer
         }
     };
 
-    using input_packet_type   = input_packet;
-    using output_packet_type  = output_packet;
+    using input_packet_type  = input_packet;
+    using output_packet_type = output_packet;
 };
+
+template <>
+CHAT__EXPORT
+serializer::input_packet &
+serializer::input_packet::operator >> <protocol::packet_type_enum> (
+    protocol::packet_type_enum & target);
+
+template <>
+CHAT__EXPORT
+serializer::input_packet &
+serializer::input_packet::operator >> <protocol::contact_credentials> (
+    protocol::contact_credentials & target);
+
+template <>
+CHAT__EXPORT
+serializer::output_packet &
+serializer::output_packet::operator << <protocol::contact_credentials> (
+    protocol::contact_credentials const & payload);
+
+template <>
+CHAT__EXPORT
+serializer::input_packet &
+serializer::input_packet::operator >> <protocol::original_message> (
+    protocol::original_message & target);
+
+template <>
+CHAT__EXPORT
+serializer::output_packet &
+serializer::output_packet::operator << <protocol::original_message> (
+    protocol::original_message const & payload);
+
+template <>
+CHAT__EXPORT
+serializer::input_packet &
+serializer::input_packet::operator >> <protocol::delivery_notification> (
+    protocol::delivery_notification & target);
+
+template <>
+CHAT__EXPORT
+serializer::output_packet &
+serializer::output_packet::operator << <protocol::delivery_notification> (
+    protocol::delivery_notification const & payload);
+
+template <>
+CHAT__EXPORT
+serializer::input_packet &
+serializer::input_packet::operator >> <protocol::read_notification> (
+    protocol::read_notification & target);
+
+template <>
+CHAT__EXPORT
+serializer::output_packet &
+serializer::output_packet::operator << <protocol::read_notification> (
+    protocol::read_notification const & payload);
+
+template <>
+CHAT__EXPORT
+serializer::input_packet &
+serializer::input_packet::operator >> <protocol::edited_message> (
+    protocol::edited_message & target);
+
+template <>
+CHAT__EXPORT
+serializer::output_packet &
+serializer::output_packet::operator << <protocol::edited_message> (
+    protocol::edited_message const & payload);
 
 }}} // namespace chat::backend::cereal
 

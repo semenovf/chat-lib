@@ -9,6 +9,7 @@
 #pragma once
 #include "contact.hpp"
 #include "error.hpp"
+#include "exports.hpp"
 #include "json.hpp"
 #include "pfs/optional.hpp"
 #include "pfs/time_point.hpp"
@@ -88,20 +89,20 @@ class content
     json _d;
 
 public:
-    content ();
+    CHAT__EXPORT content ();
 
     /**
      * Construct content from JSON source.
      *
      * @throw chat::error @c errc::json_error on JSON parse error.
      */
-    content (std::string const & source);
+    CHAT__EXPORT content (std::string const & source);
 
-    content (content const & other);
-    content (content && other);
-    content & operator = (content const & other);
-    content & operator = (content && other);
-    ~content ();
+    CHAT__EXPORT content (content const & other);
+    CHAT__EXPORT content (content && other);
+    CHAT__EXPORT content & operator = (content const & other);
+    CHAT__EXPORT content & operator = (content && other);
+    CHAT__EXPORT ~content ();
 
     /**
      * Checks if content is initialized (loaded from source).
@@ -114,34 +115,34 @@ public:
     /**
      * Number of content components.
      */
-    std::size_t count () const noexcept;
+    CHAT__EXPORT std::size_t count () const noexcept;
 
     /**
      * Encode content to string representation
      */
-    std::string to_string () const noexcept;
+    CHAT__EXPORT std::string to_string () const noexcept;
 
     /**
      * Returns content credentials of the component specified by @a index.
      */
-    content_credentials at (std::size_t index) const;
+    CHAT__EXPORT content_credentials at (std::size_t index) const;
 
     /**
      * Returns file credentials of the component specified by @a index.
      * If no attachment specified for component by @a index, result will
      * contain zeroed values for @c name, @c size and @c sha256.
      */
-    file_credentials attachment (std::size_t index) const;
+    CHAT__EXPORT file_credentials attachment (std::size_t index) const;
 
     /**
      * Add component associated with @a mime.
      */
-    void add (mime_enum mime, std::string const & data);
+    CHAT__EXPORT void add (mime_enum mime, std::string const & data);
 
     /**
      * Attach file.
      */
-    void attach (std::string const & path
+    CHAT__EXPORT void attach (std::string const & path
         , std::size_t size
         , std::string const & sha256);
 };

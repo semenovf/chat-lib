@@ -9,6 +9,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 #include "error.hpp"
+#include "exports.hpp"
 #include "message.hpp"
 #include <pfs/filesystem.hpp>
 #include <string>
@@ -31,7 +32,7 @@ private:
 
 private:
     editor () = default;
-    editor (rep_type && rep);
+    CHAT__EXPORT editor (rep_type && rep);
     editor (editor const & other) = delete;
     editor & operator = (editor const & other) = delete;
     editor & operator = (editor && other) = delete;
@@ -44,17 +45,17 @@ public:
     /**
      * Checks if editor ready for use.
      */
-    operator bool () const noexcept;
+    CHAT__EXPORT operator bool () const noexcept;
 
     /**
      * Add text to message content.
      */
-    void add_text (std::string const & text);
+    CHAT__EXPORT void add_text (std::string const & text);
 
     /**
      * Add HTML to message content.
      */
-    void add_html (std::string const & text);
+    CHAT__EXPORT void add_html (std::string const & text);
 
 //     bool add_audio (message::resource_id rc)
 //     bool add_video (message::resource_id rc)
@@ -64,24 +65,24 @@ public:
      *
      * @throw chat::error @c errc::attachment_failure.
      */
-    void attach (pfs::filesystem::path const & path);
+    CHAT__EXPORT void attach (pfs::filesystem::path const & path);
 
     /**
      * Save message content.
      *
      * @throw debby::error.
      */
-    void save ();
+    CHAT__EXPORT void save ();
 
     /**
      * Get message content.
      */
-    message::content const & content () const noexcept;
+    CHAT__EXPORT message::content const & content () const noexcept;
 
     /**
      * Get message ID.
      */
-    message::message_id message_id () const noexcept;
+    CHAT__EXPORT message::message_id message_id () const noexcept;
 
 public:
     template <typename ...Args>

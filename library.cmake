@@ -24,7 +24,8 @@ if (CHAT__ENABLE_EXCEPTIONS)
     set(PFS__ENABLE_EXCEPTIONS ON CACHE INTERNAL "")
 endif()
 
-portable_target(LIBRARY ${PROJECT_NAME} ALIAS pfs::chat)
+portable_target(ADD_SHARED ${PROJECT_NAME} ALIAS pfs::chat EXPORTS CHAT__EXPORTS
+    BIND_STATIC ${PROJECT_NAME}-static STATIC_ALIAS pfs::chat::static STATIC_EXPORTS CHAT__STATIC)
 portable_target(SOURCES ${PROJECT_NAME}
     ${CMAKE_CURRENT_LIST_DIR}/src/contact.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/emoji_db.cpp
@@ -38,6 +39,7 @@ if (CHAT__ENABLE_CEREAL_SERIALIZER)
     endif()
 
     portable_target(LINK ${PROJECT_NAME} PUBLIC cereal)
+    portable_target(LINK ${PROJECT_NAME}-static PUBLIC cereal)
     portable_target(SOURCES ${PROJECT_NAME}
         ${CMAKE_CURRENT_LIST_DIR}/src/backend/serializer/cereal.cpp)
 endif()
@@ -81,4 +83,4 @@ endif()
 
 portable_target(INCLUDE_DIRS ${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_LIST_DIR}/include)
 portable_target(LINK ${PROJECT_NAME} PUBLIC pfs::jeyson pfs::debby pfs::common)
-portable_target(EXPORTS ${PROJECT_NAME} CHAT__EXPORTS CHAT__STATIC)
+portable_target(LINK ${PROJECT_NAME}-static PRIVATE pfs::jeyson::static pfs::debby::static pfs::common)

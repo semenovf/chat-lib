@@ -10,6 +10,7 @@
 #pragma once
 #include "db_traits.hpp"
 #include "pfs/chat/contact.hpp"
+#include "pfs/chat/exports.hpp"
 #include <atomic>
 #include <map>
 #include <string>
@@ -41,16 +42,16 @@ struct contact_list
 
     /**
      */
-    static void invalidate_cache (rep_type * rep);
+    static CHAT__EXPORT void invalidate_cache (rep_type * rep);
 
     /**
      * @throw @c chat::error(errc::storage_error) on storage failure.
      */
-    static void prefetch (rep_type const * rep, int offset, int limit, int sort_flags);
+    static CHAT__EXPORT void prefetch (rep_type const * rep, int offset, int limit, int sort_flags);
 
     /**
      */
-    static rep_type make (shared_db_handle dbh, std::string const & table_name);
+    static CHAT__EXPORT rep_type make (shared_db_handle dbh, std::string const & table_name);
 };
 
 }}} // namespace chat::backend::sqlite3

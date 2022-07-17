@@ -11,6 +11,7 @@
 #include "db_traits.hpp"
 #include "editor.hpp"
 #include "pfs/chat/editor.hpp"
+#include "pfs/chat/exports.hpp"
 #include "pfs/chat/contact.hpp"
 #include <atomic>
 #include <map>
@@ -47,19 +48,19 @@ struct conversation
 
     /**
      */
-    static void invalidate_cache (rep_type * rep);
+    static CHAT__EXPORT void invalidate_cache (rep_type * rep);
 
     /**
      * @throw @c chat::error(errc::storage_error) on storage failure.
      */
-    static void prefetch (rep_type const * rep
+    static CHAT__EXPORT void prefetch (rep_type const * rep
         , int offset
         , int limit
         , int sort_flag);
 
     /**
      */
-    static rep_type make (contact::contact_id me
+    static CHAT__EXPORT rep_type make (contact::contact_id me
         , contact::contact_id opponent
         , shared_db_handle dbh);
 };

@@ -9,6 +9,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 #include "pfs/chat/error.hpp"
+#include "pfs/chat/exports.hpp"
 #include "pfs/debby/relational_database.hpp"
 #include "pfs/debby/result.hpp"
 #include "pfs/debby/statement.hpp"
@@ -34,7 +35,7 @@ using shared_db_handle = std::shared_ptr<db_traits::database_type>;
 /**
  * @throw @c chat::error on failure.
  */
-shared_db_handle make_handle (pfs::filesystem::path const & path
+CHAT__EXPORT shared_db_handle make_handle (pfs::filesystem::path const & path
     , bool create_if_missing = true);
 
 }}} // namespace chat::backend::sqlite3

@@ -8,7 +8,8 @@
 //      2022.02.17 Refactored to use backend.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
-#include "pfs/chat/message.hpp"
+#include "exports.hpp"
+#include "message.hpp"
 #include "pfs/memory.hpp"
 
 namespace chat {
@@ -26,7 +27,7 @@ private:
 
 private:
     message_store () = delete;
-    message_store (rep_type && rep);
+    CHAT__EXPORT message_store (rep_type && rep);
     message_store (message_store const & other) = delete;
     message_store & operator = (message_store const & other) = delete;
     message_store & operator = (message_store && other) = delete;
@@ -39,7 +40,7 @@ public:
     /**
      * Checks if message store opened/initialized successfully.
      */
-    operator bool () const noexcept;
+    CHAT__EXPORT operator bool () const noexcept;
 
     /**
      * Opens conversation with contact @a c.
@@ -47,14 +48,14 @@ public:
      * @brief This method initializes/opens data storage for conversation messages
      *        associated with specified contact.
      */
-    conversation_type conversation (contact::contact_id addressee_id) const;
+    CHAT__EXPORT conversation_type conversation (contact::contact_id addressee_id) const;
 
     /**
      * Wipes (erases all, drop all conversations) messages.
      *
      * @throw debby::error on storage error.
      */
-    void wipe () noexcept;
+    CHAT__EXPORT void wipe () noexcept;
 
 public:
     template <typename ...Args>

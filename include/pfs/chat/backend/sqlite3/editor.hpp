@@ -9,6 +9,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 #include "db_traits.hpp"
+#include "pfs/chat/exports.hpp"
 #include "pfs/chat/message.hpp"
 
 namespace chat {
@@ -29,11 +30,11 @@ struct editor
         bool modification {false};
     };
 
-    static rep_type make (message::message_id message_id
+    static CHAT__EXPORT rep_type make (message::message_id message_id
         , shared_db_handle dbh
         , std::string const & table_name);
 
-    static rep_type make (message::message_id message_id
+    static CHAT__EXPORT rep_type make (message::message_id message_id
         , message::content && content
         , shared_db_handle dbh
         , std::string const & table_name);

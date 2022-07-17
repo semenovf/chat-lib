@@ -12,6 +12,7 @@
 #include "contact_list.hpp"
 #include "pfs/chat/contact.hpp"
 #include "pfs/chat/contact_list.hpp"
+#include "pfs/chat/exports.hpp"
 #include <memory>
 #include <string>
 
@@ -33,7 +34,7 @@ struct contact_manager
         std::shared_ptr<contact_list_type> contacts;
     };
 
-    static rep_type make (contact::person const & me
+    static CHAT__EXPORT rep_type make (contact::person const & me
         , shared_db_handle dbh);
 };
 
