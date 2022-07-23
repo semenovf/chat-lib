@@ -9,6 +9,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 #include "contact.hpp"
+#include "editor.hpp"
 #include "exports.hpp"
 #include "flags.hpp"
 #include "message.hpp"
@@ -40,7 +41,7 @@ class conversation final
     using rep_type = typename Backend::rep_type;
 
 public:
-    using editor_type = typename Backend::editor_type;
+    using editor_type = editor<typename Backend::editor_type>;
 
 private:
     rep_type _rep;
@@ -129,13 +130,6 @@ public:
      * @throw chat::error if message content is invalid (i.e. bad JSON source).
      */
     CHAT__EXPORT editor_type open (message::id id);
-
-    /**
-     * Save message from editor.
-     *
-     * @return Message editor for just saved message.
-     */
-    CHAT__EXPORT editor_type save (editor_type const & editor);
 
     /**
      * Save incoming message.

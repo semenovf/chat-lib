@@ -9,8 +9,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 #include "db_traits.hpp"
-#include "editor.hpp"
-#include "pfs/chat/editor.hpp"
 #include "pfs/chat/exports.hpp"
 #include "pfs/chat/contact.hpp"
 #include <atomic>
@@ -22,9 +20,11 @@ namespace chat {
 namespace backend {
 namespace sqlite3 {
 
+struct editor;
+
 struct conversation
 {
-    using editor_type = chat::editor<editor>;
+    using editor_type = editor;
 
     struct in_memory_cache
     {
@@ -44,19 +44,8 @@ struct conversation
         contact::id opponent;
         mutable in_memory_cache cache;
         std::string table_name;
+        void (* invalidate_cache) (rep_type * rep);
     };
-
-    /**
-     */
-    static CHAT__EXPORT void invalidate_cache (rep_type * rep);
-
-    /**
-     * @throw @c chat::error(errc::storage_error) on storage failure.
-     */
-    static CHAT__EXPORT void prefetch (rep_type const * rep
-        , int offset
-        , int limit
-        , int sort_flag);
 
     /**
      * @throw chat::error @c errc::storage_error.
@@ -64,6 +53,23 @@ struct conversation
     static CHAT__EXPORT rep_type make (contact::id me
         , contact::id opponent
         , shared_db_handle dbh);
+};
+
+struct editor
+{
+    struct rep_type
+    {
+        conversation::rep_type * convers;
+        message::id      message_id;
+        message::content content;
+    };
+
+    static CHAT__EXPORT rep_type make (conversation::rep_type * convers
+        , message::id message_id);
+
+    static CHAT__EXPORT rep_type make (conversation::rep_type * convers
+        , message::id message_id
+        , message::content && content);
 };
 
 }}} // namespace chat::backend::sqlite3

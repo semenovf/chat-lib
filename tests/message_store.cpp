@@ -79,14 +79,13 @@ TEST_CASE("outgoing messages") {
 
     for (int i = 0; i < 5; i++) {
         auto ed = conversation.create();
-        REQUIRE(ed);
 
         ed.add_text("Hello");
         ed.add_html("<html><body><h1>World</h1></body></html>");
         REQUIRE_NOTHROW(ed.attach(pfs::filesystem::path{"data/attachment1.bin"}));
         REQUIRE_NOTHROW(ed.attach(pfs::filesystem::path{"data/attachment2.bin"}));
         REQUIRE_NOTHROW(ed.attach(pfs::filesystem::path{"data/attachment3.bin"}));
-        ed = conversation.save(ed);
+        ed.save();
     }
 
     // Bad attachment
@@ -97,11 +96,11 @@ TEST_CASE("outgoing messages") {
 
     conversation.for_each([& conversation] (chat::message::message_credentials const & m) {
         fmt::print("{} | {} | {}\n"
-            , std::to_string(m.id)
+            , std::to_string(m.message_id)
             , std::to_string(m.author_id)
             , to_string(m.creation_time));
 
-        auto ed = conversation.open(m.id);
+        auto ed = conversation.open(m.message_id);
 
         if (ed.content().count() > 0) {
             REQUIRE_EQ(ed.content().at(0).mime, chat::message::mime_enum::text__plain);
@@ -112,19 +111,19 @@ TEST_CASE("outgoing messages") {
             REQUIRE_EQ(ed.content().at(1).text, std::string{"<html><body><h1>World</h1></body></html>"});
 
 #if _MSC_VER
-            REQUIRE(ends_with(pfs::string_view{ed.content().at(2).text}, "data\\attachment1.bin"));
-            REQUIRE(ends_with(pfs::string_view{ed.content().at(3).text}, "data\\attachment2.bin"));
-            REQUIRE(ends_with(pfs::string_view{ed.content().at(4).text}, "data\\attachment3.bin"));
+            REQUIRE(ends_with(pfs::string_view{ed.content().at(2).text}, "attachment1.bin"));
+            REQUIRE(ends_with(pfs::string_view{ed.content().at(3).text}, "attachment2.bin"));
+            REQUIRE(ends_with(pfs::string_view{ed.content().at(4).text}, "attachment3.bin"));
 #else
-            REQUIRE(ends_with(pfs::string_view{ed.content().at(2).text}, "data/attachment1.bin"));
-            REQUIRE(ends_with(pfs::string_view{ed.content().at(3).text}, "data/attachment2.bin"));
-            REQUIRE(ends_with(pfs::string_view{ed.content().at(4).text}, "data/attachment3.bin"));
+            REQUIRE(ends_with(pfs::string_view{ed.content().at(2).text}, "attachment1.bin"));
+            REQUIRE(ends_with(pfs::string_view{ed.content().at(3).text}, "attachment2.bin"));
+            REQUIRE(ends_with(pfs::string_view{ed.content().at(4).text}, "attachment3.bin"));
 #endif
 
 #if _MSC_VER
-            REQUIRE(pfs::string_view{ed.content().attachment(2).name}.ends_with("data\\attachment1.bin"));
+            REQUIRE(pfs::string_view{ed.content().attachment(2).name}.ends_with("attachment1.bin"));
 #else
-            REQUIRE(pfs::string_view{ed.content().attachment(2).name}.ends_with("data/attachment1.bin"));
+            REQUIRE(pfs::string_view{ed.content().attachment(2).name}.ends_with("attachment1.bin"));
 #endif
             REQUIRE_EQ(ed.content().attachment(2).size, 4);
             REQUIRE_EQ(ed.content().attachment(2).sha256

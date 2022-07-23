@@ -108,7 +108,7 @@ public:
         if (!dbh)
             return nullptr;
 
-        auto messageStore = Messenger::message_store_type::make_unique(me.id, dbh);
+        auto messageStore = Messenger::message_store_type::make_unique(me.contact_id, dbh);
 
         if (!*messageStore)
             return nullptr;
@@ -258,8 +258,8 @@ TEST_CASE("messenger") {
     auto contact2 = messenger2->my_contact();
     chat::contact::person contact3 {contactId3, contactAlias3};
 
-    REQUIRE_EQ(contact1.id, contactId1);
-    REQUIRE_EQ(contact2.id, contactId2);
+    REQUIRE_EQ(contact1.contact_id, contactId1);
+    REQUIRE_EQ(contact2.contact_id, contactId2);
 
     REQUIRE_EQ(contact1.alias, contactAlias1);
     REQUIRE_EQ(contact2.alias, contactAlias2);
@@ -320,16 +320,18 @@ TEST_CASE("messenger") {
         REQUIRE(conversation);
 
         auto editor = conversation.create();
-        REQUIRE(editor);
 
-        last_message_id = editor.message_id();
+        REQUIRE_EQ(editor.message_id(), chat::message::id{});
 
         editor.add_text(TEXT);
         editor.add_html(HTML);
 
         editor.attach(f1);
         editor.attach(f2);
-        editor = conversation.save(editor);
+        editor.save();
+
+        last_message_id = editor.message_id();
+        REQUIRE_NE(editor.message_id(), chat::message::id{});
     }
 
     {
@@ -347,14 +349,14 @@ TEST_CASE("messenger") {
         REQUIRE_EQ(editor.content().at(1).text, HTML);
 
         REQUIRE_EQ(editor.content().attachment(0).name, std::string{});
-        REQUIRE_EQ(editor.content().at(2).text, fs::utf8_encode(f1));
-        REQUIRE_EQ(editor.content().at(3).text, fs::utf8_encode(f2));
+        REQUIRE_EQ(editor.content().at(2).text, fs::utf8_encode(f1.filename()));
+        REQUIRE_EQ(editor.content().at(3).text, fs::utf8_encode(f2.filename()));
 
-        REQUIRE_EQ(editor.content().attachment(2).name, fs::utf8_encode(f1));
+        REQUIRE_EQ(editor.content().attachment(2).name, fs::utf8_encode(f1.filename()));
         REQUIRE_EQ(editor.content().attachment(2).size, f1_size);
         REQUIRE_EQ(editor.content().attachment(2).sha256, f1_sha256);
 
-        REQUIRE_EQ(editor.content().attachment(3).name, fs::utf8_encode(f2));
+        REQUIRE_EQ(editor.content().attachment(3).name, fs::utf8_encode(f2.filename()));
         REQUIRE_EQ(editor.content().attachment(3).size, f2_size);
         REQUIRE_EQ(editor.content().attachment(3).sha256, f2_sha256);
     }
@@ -369,7 +371,7 @@ TEST_CASE("messenger") {
         auto m = conversation.message(last_message_id);
 
         REQUIRE(m);
-        REQUIRE_EQ(m->id, last_message_id);
+        REQUIRE_EQ(m->message_id, last_message_id);
 
         messenger1->dispatch_message(contactId2, *m);
         messenger1->dispatched(contactId2, last_message_id, pfs::current_utc_time_point());
@@ -385,16 +387,15 @@ TEST_CASE("messenger") {
         REQUIRE(conversation);
 
         auto editor = conversation.create();
-        REQUIRE(editor);
-
-        last_group_message_id = editor.message_id();
 
         editor.add_text(TEXT);
         editor.add_html(HTML);
 
         editor.attach(f1);
         editor.attach(f2);
-        editor = conversation.save(editor);
+        editor.save();
+
+        last_group_message_id = editor.message_id();
     }
 
 ////////////////////////////////////////////////////////////////////////////////

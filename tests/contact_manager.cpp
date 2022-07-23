@@ -58,7 +58,7 @@ struct forward_iterator : public pfs::iterator_facade<
     reference ref ()
     {
         person_t c;
-        c.id = pfs::generate_uuid();
+        c.contact_id = pfs::generate_uuid();
         c.alias = *_p;
         return c;
     }
@@ -158,7 +158,7 @@ TEST_CASE("contacts") {
 //             , to_string(c.id)
 //             , c.alias
 //             , to_string(c.type));
-        all_contacts.push_back(person_t {c.id, c.alias, c.avatar, c.description});
+        all_contacts.push_back(person_t {c.contact_id, c.alias, c.avatar, c.description});
     });
 
     // No new contacts added as they already exist.
@@ -193,7 +193,7 @@ TEST_CASE("contacts") {
     // Contact was not updated - contact not found
     {
         contact_t c;
-        c.id = pfs::generate_uuid();
+        c.contact_id = pfs::generate_uuid();
         c.alias = "Noname";
         c.type = chat::contact::type_enum::person;
 
@@ -235,12 +235,12 @@ TEST_CASE("groups") {
     {
         group_t g;
         g.alias = "Group 0";
-        g.id = pfs::generate_uuid();
+        g.contact_id = pfs::generate_uuid();
 
         REQUIRE(contact_manager.add(g, my_uuid));
 
         // No new group added as it already exist
-        REQUIRE_FALSE(contact_manager.gref(g.id).add_member(my_uuid));
+        REQUIRE_FALSE(contact_manager.gref(g.contact_id).add_member(my_uuid));
 
         REQUIRE_EQ(contact_manager.groups_count(), 1);
     }
@@ -251,7 +251,7 @@ TEST_CASE("groups") {
     {
         group_t g;
         g.alias = "Group 1";
-        g.id = pfs::generate_uuid();
+        g.contact_id = pfs::generate_uuid();
 
         REQUIRE(contact_manager.add(g, my_uuid));
 
@@ -260,13 +260,13 @@ TEST_CASE("groups") {
         REQUIRE(contact_manager.update(g));
         REQUIRE_EQ(contact_manager.groups_count(), 2);
 
-        sample_id = g.id;
+        sample_id = g.contact_id;
     }
 
     // Group was not updated - group not found
     {
         group_t g;
-        g.id = pfs::generate_uuid();
+        g.contact_id = pfs::generate_uuid();
         g.alias = "Noname";
 
         REQUIRE_FALSE(contact_manager.update(g));
@@ -288,20 +288,20 @@ TEST_CASE("groups") {
     {
         group_t g;
         g.alias = "Group 3";
-        g.id = pfs::generate_uuid();
+        g.contact_id = pfs::generate_uuid();
 
         REQUIRE(contact_manager.add(g, my_uuid));
 
         REQUIRE_EQ(contact_manager.groups_count(), 3);
 
         person_t c1;
-        c1.id = pfs::generate_uuid();
+        c1.contact_id = pfs::generate_uuid();
         c1.alias = "Contact 1 for " + g.alias;
 
         REQUIRE(contact_manager.add(c1));
 
         person_t c2;
-        c2.id = pfs::generate_uuid();
+        c2.contact_id = pfs::generate_uuid();
         c2.alias = "Contact 2 for " + g.alias;
 
         REQUIRE(contact_manager.add(c2));
@@ -309,30 +309,30 @@ TEST_CASE("groups") {
         // Only person can be added to group now.
         // NOTE This behavior is subject to change in the future.
         group_t c3;
-        c3.id = pfs::generate_uuid();
+        c3.contact_id = pfs::generate_uuid();
         c3.alias = "Contact 3 for " + g.alias;
 
         REQUIRE(contact_manager.add(c3, my_uuid));
 
-        REQUIRE(contact_manager.gref(g.id).add_member(c1.id));
-        REQUIRE(contact_manager.gref(g.id).add_member(c2.id));
+        REQUIRE(contact_manager.gref(g.contact_id).add_member(c1.contact_id));
+        REQUIRE(contact_manager.gref(g.contact_id).add_member(c2.contact_id));
 
-        REQUIRE_THROWS(contact_manager.gref(g.id).add_member(c3.id));
+        REQUIRE_THROWS(contact_manager.gref(g.contact_id).add_member(c3.contact_id));
 
-        auto memebers = contact_manager.gref(g.id).members();
+        auto memebers = contact_manager.gref(g.contact_id).members();
         REQUIRE(memebers.size() == 3);
 
         REQUIRE_EQ(memebers[0].alias, my_alias);
         REQUIRE_EQ(memebers[1].alias, c1.alias);
         REQUIRE_EQ(memebers[2].alias, c2.alias);
 
-        REQUIRE(contact_manager.gref(g.id).is_member_of(my_uuid));
-        REQUIRE(contact_manager.gref(g.id).is_member_of(c1.id));
-        REQUIRE(contact_manager.gref(g.id).is_member_of(c2.id));
-        REQUIRE_FALSE(contact_manager.gref(g.id).is_member_of(c3.id));
+        REQUIRE(contact_manager.gref(g.contact_id).is_member_of(my_uuid));
+        REQUIRE(contact_manager.gref(g.contact_id).is_member_of(c1.contact_id));
+        REQUIRE(contact_manager.gref(g.contact_id).is_member_of(c2.contact_id));
+        REQUIRE_FALSE(contact_manager.gref(g.contact_id).is_member_of(c3.contact_id));
 
         // Including my contact
-        REQUIRE_EQ(contact_manager.gref(g.id).count(), 3);
+        REQUIRE_EQ(contact_manager.gref(g.contact_id).count(), 3);
     }
 
      // TODO Check remove methods

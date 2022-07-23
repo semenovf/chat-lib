@@ -38,15 +38,10 @@ private:
 
 public:
     editor (editor && other) = default;
-    CHAT__EXPORT editor & operator = (editor && other);
+    editor & operator = (editor && other) = delete;
     ~editor () = default;
 
 public:
-    /**
-     * Checks if editor ready for use.
-     */
-    CHAT__EXPORT operator bool () const noexcept;
-
     /**
      * Add text to message content.
      */
@@ -84,6 +79,11 @@ public:
     CHAT__EXPORT void clear ();
 
     /**
+     * Save content.
+     */
+    CHAT__EXPORT void save ();
+
+    /**
      * Get message content.
      */
     CHAT__EXPORT message::content const & content () const noexcept;
@@ -93,7 +93,7 @@ public:
      */
     CHAT__EXPORT message::id message_id () const noexcept;
 
-public:
+private:
     template <typename ...Args>
     static editor make (Args &&... args)
     {

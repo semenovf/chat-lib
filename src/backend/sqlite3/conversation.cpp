@@ -7,7 +7,6 @@
 //      2021.01.02 Initial version.
 //      2022.02.17 Refactored totally.
 ////////////////////////////////////////////////////////////////////////////////
-#include "content_traits.hpp"
 #include "pfs/chat/conversation.hpp"
 #include "pfs/chat/error.hpp"
 #include "pfs/chat/backend/sqlite3/conversation.hpp"
@@ -16,11 +15,22 @@
 namespace chat {
 
 using namespace debby::backend::sqlite3;
+using BACKEND = backend::sqlite3::conversation;
 
 constexpr std::size_t CACHE_WINDOW_SIZE = 100;
 
 // NOTE Must be synchronized with analog in message_store.cpp
 static std::string const DEFAULT_TABLE_NAME_PREFIX { "#" };
+
+namespace backend {
+namespace sqlite3 {
+
+std::atomic<bool> conversation::in_memory_cache::dirty {true};
+
+void invalidate_cache (conversation::rep_type * rep)
+{
+    rep->cache.dirty = true;
+}
 
 static std::string const CREATE_CONVERSATION_TABLE {
     "CREATE TABLE IF NOT EXISTS `{}` ("
@@ -34,36 +44,6 @@ static std::string const CREATE_CONVERSATION_TABLE {
     ", `content` {})"                     // Message content
 };
 
-static void fill_message (backend::sqlite3::db_traits::result_type & result
-    , message::message_credentials & m)
-{
-    pfs::optional<std::string> content_data;
-
-    result["message_id"]        >> m.message_id;
-    result["author_id"]         >> m.author_id;
-    result["creation_time"]     >> m.creation_time;
-    result["modification_time"] >> m.modification_time;
-    result["dispatched_time"]   >> m.dispatched_time;
-    result["delivered_time"]    >> m.delivered_time;
-    result["read_time"]         >> m.read_time;
-    result["content"]           >> content_data;
-
-    if (content_data) {
-        message::content content{*content_data};
-        m.contents = std::move(content);
-    }
-}
-
-namespace backend {
-namespace sqlite3 {
-
-std::atomic<bool> conversation::in_memory_cache::dirty {true};
-
-void conversation::invalidate_cache (rep_type * rep)
-{
-    rep->cache.dirty = true;
-}
-
 conversation::rep_type
 conversation::make (contact::id me, contact::id opponent, shared_db_handle dbh)
 {
@@ -73,6 +53,7 @@ conversation::make (contact::id me, contact::id opponent, shared_db_handle dbh)
     rep.me = me;
     rep.opponent = opponent;
     rep.table_name = DEFAULT_TABLE_NAME_PREFIX + to_string(opponent);
+    rep.invalidate_cache = & invalidate_cache;
 
     std::array<std::string, 1> sqls = {
         fmt::format(CREATE_CONVERSATION_TABLE
@@ -107,6 +88,28 @@ conversation::make (contact::id me, contact::id opponent, shared_db_handle dbh)
     return rep;
 }
 
+}} // namespace backend::sqlite3
+
+static void fill_message (backend::sqlite3::db_traits::result_type & result
+    , message::message_credentials & m)
+{
+    pfs::optional<std::string> content_data;
+
+    result["message_id"]        >> m.message_id;
+    result["author_id"]         >> m.author_id;
+    result["creation_time"]     >> m.creation_time;
+    result["modification_time"] >> m.modification_time;
+    result["dispatched_time"]   >> m.dispatched_time;
+    result["delivered_time"]    >> m.delivered_time;
+    result["read_time"]         >> m.read_time;
+    result["content"]           >> content_data;
+
+    if (content_data) {
+        message::content content{*content_data};
+        m.contents = std::move(content);
+    }
+}
+
 static std::string const SELECT_ROWS_RANGE {
     "SELECT `message_id`"
         ", `author_id`"
@@ -121,7 +124,7 @@ static std::string const SELECT_ROWS_RANGE {
         " LIMIT {} OFFSET {}"
 };
 
-void conversation::prefetch (rep_type const * rep
+static void prefetch (BACKEND::rep_type const * rep
     , int offset
     , int limit
     , int sort_flags)
@@ -179,10 +182,6 @@ void conversation::prefetch (rep_type const * rep
 
     rep->cache.dirty = false;
 }
-
-}} // namespace backend::sqlite3
-
-using BACKEND = backend::sqlite3::conversation;
 
 template <>
 conversation<BACKEND>::conversation (rep_type && rep)
@@ -281,7 +280,8 @@ void conversation<BACKEND>::mark_dispatched (message::id message_id
         , message_id
         , dispatched_time
         , "dispatched");
-    BACKEND::invalidate_cache(& _rep);
+
+    invalidate_cache(& _rep);
 }
 
 template <>
@@ -294,7 +294,8 @@ void conversation<BACKEND>::mark_delivered (message::id message_id
         , message_id
         , delivered_time
         , "delivered");
-    BACKEND::invalidate_cache(& _rep);
+
+    invalidate_cache(& _rep);
 }
 
 template <>
@@ -307,89 +308,16 @@ void conversation<BACKEND>::mark_read (message::id message_id
         , message_id
         , read_time
         , "read");
-    BACKEND::invalidate_cache(& _rep);
-}
 
-// static std::string const INSERT_MESSAGE {
-//     "INSERT INTO `{}` (`message_id`, `author_id`, `creation_time`, `modification_time`)"
-//     " VALUES (:message_id, :author_id, :creation_time, :modification_time)"
-// };
+    invalidate_cache(& _rep);
+}
 
 template <>
 conversation<BACKEND>::editor_type
 conversation<BACKEND>::create ()
 {
-    return editor_type::make(message::id{}, _rep.dbh, _rep.table_name);
-}
-
-static std::string const INSERT_MESSAGE {
-    "INSERT INTO `{}` (`message_id`, `author_id`, `creation_time`, `modification_time`, `content`)"
-    " VALUES (:message_id, :author_id, :creation_time, :modification_time, :content)"
-};
-
-static std::string const DELETE_MESSAGE {
-    "DELETE FROM `{}` WHERE `message_id` = :message_id"
-};
-
-static std::string const MODIFY_CONTENT {
-    "UPDATE OR IGNORE `{}` SET `content` = :content"
-    ", `modification_time` = :modification_time"
-    " WHERE `message_id` = :message_id"
-};
-
-template <>
-conversation<BACKEND>::editor_type
-conversation<BACKEND>::save (editor_type const & editor)
-{
-    if (editor.content().empty()) {
-        // Remove message if already initialized.
-        if (editor.message_id() != message::id{}) {
-            auto stmt = _rep.dbh->prepare(fmt::format(DELETE_MESSAGE, _rep.table_name));
-            CHAT__ASSERT(!!stmt, "");
-            stmt.bind(":message_id", editor.message_id());
-            stmt.exec();
-        }
-
-        return editor_type::make(message::id{}, _rep.dbh, _rep.table_name);
-    } else {
-        bool modification = editor.message_id() != message::id{};
-
-        if (!modification) {
-            // Create/save new message
-            auto message_id = message::id_generator{}.next();
-            auto creation_time = pfs::current_utc_time_point();
-
-            auto stmt = _rep.dbh->prepare(fmt::format(INSERT_MESSAGE, _rep.table_name));
-
-            CHAT__ASSERT(!!stmt, "");
-
-            stmt.bind(":message_id", message_id);
-            stmt.bind(":author_id", _rep.me);
-            stmt.bind(":creation_time", creation_time);
-            stmt.bind(":modification_time", creation_time);
-            stmt.bind(":content", editor.content());
-
-            stmt.exec();
-
-            CHAT__ASSERT(stmt.rows_affected() > 0, "Non-unique ID generated for message");
-
-            BACKEND::invalidate_cache(& _rep);
-            return editor_type::make(message_id, _rep.dbh, _rep.table_name);
-        } else {
-            // Modify content
-            auto stmt = _rep.dbh->prepare(fmt::format(MODIFY_CONTENT, _rep.table_name));
-
-            CHAT__ASSERT(!!stmt, "");
-
-            auto now = pfs::current_utc_time_point();
-
-            stmt.bind(":content", editor.content());
-            stmt.bind(":message_id", editor.message_id());
-            stmt.bind(":modification_time", now);
-            stmt.exec();
-            return editor_type::make(editor.message_id(), _rep.dbh, _rep.table_name);
-        }
-    }
+    auto ed = editor_type::make(& this->_rep, message::id{});
+    return ed;
 }
 
 static std::string const SELECT_OUTGOING_CONTENT {
@@ -425,8 +353,7 @@ conversation<BACKEND>::open (message::id message_id)
         if (content_data)
             content = message::content{*content_data};
 
-        return editor_type::make(message_id, std::move(content)
-            , _rep.dbh, _rep.table_name);
+        return editor_type::make(& this->_rep, message_id, std::move(content));
     }
 
     return editor_type{};
@@ -447,7 +374,7 @@ conversation<BACKEND>::message (int offset, int sort_flag) const
 
     // Populate cache if dirty
     if (force_populate_cache)
-        BACKEND::prefetch(& _rep, offset, CACHE_WINDOW_SIZE, sort_flag);
+        prefetch(& _rep, offset, CACHE_WINDOW_SIZE, sort_flag);
 
     if (offset < _rep.cache.offset || offset >= _rep.cache.offset + _rep.cache.limit)
         return pfs::nullopt;
@@ -598,7 +525,8 @@ conversation<BACKEND>::save_incoming (message::id message_id
             stmt.bind(":message_id", message_id);
 
             stmt.exec();
-            BACKEND::invalidate_cache(& _rep);
+
+            invalidate_cache(& _rep);
         }
     } else {
         auto stmt = _rep.dbh->prepare(fmt::format(INSERT_INCOMING_MESSAGE, _rep.table_name));
@@ -613,7 +541,8 @@ conversation<BACKEND>::save_incoming (message::id message_id
 
         stmt.exec();
         CHAT__ASSERT(stmt.rows_affected() > 0, "May be non-unique ID for incoming message");
-        BACKEND::invalidate_cache(& _rep);
+
+        invalidate_cache(& _rep);
     }
 }
 
@@ -700,7 +629,7 @@ void
 conversation<BACKEND>::clear ()
 {
     _rep.dbh->clear(_rep.table_name);
-    BACKEND::invalidate_cache(& _rep);
+    invalidate_cache(& _rep);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -711,7 +640,7 @@ void
 conversation<BACKEND>::wipe ()
 {
     _rep.dbh->remove(_rep.table_name);
-    BACKEND::invalidate_cache(& _rep);
+    invalidate_cache(& _rep);
 }
 
 } // namespace chat

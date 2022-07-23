@@ -78,7 +78,7 @@ struct content_credentials
 struct attachment_credentials
 {
     std::string id;     // Unique ID associated with file name
-    std::string path;   // Path path for attachments, audio and video files
+    std::string name;   // File name for attachments, audio and video files
     std::size_t size;   // File size
     std::string sha256; // File SHA-256 checksum
 };
