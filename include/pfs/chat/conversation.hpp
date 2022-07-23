@@ -79,7 +79,7 @@ public:
      * @throw debby::error on storage error.
      * @throw chat::error if message not found.
      */
-    CHAT__EXPORT void mark_dispatched (message::message_id message_id
+    CHAT__EXPORT void mark_dispatched (message::id message_id
         , pfs::utc_time_point dispatched_time);
 
     /**
@@ -88,7 +88,7 @@ public:
      * @throw debby::error on storage error.
      * @throw chat::error if message not found.
      */
-    CHAT__EXPORT void mark_delivered (message::message_id message_id
+    CHAT__EXPORT void mark_delivered (message::id message_id
         , pfs::utc_time_point delivered_time);
 
     /**
@@ -97,7 +97,7 @@ public:
      * @throw debby::error on storage error.
      * @throw chat::error if message not found.
      */
-    void mark_received (message::message_id message_id
+    void mark_received (message::id message_id
         , pfs::utc_time_point received_time)
     {
         mark_delivered(message_id, received_time);
@@ -109,7 +109,7 @@ public:
      * @throw debby::error on storage error.
      * @throw chat::error if message not found.
      */
-    CHAT__EXPORT void mark_read (message::message_id message_id
+    CHAT__EXPORT void mark_read (message::id message_id
         , pfs::utc_time_point read_time);
 
     /**
@@ -128,7 +128,14 @@ public:
      *
      * @throw chat::error if message content is invalid (i.e. bad JSON source).
      */
-    CHAT__EXPORT editor_type open (message::message_id id);
+    CHAT__EXPORT editor_type open (message::id id);
+
+    /**
+     * Save message from editor.
+     *
+     * @return Message editor for just saved message.
+     */
+    CHAT__EXPORT editor_type save (editor_type const & editor);
 
     /**
      * Save incoming message.
@@ -136,8 +143,8 @@ public:
      * If message already exists content will be updated if different from
      * original.
      */
-    CHAT__EXPORT void save_incoming (message::message_id message_id
-        , contact::contact_id author_id
+    CHAT__EXPORT void save_incoming (message::id message_id
+        , contact::id author_id
         , pfs::utc_time_point const & creation_time
         , std::string const & content);
 
@@ -150,7 +157,7 @@ public:
      * @throw chat::error if message content is invalid (i.e. bad JSON source).
      */
     CHAT__EXPORT pfs::optional<message::message_credentials>
-    message (message::message_id message_id) const;
+    message (message::id message_id) const;
 
     /**
      * Get message credentials by @a offset.

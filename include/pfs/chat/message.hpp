@@ -10,7 +10,9 @@
 #include "contact.hpp"
 #include "error.hpp"
 #include "exports.hpp"
+#include "file_cache.hpp"
 #include "json.hpp"
+#include "pfs/filesystem.hpp"
 #include "pfs/optional.hpp"
 #include "pfs/time_point.hpp"
 #include "pfs/universal_id.hpp"
@@ -19,8 +21,7 @@
 namespace chat {
 namespace message {
 
-using message_id  = ::pfs::universal_id;
-using resource_id = ::pfs::universal_id;
+using id = ::pfs::universal_id;
 
 // enum class status_enum
 // {
@@ -43,16 +44,15 @@ enum class mime_enum
 
     , text__html
 
-    // The default value for all other cases. An unknown file type should
-    // use this type.
-    //
-    // Unrecognized subtypes of "audio" should at a miniumum be treated as
-    // "application/octet-stream".
-    // [RFC 2046](https://www.iana.org/assignments/media-types/audio/basic)
-    , application__octet_stream
-
-    // Special MIME type for data described by `file_credentials`
+    // Special MIME type for attachments (files) described by
+    // `attachment_credentials`.
     , attachment
+
+    // Concrete types of attachments.
+    // [RFC 2046](https://www.iana.org/assignments/media-types/audio/basic)
+    , audio__ogg
+
+    , video__mp4
 };
 
 mime_enum to_mime (int value);
@@ -60,12 +60,9 @@ mime_enum to_mime (int value);
 class id_generator
 {
 public:
-    using type = message_id;
-
-public:
     id_generator () {}
 
-    type next () noexcept
+    id next () noexcept
     {
         return pfs::generate_uuid();
     }
@@ -73,13 +70,15 @@ public:
 
 struct content_credentials
 {
-    mime_enum   mime;   // Message content MIME
-    std::string text;   // Message content (path for `attached`)
+    mime_enum   mime; // Message content MIME
+    std::string text; // Message content (path for attachments, audio
+                      // and video files)
 };
 
-struct file_credentials
+struct attachment_credentials
 {
-    std::string name;   // File name (for incoming message)/path (for outgoing message)
+    std::string id;     // Unique ID associated with file name
+    std::string path;   // Path path for attachments, audio and video files
     std::size_t size;   // File size
     std::string sha256; // File SHA-256 checksum
 };
@@ -112,6 +111,11 @@ public:
         return !!_d;
     }
 
+    bool empty () const noexcept
+    {
+        return count() == 0;
+    }
+
     /**
      * Number of content components.
      */
@@ -132,19 +136,30 @@ public:
      * If no attachment specified for component by @a index, result will
      * contain zeroed values for @c name, @c size and @c sha256.
      */
-    CHAT__EXPORT file_credentials attachment (std::size_t index) const;
+    CHAT__EXPORT attachment_credentials attachment (std::size_t index) const;
 
     /**
-     * Add component associated with @a mime.
+     * Add plain text.
      */
-    CHAT__EXPORT void add (mime_enum mime, std::string const & data);
+    CHAT__EXPORT void add_text (std::string const & text);
+
+    /**
+     * Add plain text.
+     */
+    CHAT__EXPORT void add_html (std::string const & text);
 
     /**
      * Attach file.
      */
-    CHAT__EXPORT void attach (std::string const & path
-        , std::size_t size
+    CHAT__EXPORT void attach (file::id file_id
+        , std::string const & filename
+        , std::size_t filesize
         , std::string const & sha256);
+
+    /**
+     * Clear content (delete all content components).
+     */
+    CHAT__EXPORT void clear ();
 };
 
 inline std::string to_string (content const & c)
@@ -155,10 +170,10 @@ inline std::string to_string (content const & c)
 struct message_credentials
 {
     // Unique message ID
-    message_id id;
+    id message_id;
 
     // Author contact ID
-    contact::contact_id author_id;
+    contact::id author_id;
 
     // Message creation time (UTC).
     // Creation time in the author side.
@@ -182,10 +197,10 @@ struct message_credentials
 struct group_message_credentials
 {
     // Unique group message ID
-    message_id id;
+    id message_id;
 
     // Author contact ID
-    contact::contact_id author_id;
+    contact::id author_id;
 
     // Message creation time (UTC).
     pfs::utc_time_point creation_time;
@@ -199,10 +214,10 @@ struct group_message_credentials
 struct member_message_credentials
 {
     // Personal unique message ID
-    message_id id;
+    id message_id;
 
     // Group message ID
-    message_id group_id;
+    id group_message_id;
 
     // Message dispatched time (UTC)
     pfs::optional<pfs::utc_time_point> dispatched_time;

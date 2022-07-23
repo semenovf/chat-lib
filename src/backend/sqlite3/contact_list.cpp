@@ -24,7 +24,7 @@ constexpr std::size_t CACHE_WINDOW_SIZE = 100;
 static void fill_contact (backend::sqlite3::db_traits::result_type & result
     , contact::contact & c)
 {
-    result["id"]          >> c.id;
+    result["id"]          >> c.contact_id;
     result["creator_id"]  >> c.creator_id;
     result["alias"]       >> c.alias;
     result["avatar"]      >> c.avatar;
@@ -91,7 +91,7 @@ void contact_list::prefetch (rep_type const * rep, int offset, int limit, int so
             order_by += " ASC";
         else if (sort_flag_on(sort_flags, contact_sort_flag::descending_order))
             order_by += " DESC";
-        else 
+        else
             order_by += " ASC";
     }
 
@@ -108,7 +108,7 @@ void contact_list::prefetch (rep_type const * rep, int offset, int limit, int so
         fill_contact(res, c);
 
         rep->cache.data.push_back(std::move(c));
-        rep->cache.map.emplace(c.id, rep->cache.data.size() - 1);
+        rep->cache.map.emplace(c.contact_id, rep->cache.data.size() - 1);
         rep->cache.limit++;
     }
 
@@ -171,7 +171,7 @@ contact_list<BACKEND>::add (contact::contact const & c)
 
     CHAT__ASSERT(!!stmt, "");
 
-    stmt.bind(":id"         , to_storage(c.id));
+    stmt.bind(":id"         , to_storage(c.contact_id));
     stmt.bind(":creator_id" , to_storage(c.creator_id));
     stmt.bind(":alias"      , to_storage(c.alias));
     stmt.bind(":avatar"     , to_storage(c.avatar));
@@ -207,7 +207,7 @@ contact_list<BACKEND>::update (contact::contact const & c)
     stmt.bind(":alias" , to_storage(c.alias));
     stmt.bind(":avatar", to_storage(c.avatar));
     stmt.bind(":description", to_storage(c.description));
-    stmt.bind(":id", to_storage(c.id));
+    stmt.bind(":id", to_storage(c.contact_id));
     stmt.bind(":type", to_storage(c.type));
 
     auto res = stmt.exec();
@@ -227,7 +227,7 @@ std::string const REMOVE_CONTACT {
 
 template <>
 void
-contact_list<BACKEND>::remove (contact::contact_id id)
+contact_list<BACKEND>::remove (contact::id id)
 {
     auto stmt = _rep.dbh->prepare(fmt::format(REMOVE_CONTACT, _rep.table_name));
 
@@ -248,7 +248,7 @@ std::string const SELECT_CONTACT {
 
 template <>
 contact::contact
-contact_list<BACKEND>::get (contact::contact_id id) const
+contact_list<BACKEND>::get (contact::id id) const
 {
     // Check cache
     if (!_rep.cache.dirty) {

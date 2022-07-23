@@ -25,8 +25,7 @@ CHAT__EXPORT type_enum to_type_enum (int n)
             break;
     }
 
-    chat::error err {chat::make_error_code(chat::errc::invalid_argument)};
-    CHAT__THROW(err);
+    throw chat::error {chat::make_error_code(chat::errc::invalid_argument)};;
     return type_enum::person;
 }
 

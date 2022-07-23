@@ -7,6 +7,7 @@
 //      2021.01.02 Initial version.
 //      2022.02.17 Refactored totally.
 ////////////////////////////////////////////////////////////////////////////////
+#include "content_traits.hpp"
 #include "pfs/chat/conversation.hpp"
 #include "pfs/chat/error.hpp"
 #include "pfs/chat/backend/sqlite3/conversation.hpp"
@@ -38,7 +39,7 @@ static void fill_message (backend::sqlite3::db_traits::result_type & result
 {
     pfs::optional<std::string> content_data;
 
-    result["message_id"]        >> m.id;
+    result["message_id"]        >> m.message_id;
     result["author_id"]         >> m.author_id;
     result["creation_time"]     >> m.creation_time;
     result["modification_time"] >> m.modification_time;
@@ -64,9 +65,7 @@ void conversation::invalidate_cache (rep_type * rep)
 }
 
 conversation::rep_type
-conversation::make (contact::contact_id me
-    , contact::contact_id opponent
-    , shared_db_handle dbh)
+conversation::make (contact::id me, contact::id opponent, shared_db_handle dbh)
 {
     rep_type rep;
 
@@ -78,7 +77,7 @@ conversation::make (contact::contact_id me
     std::array<std::string, 1> sqls = {
         fmt::format(CREATE_CONVERSATION_TABLE
             , rep.table_name
-            , affinity_traits<decltype(message::message_credentials{}.id)>::name()
+            , affinity_traits<decltype(message::message_credentials{}.message_id)>::name()
             , affinity_traits<decltype(message::message_credentials{}.author_id)>::name()
             , affinity_traits<decltype(message::message_credentials{}.creation_time)>::name()
             , affinity_traits<decltype(message::message_credentials{}.modification_time)>::name()
@@ -88,20 +87,19 @@ conversation::make (contact::contact_id me
             , affinity_traits<std::string>::name())
     };
 
-    TRY {
+    try {
         rep.dbh->begin();
 
         for (auto const & sql: sqls)
             rep.dbh->query(sql);
 
         rep.dbh->commit();
-    } CATCH (debby::error ex) {
-#if PFS__EXCEPTIONS_ENABLED
+    } catch (debby::error ex) {
         rep.dbh->rollback();
         shared_db_handle empty;
         rep.dbh.swap(empty);
-        throw;
-#endif
+
+        throw error{errc::storage_error, ex.what()};
     }
 
     invalidate_cache(& rep);
@@ -175,7 +173,7 @@ void conversation::prefetch (rep_type const * rep
         rep->cache.data.emplace_back();
         message::message_credentials * m = & rep->cache.data.back();
         fill_message(res, *m);
-        rep->cache.map.emplace(m->id, rep->cache.data.size() - 1);
+        rep->cache.map.emplace(m->message_id, rep->cache.data.size() - 1);
         rep->cache.limit++;
     }
 
@@ -249,7 +247,7 @@ static void mark_message_status (
       backend::sqlite3::shared_db_handle dbh
     , std::string const & sql
     , std::string const & table_name
-    , message::message_id message_id
+    , message::id message_id
     , pfs::utc_time_point time
     , std::string const & status_str)
 {
@@ -269,12 +267,12 @@ static void mark_message_status (
                 , status_str, message_id)
         };
 
-        CHAT__THROW(err);
+        throw err;
     }
 }
 
 template <>
-void conversation<BACKEND>::mark_dispatched (message::message_id message_id
+void conversation<BACKEND>::mark_dispatched (message::id message_id
     , pfs::utc_time_point dispatched_time)
 {
     mark_message_status(_rep.dbh
@@ -287,7 +285,7 @@ void conversation<BACKEND>::mark_dispatched (message::message_id message_id
 }
 
 template <>
-void conversation<BACKEND>::mark_delivered (message::message_id message_id
+void conversation<BACKEND>::mark_delivered (message::id message_id
     , pfs::utc_time_point delivered_time)
 {
     mark_message_status(_rep.dbh
@@ -300,7 +298,7 @@ void conversation<BACKEND>::mark_delivered (message::message_id message_id
 }
 
 template <>
-void conversation<BACKEND>::mark_read (message::message_id message_id
+void conversation<BACKEND>::mark_read (message::id message_id
     , pfs::utc_time_point read_time)
 {
     mark_message_status(_rep.dbh
@@ -312,33 +310,86 @@ void conversation<BACKEND>::mark_read (message::message_id message_id
     BACKEND::invalidate_cache(& _rep);
 }
 
-static std::string const INSERT_MESSAGE {
-    "INSERT INTO `{}` (`message_id`, `author_id`, `creation_time`, `modification_time`)"
-    " VALUES (:message_id, :author_id, :creation_time, :modification_time)"
-};
+// static std::string const INSERT_MESSAGE {
+//     "INSERT INTO `{}` (`message_id`, `author_id`, `creation_time`, `modification_time`)"
+//     " VALUES (:message_id, :author_id, :creation_time, :modification_time)"
+// };
 
 template <>
 conversation<BACKEND>::editor_type
 conversation<BACKEND>::create ()
 {
-    auto message_id = message::id_generator{}.next();
-    auto creation_time = pfs::current_utc_time_point();
+    return editor_type::make(message::id{}, _rep.dbh, _rep.table_name);
+}
 
-    auto stmt = _rep.dbh->prepare(fmt::format(INSERT_MESSAGE, _rep.table_name));
+static std::string const INSERT_MESSAGE {
+    "INSERT INTO `{}` (`message_id`, `author_id`, `creation_time`, `modification_time`, `content`)"
+    " VALUES (:message_id, :author_id, :creation_time, :modification_time, :content)"
+};
 
-    CHAT__ASSERT(!!stmt, "");
+static std::string const DELETE_MESSAGE {
+    "DELETE FROM `{}` WHERE `message_id` = :message_id"
+};
 
-    stmt.bind(":message_id", message_id);
-    stmt.bind(":author_id", _rep.me);
-    stmt.bind(":creation_time", creation_time);
-    stmt.bind(":modification_time", creation_time);
+static std::string const MODIFY_CONTENT {
+    "UPDATE OR IGNORE `{}` SET `content` = :content"
+    ", `modification_time` = :modification_time"
+    " WHERE `message_id` = :message_id"
+};
 
-    stmt.exec();
+template <>
+conversation<BACKEND>::editor_type
+conversation<BACKEND>::save (editor_type const & editor)
+{
+    if (editor.content().empty()) {
+        // Remove message if already initialized.
+        if (editor.message_id() != message::id{}) {
+            auto stmt = _rep.dbh->prepare(fmt::format(DELETE_MESSAGE, _rep.table_name));
+            CHAT__ASSERT(!!stmt, "");
+            stmt.bind(":message_id", editor.message_id());
+            stmt.exec();
+        }
 
-    CHAT__ASSERT(stmt.rows_affected() > 0, "Non-unique ID generated for message");
+        return editor_type::make(message::id{}, _rep.dbh, _rep.table_name);
+    } else {
+        bool modification = editor.message_id() != message::id{};
 
-    BACKEND::invalidate_cache(& _rep);
-    return editor_type::make(message_id, _rep.dbh, _rep.table_name);
+        if (!modification) {
+            // Create/save new message
+            auto message_id = message::id_generator{}.next();
+            auto creation_time = pfs::current_utc_time_point();
+
+            auto stmt = _rep.dbh->prepare(fmt::format(INSERT_MESSAGE, _rep.table_name));
+
+            CHAT__ASSERT(!!stmt, "");
+
+            stmt.bind(":message_id", message_id);
+            stmt.bind(":author_id", _rep.me);
+            stmt.bind(":creation_time", creation_time);
+            stmt.bind(":modification_time", creation_time);
+            stmt.bind(":content", editor.content());
+
+            stmt.exec();
+
+            CHAT__ASSERT(stmt.rows_affected() > 0, "Non-unique ID generated for message");
+
+            BACKEND::invalidate_cache(& _rep);
+            return editor_type::make(message_id, _rep.dbh, _rep.table_name);
+        } else {
+            // Modify content
+            auto stmt = _rep.dbh->prepare(fmt::format(MODIFY_CONTENT, _rep.table_name));
+
+            CHAT__ASSERT(!!stmt, "");
+
+            auto now = pfs::current_utc_time_point();
+
+            stmt.bind(":content", editor.content());
+            stmt.bind(":message_id", editor.message_id());
+            stmt.bind(":modification_time", now);
+            stmt.exec();
+            return editor_type::make(editor.message_id(), _rep.dbh, _rep.table_name);
+        }
+    }
 }
 
 static std::string const SELECT_OUTGOING_CONTENT {
@@ -351,7 +402,7 @@ static std::string const SELECT_OUTGOING_CONTENT {
 
 template <>
 conversation<BACKEND>::editor_type
-conversation<BACKEND>::open (message::message_id message_id)
+conversation<BACKEND>::open (message::id message_id)
 {
     auto stmt = _rep.dbh->prepare(fmt::format(SELECT_OUTGOING_CONTENT, _rep.table_name));
 
@@ -363,7 +414,7 @@ conversation<BACKEND>::open (message::message_id message_id)
     auto res = stmt.exec();
 
     if (res.has_more()) {
-        message::message_id message_id;
+        message::id message_id;
         pfs::optional<std::string> content_data;
 
         res["message_id"] >> message_id;
@@ -421,7 +472,7 @@ static std::string const SELECT_MESSAGE {
 
 template <>
 pfs::optional<message::message_credentials>
-conversation<BACKEND>::message (message::message_id message_id) const
+conversation<BACKEND>::message (message::id message_id) const
 {
     // Check cache
     if (!_rep.cache.dirty) {
@@ -505,8 +556,8 @@ static std::string const UPDATE_INCOMING_MESSAGE {
  */
 template <>
 void
-conversation<BACKEND>::save_incoming (message::message_id message_id
-    , contact::contact_id author_id
+conversation<BACKEND>::save_incoming (message::id message_id
+    , contact::id author_id
     , pfs::utc_time_point const & creation_time
     , std::string const & content)
 {
@@ -524,7 +575,7 @@ conversation<BACKEND>::save_incoming (message::message_id message_id
                     , m->author_id, author_id)
             };
 
-            CHAT__THROW(err);
+            throw err;
         }
 
         // Content is different
@@ -621,7 +672,7 @@ conversation<BACKEND>::for_each (std::function<void(message::message_credentials
         pfs::optional<std::string> content_data;
         message::message_credentials m;
 
-        res["message_id"]          >> m.id;
+        res["message_id"]          >> m.message_id;
         res["author_id"]           >> m.author_id;
         res["creation_time"]       >> m.creation_time;
         res["modification_time"]   >> m.modification_time;

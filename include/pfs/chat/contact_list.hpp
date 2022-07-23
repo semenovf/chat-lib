@@ -75,7 +75,7 @@ public:
      *
      * @throw debby::error on storage error.
      */
-    void remove (contact::contact_id id);
+    void remove (contact::id id);
 
     /**
      * Get contact by @a id. On error returns invalid contact.
@@ -84,7 +84,7 @@ public:
      *
      * @throw debby::error on storage error.
      */
-    contact::contact get (contact::contact_id id) const;
+    contact::contact get (contact::id id) const;
 
     /**
      * Get contact by @a offset. On error returns invalid contact.

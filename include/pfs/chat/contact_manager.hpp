@@ -29,12 +29,12 @@ public:
         friend class contact_manager;
 
         contact_manager * _pmanager{nullptr};
-        contact::contact_id _id;
+        contact::id _id;
 
     private:
         group_ref () : _pmanager(nullptr) {}
 
-        group_ref (contact::contact_id id, contact_manager * pmanager)
+        group_ref (contact::id id, contact_manager * pmanager)
             : _pmanager(pmanager)
             , _id(id)
         {}
@@ -54,7 +54,7 @@ public:
          *
          * @throw debby::error on storage error.
          */
-        CHAT__EXPORT bool add_member_unchecked (contact::contact_id member_id);
+        CHAT__EXPORT bool add_member_unchecked (contact::id member_id);
 
         /**
          * Adds member specified by @a member_id to the group specified by @a group_id
@@ -67,14 +67,14 @@ public:
          * @throw chat::error{errc::contact_not_found} Contact not found by @a member_id.
          * @throw chat::error{errc::unsuitable_group_member} @a member_id is not a person contact id
          */
-        CHAT__EXPORT bool add_member (contact::contact_id member_id);
+        CHAT__EXPORT bool add_member (contact::id member_id);
 
         /**
          * Removes member from group.
          *
          * @throw debby::error on storage error.
          */
-        CHAT__EXPORT void remove_member (contact::contact_id member_id);
+        CHAT__EXPORT void remove_member (contact::id member_id);
 
         /**
          * Removes all members from group.
@@ -95,7 +95,7 @@ public:
          *
          * @throw debby::error on storage error.
          */
-        CHAT__EXPORT bool is_member_of (contact::contact_id member_id) const;
+        CHAT__EXPORT bool is_member_of (contact::id member_id) const;
 
         /**
          * Count of members in group.
@@ -160,7 +160,7 @@ public:
      * Add group contact. @a creator_id also added to group.
      *
      */
-    CHAT__EXPORT bool add (contact::group const & g, contact::contact_id creator_id);
+    CHAT__EXPORT bool add (contact::group const & g, contact::id creator_id);
 
     /**
      * Updates contact.
@@ -179,11 +179,11 @@ public:
     bool update (contact::person const & p)
     {
         contact::contact c {
-              p.id
+              p.contact_id
             , p.alias
             , p.avatar
             , p.description
-            , p.id
+            , p.contact_id
             , chat::contact::type_enum::person
         };
 
@@ -201,7 +201,7 @@ public:
     bool update (contact::group const & g)
     {
         contact::contact c {
-              g.id
+              g.contact_id
             , g.alias
             , g.avatar
             , g.description
@@ -212,7 +212,7 @@ public:
 
     /**
     * Adds person contact if the update attempt fails.
-    * 
+    *
     * @throw debby::error on storage error.
     */
     CHAT__EXPORT void add_or_update (contact::person const & c);
@@ -223,7 +223,7 @@ public:
      *
      * @throw debby::error on storage error.
      */
-    CHAT__EXPORT group_ref gref (contact::contact_id group_id);
+    CHAT__EXPORT group_ref gref (contact::id group_id);
 
     /**
      * Removes contact.
@@ -234,14 +234,14 @@ public:
      *
      * @throw debby::error on storage error.
      */
-    CHAT__EXPORT void remove (contact::contact_id id);
+    CHAT__EXPORT void remove (contact::id id);
 
     /**
      * Get contact by @a id. On error returns invalid contact.
      *
      * @throw debby::error on storage error.
      */
-    CHAT__EXPORT contact::contact get (contact::contact_id id) const;
+    CHAT__EXPORT contact::contact get (contact::id id) const;
 
     /**
      * Get contact by @a offset. On error returns invalid contact.

@@ -118,7 +118,7 @@ public:
     using conversation_type = typename message_store_type::conversation_type;
 
 public:
-    static message::message_id const CONTACT_MESSAGE;
+    static message::id const CONTACT_MESSAGE;
 
 private:
     std::unique_ptr<contact_manager_type> _contact_manager;
@@ -130,29 +130,29 @@ public: // Callbacks
     mutable std::function<void (std::string const &)> failure;
 
     mutable std::function<bool (
-          contact::contact_id
-        , message::message_id
+          contact::id
+        , message::id
         , std::string const & /*data*/)> dispatch_data;
 
-    mutable std::function<void (contact::contact_id /*addressee*/
-        , message::message_id /*message_id*/)> about_to_dispatch_message;
+    mutable std::function<void (contact::id /*addressee*/
+        , message::id /*message_id*/)> about_to_dispatch_message;
 
-    mutable std::function<void (contact::contact_id /*addressee*/
-        , message::message_id /*message_id*/
+    mutable std::function<void (contact::id /*addressee*/
+        , message::id /*message_id*/
         , pfs::utc_time_point /*dispatched_time*/)> message_dispatched;
 
-    mutable std::function<void (contact::contact_id /*author*/
-        , message::message_id /*message_id*/)> message_received;
+    mutable std::function<void (contact::id /*author*/
+        , message::id /*message_id*/)> message_received;
 
-    mutable std::function<void (contact::contact_id /*addressee*/
-        , message::message_id /*message_id*/
+    mutable std::function<void (contact::id /*addressee*/
+        , message::id /*message_id*/
         , pfs::utc_time_point /*delivered_time*/)> message_delivered;
 
-    mutable std::function<void (contact::contact_id /*addressee*/
-        , message::message_id /*message_id*/
+    mutable std::function<void (contact::id /*addressee*/
+        , message::id /*message_id*/
         , pfs::utc_time_point /*read_time*/)> message_read;
 
-    mutable std::function<void (contact::contact_id)> contact_added;
+    mutable std::function<void (contact::id)> contact_added;
 
 public:
     messenger (std::unique_ptr<contact_manager_type> && contact_manager
@@ -205,7 +205,7 @@ public:
      * @return @c false on error or @c true if contact added was successfully
      *         or it is already a member of the specified group.
      */
-    bool add_member (contact::contact_id group_id, contact::contact_id member_id)
+    bool add_member (contact::id group_id, contact::id member_id)
     {
         auto group_ref = _contact_manager->gref(group_id);
 
@@ -222,7 +222,7 @@ public:
      * Removes member specified by @a member_id from the group specified
      * by @a group_id.
      */
-    void remove_member (contact::contact_id group_id, contact::contact_id member_id)
+    void remove_member (contact::id group_id, contact::id member_id)
     {
         auto group_ref = _contact_manager->gref(group_id);
 
@@ -239,7 +239,7 @@ public:
      * Removes all members from the group specified by @a group_id.
      *
      */
-    void remove_all_members (contact::contact_id group_id)
+    void remove_all_members (contact::id group_id)
     {
         auto group_ref = _contact_manager->gref(group_id);
 
@@ -255,7 +255,7 @@ public:
     /**
       * Get members of the specified group.
       */
-    std::vector<contact::contact> members (contact::contact_id group_id) const
+    std::vector<contact::contact> members (contact::id group_id) const
     {
         auto group_ref = _contact_manager->gref(group_id);
 
@@ -271,7 +271,7 @@ public:
     /**
      * Count of contacts in specified group.
      */
-    std::size_t members_count (contact::contact_id group_id) const
+    std::size_t members_count (contact::id group_id) const
     {
         auto group_ref = _contact_manager->gref(group_id);
 
@@ -285,7 +285,7 @@ public:
     /**
      * Checks if contact @a member_id is the member of group @a group_id.
      */
-    bool is_member_of (contact::contact_id group_id, contact::contact_id member_id) const
+    bool is_member_of (contact::id group_id, contact::id member_id) const
     {
         auto group_ref = _contact_manager->gref(group_id);
 
@@ -306,31 +306,31 @@ public:
     /**
      * Add person contact.
      *
-     * @return Identifier of just added contact or @c chat::contact::contact_id{}
+     * @return Identifier of just added contact or @c chat::contact::id{}
      *         on error.
      */
-    contact::contact_id add (contact::person c)
+    contact::id add (contact::person c)
     {
-        if (c.id == contact::contact_id{})
-            c.id = _contact_id_generator.next();
+        if (c.contact_id == contact::id{})
+            c.contact_id = _contact_id_generator.next();
 
         auto success = _contact_manager->add(c);
-        return success ? c.id : contact::contact_id{};
+        return success ? c.contact_id : contact::id{};
     }
 
     /**
      * Add group contact.
      *
-     * @return Identifier of just added contact or @c chat::contact::contact_id{}
+     * @return Identifier of just added contact or @c chat::contact::id{}
      *         on error.
      */
-    contact::contact_id add (contact::group g, contact::contact_id creator_id)
+    contact::id add (contact::group g, contact::id creator_id)
     {
-        if (g.id == contact::contact_id{})
-            g.id = _contact_id_generator.next();
+        if (g.contact_id == contact::id{})
+            g.contact_id = _contact_id_generator.next();
 
         auto success = _contact_manager->add(g, creator_id);
-        return success ? g.id : contact::contact_id{};
+        return success ? g.contact_id : contact::id{};
     }
 
     /**
@@ -361,7 +361,7 @@ public:
      *          will be removed. If @a id is a person contact membership will
      *          be removed in case of group participation.
      */
-    void remove (contact::contact_id id)
+    void remove (contact::id id)
     {
         _contact_manager->remove(id);
     }
@@ -370,7 +370,7 @@ public:
      * Get contact by @a id. On error returns invalid contact.
      */
     contact::contact
-    contact (contact::contact_id id) const noexcept
+    contact (contact::id id) const noexcept
     {
         return _contact_manager->get(id);
     }
@@ -407,7 +407,7 @@ public:
         _contact_manager->for_each_until(std::forward<F>(f));
     }
 
-    conversation_type conversation (contact::contact_id addressee_id) const
+    conversation_type conversation (contact::id addressee_id) const
     {
         // Check for contact exists
         auto c = contact(addressee_id);
@@ -415,7 +415,7 @@ public:
         if (!is_valid(c)) {
             // Invalid addressee ID to generate invalid conversation
             //failure(fmt::format("No contact found: {}", addressee_id));
-            addressee_id = contact::contact_id{};
+            addressee_id = contact::id{};
             return conversation_type{};
         }
 
@@ -430,7 +430,7 @@ public:
         std::size_t result = 0;
 
         for_each_contact([this, & result] (contact::contact const & c) {
-            auto conv = conversation(c.id);
+            auto conv = conversation(c.contact_id);
 
             if (conv)
                 result += conv.unread_messages_count();
@@ -448,11 +448,11 @@ public:
     /**
      * Dispatch message (original or edited)
      */
-    bool dispatch_message (contact::contact_id addressee
+    bool dispatch_message (contact::id addressee
         , message::message_credentials const & msg)
     {
         protocol::original_message m;
-        m.message_id    = msg.id;
+        m.message_id    = msg.message_id;
         m.author_id     = msg.author_id;
         m.creation_time = msg.creation_time;
         m.content       = msg.contents.has_value() ? to_string(*msg.contents) : std::string{};
@@ -461,18 +461,18 @@ public:
         out << m;
 
         if (about_to_dispatch_message)
-            about_to_dispatch_message(addressee, msg.id);
+            about_to_dispatch_message(addressee, msg.message_id);
 
         PFS__ASSERT(!!dispatch_data, "dispatch_data callback must be initialized");
-        auto success = dispatch_data(addressee, msg.id, out.data());
+        auto success = dispatch_data(addressee, msg.message_id, out.data());
         return success;
     }
 
     /**
      * Dispatch read notification.
      */
-    bool dispatch_read_notification (contact::contact_id addressee_id
-        , message::message_id message_id
+    bool dispatch_read_notification (contact::id addressee_id
+        , message::id message_id
         , pfs::utc_time_point read_time)
     {
         // Process (mark as read) incoming message.
@@ -480,7 +480,7 @@ public:
 
         protocol::read_notification m;
         m.message_id = message_id;
-        m.addressee_id = my_contact().id; // Addressee is me
+        m.addressee_id = my_contact().contact_id; // Addressee is me
         m.read_time = read_time;
 
         typename serializer_type::output_packet_type out {};
@@ -492,21 +492,21 @@ public:
     /**
      * Dispatch contact credentials.
      */
-    bool dispatch_contact (contact::contact_id addressee)
+    bool dispatch_contact (contact::id addressee)
     {
         auto me = my_contact();
 
-        protocol::contact_credentials m {{
-              me.id
+        protocol::contact_credentials c {{
+              me.contact_id
             , me.alias
             , me.avatar
             , me.description
-            , me.id
+            , me.contact_id
             , chat::contact::type_enum::person
         }};
 
         typename serializer_type::output_packet_type out {};
-        out << m;
+        out << c;
         auto success = dispatch_data(addressee, CONTACT_MESSAGE, out.data());
         return success;
     }
@@ -515,7 +515,7 @@ public:
      * Dispatch messages limited by @a max_count that not dispatched or not delivered
      * (received on opponent side) status.
      */
-    void dispatch_delayed_messages (contact::contact_id addressee_id, int max_count = -1)
+    void dispatch_delayed_messages (contact::id addressee_id, int max_count = -1)
     {
         auto conv = conversation(addressee_id);
 
@@ -534,7 +534,7 @@ public:
     /**
      * Process received data.
      */
-    void process_received_data (contact::contact_id author, std::string const & data)
+    void process_received_data (contact::id author, std::string const & data)
     {
         typename serializer_type::input_packet_type in {data};
         protocol::packet_type_enum packet_type;
@@ -542,20 +542,20 @@ public:
 
         switch (packet_type) {
             case protocol::packet_type_enum::contact_credentials: {
-                protocol::contact_credentials m;
-                in >> m;
+                protocol::contact_credentials c;
+                in >> c;
 
-                switch (m.contact.type) {
+                switch (c.contact.type) {
                     case contact::type_enum::person: {
                         contact::person p;
-                        p.id = m.contact.id;
-                        p.alias = std::move(m.contact.alias);
-                        p.avatar = std::move(m.contact.avatar);
-                        p.description = std::move(m.contact.description);
+                        p.contact_id = c.contact.contact_id;
+                        p.alias = std::move(c.contact.alias);
+                        p.avatar = std::move(c.contact.avatar);
+                        p.description = std::move(c.contact.description);
 
                         auto id = add(std::move(p));
 
-                        if (id != contact::contact_id{}) {
+                        if (id != contact::id{}) {
                             if (contact_added)
                                 contact_added(id);
                         }
@@ -565,15 +565,15 @@ public:
 
                     case contact::type_enum::group: {
                         contact::group g;
-                        g.id = m.contact.id;
-                        g.creator_id = m.contact.creator_id;
-                        g.alias = std::move(m.contact.alias);
-                        g.avatar = std::move(m.contact.avatar);
-                        g.description = std::move(m.contact.description);
+                        g.contact_id = c.contact.contact_id;
+                        g.creator_id = c.contact.creator_id;
+                        g.alias = std::move(c.contact.alias);
+                        g.avatar = std::move(c.contact.avatar);
+                        g.description = std::move(c.contact.description);
 
-                        auto id = add(std::move(g), m.contact.creator_id);
+                        auto id = add(std::move(g), c.contact.creator_id);
 
-                        if (id != contact::contact_id{}) {
+                        if (id != contact::id{}) {
                             if (contact_added)
                                 contact_added(id);
                         }
@@ -587,7 +587,7 @@ public:
 
                     default:
                         failure(fmt::format("Unsupported contact type: {}"
-                            , static_cast<int>(m.contact.type)));
+                            , static_cast<int>(c.contact.type)));
                         break;
                 }
 
@@ -600,7 +600,7 @@ public:
                 auto conv = this->conversation(m.author_id);
 
                 if (conv) {
-                    TRY {
+                    try {
                         message::content content{m.content};
                         conv.save_incoming(m.message_id
                             , m.author_id
@@ -617,13 +617,11 @@ public:
                         // Notify message received
                         if (message_received)
                             message_received(m.author_id, m.message_id);
-                    } CATCH (error ex) {
-#if PFS__EXCEPTIONS_ENABLED
+                    } catch (error ex) {
                         failure(fmt::format("Bad/corrupted content in "
                             "incoming message {} from: {}"
                             , m.message_id
                             , author));
-#endif
                     }
                 }
                 break;
@@ -661,8 +659,8 @@ public:
     /**
      * Process notification of message dispatched to @a addressee.
      */
-    void dispatched (contact::contact_id addressee
-        , message::message_id message_id
+    void dispatched (contact::id addressee
+        , message::id message_id
         , pfs::utc_time_point dispatched_time)
     {
         // This is a contact message, ignore it
@@ -689,13 +687,13 @@ private:
     /**
      * Dispatch received notification.
      */
-    bool dispatch_received_notification (contact::contact_id addressee_id
-        , message::message_id message_id
+    bool dispatch_received_notification (contact::id addressee_id
+        , message::id message_id
         , pfs::utc_time_point received_time)
     {
         protocol::delivery_notification m;
         m.message_id     = message_id;
-        m.addressee_id   = my_contact().id; // Addressee is me
+        m.addressee_id   = my_contact().contact_id; // Addressee is me
         m.delivered_time = received_time;
 
         typename serializer_type::output_packet_type out {};
@@ -707,8 +705,8 @@ private:
     /**
      * Process notification of message delivered to @a addressee.
      */
-    void process_delivered_notification (contact::contact_id addressee
-        , message::message_id message_id
+    void process_delivered_notification (contact::id addressee
+        , message::id message_id
         , pfs::utc_time_point delivered_time)
     {
         auto conv = this->conversation(addressee);
@@ -724,17 +722,17 @@ private:
     /**
      * Process notification of message read by @a addressee.
      */
-    void process_read_notification (contact::contact_id addressee
-        , message::message_id message_id
+    void process_read_notification (contact::id addressee_id
+        , message::id message_id
         , pfs::utc_time_point read_time)
     {
-        auto conv = this->conversation(addressee);
+        auto conv = this->conversation(addressee_id);
 
         if (conv) {
             conv.mark_read(message_id, read_time);
 
             if (message_read)
-                message_read(addressee, message_id, read_time);
+                message_read(addressee_id, message_id, read_time);
         }
     }
 };
@@ -742,7 +740,7 @@ private:
 template <typename ContactManagerBackend
     , typename MessageStoreBackend
     , typename SerializerBackend>
-message::message_id const
+message::id const
 messenger<ContactManagerBackend, MessageStoreBackend, SerializerBackend>
     ::CONTACT_MESSAGE {"00000000000000000000000001"_uuid};
 

@@ -29,30 +29,30 @@ struct contact_credentials
 
 struct original_message
 {
-    message::message_id message_id;
-    contact::contact_id author_id;
+    message::id message_id;
+    contact::id author_id;
     pfs::utc_time_point creation_time;
     std::string         content;
 };
 
 struct delivery_notification
 {
-    message::message_id message_id;
-    contact::contact_id addressee_id;
+    message::id message_id;
+    contact::id addressee_id;
     pfs::utc_time_point delivered_time;
 };
 
 struct read_notification
 {
-    message::message_id message_id;
-    contact::contact_id addressee_id;
+    message::id message_id;
+    contact::id addressee_id;
     pfs::utc_time_point read_time;
 };
 
 struct edited_message
 {
-    message::message_id message_id;
-    contact::contact_id author_id;
+    message::id message_id;
+    contact::id author_id;
     pfs::utc_time_point modification_time;
     std::string         content;
 };

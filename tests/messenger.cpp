@@ -147,8 +147,8 @@ TEST_CASE("messenger") {
 ////////////////////////////////////////////////////////////////////////////////
     std::string last_data_sent;
 
-    auto send_message = [& last_data_sent] (chat::contact::contact_id addressee
-        , chat::message::message_id message_id
+    auto send_message = [& last_data_sent] (chat::contact::id addressee
+        , chat::message::id message_id
         , std::string const & data) {
 
         fmt::print(fmt::format("Send message {} to {}\n"
@@ -169,16 +169,16 @@ TEST_CASE("messenger") {
     REQUIRE(*messenger1);
     REQUIRE(*messenger2);
 
-    auto received_callback = [] (chat::contact::contact_id author_id
-        , chat::message::message_id message_id) {
+    auto received_callback = [] (chat::contact::id author_id
+        , chat::message::id message_id) {
 
         fmt::print("Message received from #{}: #{}\n"
             , to_string(author_id)
             , to_string(message_id));
     };
 
-    auto dispatched_callback = [] (chat::contact::contact_id addressee
-        , chat::message::message_id message_id
+    auto dispatched_callback = [] (chat::contact::id addressee
+        , chat::message::id message_id
         , pfs::utc_time_point /*dispatched_time*/) {
 
         fmt::print("Message dispatched for #{}: #{}\n"
@@ -186,8 +186,8 @@ TEST_CASE("messenger") {
             , to_string(message_id));
     };
 
-    auto delivered_callback = [] (chat::contact::contact_id addressee
-        , chat::message::message_id message_id
+    auto delivered_callback = [] (chat::contact::id addressee
+        , chat::message::id message_id
         , pfs::utc_time_point /*delivered_time*/) {
 
         fmt::print("Message delivered for #{}: #{}\n"
@@ -195,8 +195,8 @@ TEST_CASE("messenger") {
             , to_string(message_id));
     };
 
-    auto read_callback = [] (chat::contact::contact_id addressee
-        , chat::message::message_id message_id
+    auto read_callback = [] (chat::contact::id addressee
+        , chat::message::id message_id
         , pfs::utc_time_point /*read_time*/) {
 
         fmt::print("Message read for #{}: #{}\n"
@@ -264,17 +264,17 @@ TEST_CASE("messenger") {
     REQUIRE_EQ(contact1.alias, contactAlias1);
     REQUIRE_EQ(contact2.alias, contactAlias2);
 
-    REQUIRE_NE(messenger1->add(contact2), chat::contact::contact_id{});
-    REQUIRE_NE(messenger2->add(contact1), chat::contact::contact_id{});
+    REQUIRE_NE(messenger1->add(contact2), chat::contact::id{});
+    REQUIRE_NE(messenger2->add(contact1), chat::contact::id{});
 
-    REQUIRE_EQ(messenger1->add(contact2), chat::contact::contact_id{}); // Already exists
-    REQUIRE_EQ(messenger2->add(contact1), chat::contact::contact_id{}); // Already exists
+    REQUIRE_EQ(messenger1->add(contact2), chat::contact::id{}); // Already exists
+    REQUIRE_EQ(messenger2->add(contact1), chat::contact::id{}); // Already exists
 
     REQUIRE(messenger1->update(contact2)); // Ok, attempt to update
     REQUIRE(messenger2->update(contact1)); // Ok, attempt to update
 
-    REQUIRE_NE(messenger1->add(contact3), chat::contact::contact_id{});
-    REQUIRE_NE(messenger2->add(contact3), chat::contact::contact_id{});
+    REQUIRE_NE(messenger1->add(contact3), chat::contact::id{});
+    REQUIRE_NE(messenger2->add(contact3), chat::contact::id{});
 
     REQUIRE_EQ(messenger1->contacts_count(), 2);
     REQUIRE_EQ(messenger2->contacts_count(), 2);
@@ -283,7 +283,7 @@ TEST_CASE("messenger") {
 // Step 5.1 Add group contact
 ////////////////////////////////////////////////////////////////////////////////
     chat::contact::group group1 {groupId1, groupAlias1};
-    REQUIRE_NE(messenger1->add(group1, contactId1), chat::contact::contact_id{});
+    REQUIRE_NE(messenger1->add(group1, contactId1), chat::contact::id{});
     REQUIRE(messenger1->add_member(groupId1, contactId2));
     REQUIRE(messenger1->add_member(groupId1, contactId3));
 
@@ -313,7 +313,7 @@ TEST_CASE("messenger") {
         // auto editor = conversation.create();
     }
 
-    chat::message::message_id last_message_id;
+    chat::message::id last_message_id;
 
     {
         auto conversation = messenger1->conversation(contactId2);
@@ -329,7 +329,7 @@ TEST_CASE("messenger") {
 
         editor.attach(f1);
         editor.attach(f2);
-        editor.save();
+        editor = conversation.save(editor);
     }
 
     {
@@ -378,7 +378,7 @@ TEST_CASE("messenger") {
 ////////////////////////////////////////////////////////////////////////////////
 // Step 7.1 Write group message
 ////////////////////////////////////////////////////////////////////////////////
-    chat::message::message_id last_group_message_id;
+    chat::message::id last_group_message_id;
 
     {
         auto conversation = messenger1->conversation(groupId1);
@@ -394,7 +394,7 @@ TEST_CASE("messenger") {
 
         editor.attach(f1);
         editor.attach(f2);
-        editor.save();
+        editor = conversation.save(editor);
     }
 
 ////////////////////////////////////////////////////////////////////////////////

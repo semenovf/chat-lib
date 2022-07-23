@@ -35,10 +35,10 @@ private:
     CHAT__EXPORT editor (rep_type && rep);
     editor (editor const & other) = delete;
     editor & operator = (editor const & other) = delete;
-    editor & operator = (editor && other) = delete;
 
 public:
     editor (editor && other) = default;
+    CHAT__EXPORT editor & operator = (editor && other);
     ~editor () = default;
 
 public:
@@ -57,8 +57,19 @@ public:
      */
     CHAT__EXPORT void add_html (std::string const & text);
 
-//     bool add_audio (message::resource_id rc)
-//     bool add_video (message::resource_id rc)
+    /**
+     * Add audio to message content.
+     *
+     * TODO Implement
+     */
+    //CHAT__EXPORT void add_audio (pfs::filesystem::path const & path);
+
+    /**
+     * Add video to message content.
+     *
+     * TODO Implement
+     */
+    //CHAT__EXPORT void add_video (pfs::filesystem::path const & path);
 
     /**
      * Add attachment to message content.
@@ -68,11 +79,9 @@ public:
     CHAT__EXPORT void attach (pfs::filesystem::path const & path);
 
     /**
-     * Save message content.
-     *
-     * @throw debby::error.
+     * Clear message content.
      */
-    CHAT__EXPORT void save ();
+    CHAT__EXPORT void clear ();
 
     /**
      * Get message content.
@@ -82,7 +91,7 @@ public:
     /**
      * Get message ID.
      */
-    CHAT__EXPORT message::message_id message_id () const noexcept;
+    CHAT__EXPORT message::id message_id () const noexcept;
 
 public:
     template <typename ...Args>

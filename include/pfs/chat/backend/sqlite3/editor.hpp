@@ -20,21 +20,17 @@ struct editor
 {
     struct rep_type
     {
-        shared_db_handle    dbh;
-        std::string         table_name;
-        message::message_id message_id;
-        message::content    content;
-
-        // - `true` if editor opened for message modification;
-        // - `false` if editor opened for just created message.
-        bool modification {false};
+        shared_db_handle dbh;
+        std::string      table_name;
+        message::id      message_id;
+        message::content content;
     };
 
-    static CHAT__EXPORT rep_type make (message::message_id message_id
+    static CHAT__EXPORT rep_type make (message::id message_id
         , shared_db_handle dbh
         , std::string const & table_name);
 
-    static CHAT__EXPORT rep_type make (message::message_id message_id
+    static CHAT__EXPORT rep_type make (message::id message_id
         , message::content && content
         , shared_db_handle dbh
         , std::string const & table_name);

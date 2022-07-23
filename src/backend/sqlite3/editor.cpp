@@ -7,11 +7,12 @@
 //      2021.01.04 Initial version.
 //      2022.02.17 Refactored totally.
 ////////////////////////////////////////////////////////////////////////////////
-#include "content_traits.hpp"
 #include "pfs/bits/compiler.h"
-#include "pfs/sha256.hpp"
 #include "pfs/chat/editor.hpp"
+#include "pfs/chat/file_cache.hpp"
 #include "pfs/chat/backend/sqlite3/editor.hpp"
+#include "pfs/i18n.hpp"
+#include "pfs/sha256.hpp"
 #include <fstream>
 
 #if PFS_COMPILER_MSVC
@@ -35,7 +36,7 @@ namespace backend {
 namespace sqlite3 {
 
 editor::rep_type
-editor::make (message::message_id message_id
+editor::make (message::id message_id
     , shared_db_handle dbh
     , std::string const & table_name)
 {
@@ -44,13 +45,12 @@ editor::make (message::message_id message_id
     rep.dbh = dbh;
     rep.table_name = table_name;
     rep.message_id = message_id;
-    rep.modification  = false;
 
     return rep;
 }
 
 editor::rep_type
-editor::make (message::message_id message_id
+editor::make (message::id message_id
     , message::content && content
     , shared_db_handle dbh
     , std::string const & table_name)
@@ -61,7 +61,6 @@ editor::make (message::message_id message_id
     rep.table_name = table_name;
     rep.message_id = message_id;
     rep.content    = std::move(content);
-    rep.modification  = false;
 
     return rep;
 }
@@ -76,115 +75,75 @@ editor<BACKEND>::editor (rep_type && rep)
 {}
 
 template <>
+editor<BACKEND> & editor<BACKEND>::operator = (editor && other) = default;
+
+template <>
 editor<BACKEND>::operator bool () const noexcept
 {
-    return _rep.message_id != message::message_id{};
+    return _rep.message_id != message::id{};
 }
 
 template <>
 void
 editor<BACKEND>::add_text (std::string const & text)
 {
-    _rep.content.add(message::mime_enum::text__plain, text);
+    _rep.content.add_text(text);
 }
 
 template <>
 void
 editor<BACKEND>::add_html (std::string const & text)
 {
-    _rep.content.add(message::mime_enum::text__html, text);
-}
-
-namespace {
-    std::string const FILE_NOTFOUND_ERROR {"file not found"};
-    std::string const NOT_REGULAR_FILE_ERROR {"attachment must be a regular file"};
-    std::string const SHA256_GENERATION_ERROR {"SHA256 generation failure"};
+    _rep.content.add_html(text);
 }
 
 template <>
 void
 editor<BACKEND>::attach (fs::path const & path)
 {
+    namespace fs = pfs::filesystem;
+
     auto utf8_path = path.is_absolute()
         ? fs::utf8_encode(path)
         : fs::utf8_encode(fs::absolute(path));
     std::string errdesc;
 
-    if (fs::exists(path)) {
-        if (fs::is_regular_file(path)) {
-            std::ifstream ifs {utf8_path, std::ios::binary};
+    if (!fs::exists(path))
+        throw error {errc::attachment_failure, utf8_path, tr::_("file not found")};
 
-            if (ifs.is_open()) {
-                std::ifstream::pos_type file_size;
-                bool success = true;
+    if (!fs::is_regular_file(path))
+        throw error {errc::attachment_failure, utf8_path, tr::_("attachment must be a regular file")};
 
-                try {
-                    ifs.seekg(0, ifs.end);
-                    file_size = ifs.tellg();
-                    ifs.seekg (0, ifs.beg);
-                } catch (std::ios_base::failure const & ex) {
-                    errdesc = ex.what();
-                    success = false;
-                }
+    std::error_code ec;
+    auto file_size = fs::file_size(path, ec);
 
-                if (success) {
-                    CHAT__ASSERT(file_size != std::ifstream::pos_type{-1}, "");
+    if (ec)
+        throw error {errc::attachment_failure, utf8_path, ec.message()};
 
-                    auto digest = pfs::crypto::sha256::digest(ifs, & success);
+    std::ifstream ifs {utf8_path, std::ios::binary};
 
-                    if (success) {
-                        _rep.content.attach(utf8_path, file_size, to_string(digest));
-                        return;
-                    } else {
-                        errdesc = SHA256_GENERATION_ERROR;
-                    }
-                }
-            }
-        } else {
-            errdesc = NOT_REGULAR_FILE_ERROR;
-        }
-    } else {
-        errdesc = FILE_NOTFOUND_ERROR;
-    }
+    if (!ifs.is_open())
+        throw error {errc::attachment_failure, utf8_path, tr::_("failed to open")};
 
-    error err {
-          errc::attachment_failure
-        , utf8_path
-        , errdesc
-    };
+    bool success = true;
+    auto digest = pfs::crypto::sha256::digest(ifs, & success);
 
-    CHAT__THROW(err);
+    using pfs::crypto::to_string;
+
+    if (!success)
+        throw error {errc::attachment_failure, utf8_path, tr::_("SHA256 generation failure")};
+
+    auto file_id = file::id_generator{}.next();
+
+    _rep.content.attach(file_id, fs::utf8_encode(path.filename())
+        , file_size, to_string(digest));
 }
-
-static std::string const SAVE_CONTENT {
-    "UPDATE OR IGNORE `{}` SET `content` = :content"
-    " WHERE `message_id` = :message_id"
-};
-
-static std::string const MODIFY_CONTENT {
-    "UPDATE OR IGNORE `{}` SET `content` = :content"
-    ", `modification_time` = :modification_time"
-    " WHERE `message_id` = :message_id"
-};
 
 template <>
 void
-editor<BACKEND>::save ()
+editor<BACKEND>::clear ()
 {
-    std::string const * sql = _rep.modification ? & MODIFY_CONTENT : & SAVE_CONTENT;
-    auto stmt = _rep.dbh->prepare(fmt::format(*sql, _rep.table_name));
-
-    CHAT__ASSERT(!!stmt, "");
-
-    auto now = pfs::current_utc_time_point();
-
-    stmt.bind(":content", _rep.content);
-    stmt.bind(":message_id", _rep.message_id);
-
-    if (_rep.modification)
-        stmt.bind(":modification_time", now);
-
-    stmt.exec();
+    _rep.content.clear();
 }
 
 template <>
@@ -195,7 +154,7 @@ editor<BACKEND>::content () const noexcept
 }
 
 template <>
-message::message_id
+message::id
 editor<BACKEND>::message_id () const noexcept
 {
     return _rep.message_id;

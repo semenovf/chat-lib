@@ -30,7 +30,7 @@ struct contact_list
         int limit;
         int sort_flags;
         std::vector<contact::contact> data;
-        std::map<contact::contact_id, std::size_t> map;
+        std::map<contact::id, std::size_t> map;
     };
 
     struct rep_type

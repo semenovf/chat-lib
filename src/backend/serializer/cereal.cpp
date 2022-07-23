@@ -140,7 +140,7 @@ serializer::input_packet::operator >> <protocol::contact_credentials> (
     protocol::contact_credentials & target)
 {
     // Note: packet type must be read before
-    _ar >> target.contact.id
+    _ar >> target.contact.contact_id
         >> target.contact.creator_id
         >> target.contact.alias
         >> target.contact.avatar
@@ -156,7 +156,7 @@ serializer::output_packet::operator << <protocol::contact_credentials> (
     protocol::contact_credentials const & payload)
 {
     _ar << protocol::packet_type_enum::contact_credentials
-        << payload.contact.id
+        << payload.contact.contact_id
         << payload.contact.creator_id
         << payload.contact.alias
         << payload.contact.avatar

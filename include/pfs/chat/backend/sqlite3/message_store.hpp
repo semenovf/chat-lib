@@ -26,10 +26,10 @@ struct message_store
     struct rep_type
     {
         shared_db_handle dbh;
-        contact::contact_id me;
+        contact::id me;
     };
 
-    static CHAT__EXPORT rep_type make (contact::contact_id me, shared_db_handle dbh);
+    static CHAT__EXPORT rep_type make (contact::id me, shared_db_handle dbh);
 };
 
 }}} // namespace chat::backend::sqlite3

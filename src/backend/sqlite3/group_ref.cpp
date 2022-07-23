@@ -23,7 +23,7 @@ std::string const INSERT_MEMBER {
 
 template <>
 bool
-contact_manager<BACKEND>::group_ref::add_member_unchecked (contact::contact_id member_id)
+contact_manager<BACKEND>::group_ref::add_member_unchecked (contact::id member_id)
 {
     PFS__ASSERT(_pmanager, "");
 
@@ -47,7 +47,7 @@ contact_manager<BACKEND>::group_ref::add_member_unchecked (contact::contact_id m
         error err {errc::storage_error
             , fmt::format("add member {} to group {} failure {}:"
                 , member_id, _id, ex.what())};
-        CHAT__THROW(err);
+        throw err;
     }
 
     return false;
@@ -55,29 +55,27 @@ contact_manager<BACKEND>::group_ref::add_member_unchecked (contact::contact_id m
 
 template <>
 bool
-contact_manager<BACKEND>::group_ref::add_member (contact::contact_id member_id)
+contact_manager<BACKEND>::group_ref::add_member (contact::id member_id)
 {
     PFS__ASSERT(_pmanager, "");
 
     auto & rep = _pmanager->_rep;
 
-    if (member_id != rep.me.id) {
+    if (member_id != rep.me.contact_id) {
         auto c = rep.contacts->get(member_id);
 
-        if (c.id == contact::contact_id{}) {
+        if (c.contact_id == contact::id{}) {
             error err {errc::contact_not_found
                 , to_string(member_id)
                 , "contact not found"};
-            CHAT__THROW(err);
-            return false;
+            throw err;
         }
 
         if (c.type != contact::type_enum::person) {
             error err {errc::unsuitable_group_member
                 , to_string(member_id)
                 , "member must be a person to add to group"};
-            CHAT__THROW(err);
-            return false;
+            throw err;
         }
     }
 
@@ -92,7 +90,7 @@ std::string const REMOVE_MEMBER {
 
 template <>
 void
-contact_manager<BACKEND>::group_ref::remove_member (contact::contact_id member_id)
+contact_manager<BACKEND>::group_ref::remove_member (contact::id member_id)
 {
     PFS__ASSERT(_pmanager, "");
 
@@ -137,7 +135,7 @@ std::string const IS_MEMBER_OF {
 
 template <>
 bool
-contact_manager<BACKEND>::group_ref::is_member_of (contact::contact_id member_id) const
+contact_manager<BACKEND>::group_ref::is_member_of (contact::id member_id) const
 {
     PFS__ASSERT(_pmanager, "");
 
@@ -184,12 +182,12 @@ contact_manager<BACKEND>::group_ref::members () const
     std::vector<contact::contact> members;
 
     // Add own contact if need
-    if (is_member_of(_pmanager->my_contact().id)) {
+    if (is_member_of(_pmanager->my_contact().contact_id)) {
         auto me = _pmanager->my_contact();
         contact::contact c;
 
-        c.id          = me.id;
-        c.creator_id  = me.id;
+        c.contact_id  = me.contact_id;
+        c.creator_id  = me.contact_id;
         c.alias       = me.alias;
         c.avatar      = me.avatar;
         c.description = me.description;
@@ -203,7 +201,7 @@ contact_manager<BACKEND>::group_ref::members () const
     while (res.has_more()) {
         contact::contact c;
 
-        res["id"]          >> c.id;
+        res["id"]          >> c.contact_id;
         res["creator_id"]  >> c.creator_id;
         res["alias"]       >> c.alias;
         res["avatar"]      >> c.avatar;

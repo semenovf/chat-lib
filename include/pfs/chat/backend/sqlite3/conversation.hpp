@@ -34,14 +34,14 @@ struct conversation
         int limit;
         int sort_flags;
         std::vector<message::message_credentials> data;
-        std::map<message::message_id, std::size_t> map;
+        std::map<message::id, std::size_t> map;
     };
 
     struct rep_type
     {
         shared_db_handle dbh;
-        contact::contact_id me;
-        contact::contact_id opponent;
+        contact::id me;
+        contact::id opponent;
         mutable in_memory_cache cache;
         std::string table_name;
     };
@@ -59,9 +59,10 @@ struct conversation
         , int sort_flag);
 
     /**
+     * @throw chat::error @c errc::storage_error.
      */
-    static CHAT__EXPORT rep_type make (contact::contact_id me
-        , contact::contact_id opponent
+    static CHAT__EXPORT rep_type make (contact::id me
+        , contact::id opponent
         , shared_db_handle dbh);
 };
 

@@ -15,17 +15,14 @@
 namespace chat {
 namespace contact {
 
-using contact_id = pfs::universal_id;
+using id = pfs::universal_id;
 
 class id_generator
 {
 public:
-    using type = contact_id;
-
-public:
     id_generator () {}
 
-    type next () noexcept
+    id next () noexcept
     {
         return pfs::generate_uuid();
     }
@@ -44,17 +41,17 @@ enum class type_enum
 
 struct contact
 {
-    contact_id  id;
+    id          contact_id;
     std::string alias;
     std::string avatar;     // Application specific image path/name/code.
     std::string description;
-    contact_id  creator_id; // For person same as ID.
+    id          creator_id; // For person same as ID.
     type_enum type;
 };
 
 struct person
 {
-    contact_id  id;
+    id          contact_id;
     std::string alias;
     std::string avatar;
     std::string description;
@@ -62,26 +59,26 @@ struct person
 
 struct group
 {
-    contact_id  id;
+    id          contact_id;
     std::string alias;
     std::string avatar;
     std::string description;
-    contact_id  creator_id;
+    id          creator_id;
 };
 
 struct channel
 {
-    contact_id  id;
+    id          contact_id;
     std::string alias;
     std::string avatar;
     std::string description;
-    contact_id  creator_id;
+    id          creator_id;
 };
 
 template <typename T>
 inline bool is_valid (T const & t)
 {
-    return t.id != contact_id{};
+    return t.contact_id != id{};
 }
 
 CHAT__EXPORT type_enum to_type_enum (int n);

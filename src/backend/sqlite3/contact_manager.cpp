@@ -88,27 +88,27 @@ contact_manager::make (contact::person const & me, shared_db_handle dbh)
     std::array<std::string, 7> sqls = {
           fmt::format(CREATE_CONTACTS_TABLE
             , rep.contacts_table_name
-            , affinity_traits<contact::contact_id>::name()
-            , affinity_traits<contact::contact_id>::name()
+            , affinity_traits<contact::id>::name()
+            , affinity_traits<contact::id>::name()
             , affinity_traits<decltype(contact::contact{}.alias)>::name()
             , affinity_traits<decltype(contact::contact{}.avatar)>::name()
             , affinity_traits<decltype(contact::contact{}.description)>::name()
             , affinity_traits<decltype(contact::contact{}.type)>::name())
         , fmt::format(CREATE_MEMBERS_TABLE
             , rep.members_table_name
-            , affinity_traits<contact::contact_id>::name()
-            , affinity_traits<contact::contact_id>::name())
+            , affinity_traits<contact::id>::name()
+            , affinity_traits<contact::id>::name())
         , fmt::format(CREATE_FOLLOWERS_TABLE
             , rep.followers_table_name
-            , affinity_traits<contact::contact_id>::name()
-            , affinity_traits<contact::contact_id>::name())
+            , affinity_traits<contact::id>::name()
+            , affinity_traits<contact::id>::name())
         , fmt::format(CREATE_CONTACTS_INDEX , rep.contacts_table_name)
         , fmt::format(CREATE_MEMBERS_INDEX  , rep.members_table_name)
         , fmt::format(CREATE_MEMBERS_UNIQUE_INDEX, rep.members_table_name)
         , fmt::format(CREATE_FOLLOWERS_INDEX, rep.followers_table_name)
     };
 
-    TRY {
+    try {
         rep.dbh->begin();
 
         for (auto const & sql: sqls)
@@ -118,14 +118,12 @@ contact_manager::make (contact::person const & me, shared_db_handle dbh)
             contact_list_type::make(dbh, rep.contacts_table_name));
 
         rep.dbh->commit();
-    } CATCH (debby::error ex) {
-#if PFS__EXCEPTIONS_ENABLED
+    } catch (debby::error ex) {
         rep.dbh->rollback();
 
         shared_db_handle empty;
         rep.dbh.swap(empty);
-        throw;
-#endif
+        throw error{errc::storage_error, ex.what()};
     }
 
     return rep;
@@ -152,14 +150,12 @@ contact_manager<BACKEND>::transaction (std::function<bool()> op) noexcept
 {
     bool success = true;
 
-    TRY {
+    try {
         _rep.dbh->begin();
         success = op();
         _rep.dbh->commit();
-    } CATCH (...) {
-#if PFS__EXCEPTIONS_ENABLED
+    } catch (...) {
         _rep.dbh->rollback();
-#endif
         return false;
     }
 
@@ -168,7 +164,7 @@ contact_manager<BACKEND>::transaction (std::function<bool()> op) noexcept
 
 template <>
 contact::contact
-contact_manager<BACKEND>::get (contact::contact_id id) const
+contact_manager<BACKEND>::get (contact::id id) const
 {
     return _rep.contacts->get(id);
 }
@@ -182,7 +178,7 @@ contact_manager<BACKEND>::get (int offset) const
 
 template <>
 contact_manager<BACKEND>::group_ref
-contact_manager<BACKEND>::gref (contact::contact_id group_id)
+contact_manager<BACKEND>::gref (contact::id group_id)
 {
     auto c = get(group_id);
 
@@ -197,7 +193,7 @@ contact::person
 contact_manager<BACKEND>::my_contact () const
 {
     return contact::person {
-          _rep.me.id
+          _rep.me.contact_id
         , _rep.me.alias
         , _rep.me.avatar
         , _rep.me.description
@@ -223,11 +219,11 @@ bool
 contact_manager<BACKEND>::add (contact::person const & p)
 {
     contact::contact c {
-          p.id
+          p.contact_id
         , p.alias
         , p.avatar
         , p.description
-        , p.id
+        , p.contact_id
         , chat::contact::type_enum::person
     };
 
@@ -236,11 +232,11 @@ contact_manager<BACKEND>::add (contact::person const & p)
 
 template <>
 bool
-contact_manager<BACKEND>::add (contact::group const & g, contact::contact_id creator_id)
+contact_manager<BACKEND>::add (contact::group const & g, contact::id creator_id)
 {
     return transaction([this, & g, creator_id] {
         contact::contact c {
-              g.id
+              g.contact_id
             , g.alias
             , g.avatar
             , g.description
@@ -248,7 +244,7 @@ contact_manager<BACKEND>::add (contact::group const & g, contact::contact_id cre
             , chat::contact::type_enum::group};
 
         if (_rep.contacts->add(c) > 0) {
-            auto gr = this->gref(g.id);
+            auto gr = this->gref(g.contact_id);
 
             if (!gr)
                 return false;
@@ -295,7 +291,7 @@ std::string const REMOVE_GROUP {
 
 template <>
 void
-contact_manager<BACKEND>::remove (contact::contact_id id)
+contact_manager<BACKEND>::remove (contact::id id)
 {
     auto stmt1 = _rep.dbh->prepare(fmt::format(REMOVE_MEMBERSHIPS, _rep.members_table_name));
     auto stmt2 = _rep.dbh->prepare(fmt::format(REMOVE_GROUP, _rep.members_table_name));
@@ -306,7 +302,7 @@ contact_manager<BACKEND>::remove (contact::contact_id id)
     stmt1.bind(":member_id", id);
     stmt2.bind(":group_id", id);
 
-    TRY {
+    try {
         _rep.dbh->begin();
 
         _rep.contacts->remove(id);
@@ -314,12 +310,11 @@ contact_manager<BACKEND>::remove (contact::contact_id id)
         for (auto * stmt: {& stmt1, & stmt2}) {
             auto res = stmt->exec();
         }
+
         _rep.dbh->commit();
-    } CATCH (debby::error ex) {
-#if PFS__EXCEPTIONS_ENABLED
+    } catch (debby::error ex) {
         _rep.dbh->rollback();
-        throw;
-#endif
+        throw error{errc::storage_error, ex.what()};
     }
 }
 
@@ -333,7 +328,7 @@ contact_manager<BACKEND>::wipe ()
         , _rep.followers_table_name
     };
 
-    TRY {
+    try {
         _rep.dbh->begin();
 
         for (auto const & t: tables) {
@@ -341,11 +336,9 @@ contact_manager<BACKEND>::wipe ()
         }
 
         _rep.dbh->commit();
-    } CATCH (debby::error ex) {
-#if PFS__EXCEPTIONS_ENABLED
+    } catch (debby::error ex) {
         _rep.dbh->rollback();
-        throw;
-#endif
+        throw error{errc::storage_error, ex.what()};
     }
 }
 

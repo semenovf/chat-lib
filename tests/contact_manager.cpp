@@ -203,7 +203,7 @@ TEST_CASE("contacts") {
 
     // Get contact by id
     {
-        auto c = contact_manager.get(all_contacts[1].id);
+        auto c = contact_manager.get(all_contacts[1].contact_id);
         REQUIRE_EQ(c.alias, all_contacts[1].alias);
         REQUIRE_EQ(c.type, chat::contact::type_enum::person);
     }
@@ -245,7 +245,7 @@ TEST_CASE("groups") {
         REQUIRE_EQ(contact_manager.groups_count(), 1);
     }
 
-    chat::contact::contact_id sample_id;
+    chat::contact::id sample_id;
     std::string sample_alias = "Group 2";
 
     {

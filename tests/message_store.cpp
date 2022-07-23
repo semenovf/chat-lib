@@ -86,7 +86,7 @@ TEST_CASE("outgoing messages") {
         REQUIRE_NOTHROW(ed.attach(pfs::filesystem::path{"data/attachment1.bin"}));
         REQUIRE_NOTHROW(ed.attach(pfs::filesystem::path{"data/attachment2.bin"}));
         REQUIRE_NOTHROW(ed.attach(pfs::filesystem::path{"data/attachment3.bin"}));
-        ed.save();
+        ed = conversation.save(ed);
     }
 
     // Bad attachment

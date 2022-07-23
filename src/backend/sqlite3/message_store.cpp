@@ -25,7 +25,7 @@ namespace backend {
 namespace sqlite3 {
 
 message_store::rep_type
-message_store::make (contact::contact_id me, shared_db_handle dbh)
+message_store::make (contact::id me, shared_db_handle dbh)
 {
     rep_type rep;
     rep.dbh = dbh;
@@ -50,11 +50,9 @@ message_store<BACKEND>::operator bool () const noexcept
 
 template <>
 message_store<BACKEND>::conversation_type
-message_store<BACKEND>::conversation (contact::contact_id addressee_id) const
+message_store<BACKEND>::conversation (contact::id addressee_id) const
 {
-    CHAT__ASSERT(addressee_id != contact::contact_id{}
-        , "bad addressee identifier");
-
+    CHAT__ASSERT(addressee_id != contact::id{}, "bad addressee identifier");
     return conversation_type::make(_rep.me, addressee_id, _rep.dbh);
 }
 
