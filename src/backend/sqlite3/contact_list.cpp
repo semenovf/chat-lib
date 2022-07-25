@@ -270,7 +270,7 @@ contact_list<BACKEND>::get (contact::id id) const
     if (res.has_more()) {
         contact::contact c;
         fill_contact(res, c);
-        return std::move(c);
+        return c;
     }
 
     return contact::contact{};

@@ -52,8 +52,6 @@ public:
 
     /**
      * Wipes (erases all, drop all conversations) messages.
-     *
-     * @throw debby::error on storage error.
      */
     CHAT__EXPORT void wipe () noexcept;
 

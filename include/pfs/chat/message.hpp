@@ -10,7 +10,7 @@
 #include "contact.hpp"
 #include "error.hpp"
 #include "exports.hpp"
-#include "file_cache.hpp"
+#include "file.hpp"
 #include "json.hpp"
 #include "pfs/filesystem.hpp"
 #include "pfs/optional.hpp"
@@ -75,14 +75,6 @@ struct content_credentials
                       // and video files)
 };
 
-struct attachment_credentials
-{
-    std::string id;     // Unique ID associated with file name
-    std::string name;   // File name for attachments, audio and video files
-    std::size_t size;   // File size
-    std::string sha256; // File SHA-256 checksum
-};
-
 class content
 {
     json _d;
@@ -136,7 +128,7 @@ public:
      * If no attachment specified for component by @a index, result will
      * contain zeroed values for @c name, @c size and @c sha256.
      */
-    CHAT__EXPORT attachment_credentials attachment (std::size_t index) const;
+    CHAT__EXPORT file::file_credentials attachment (std::size_t index) const;
 
     /**
      * Add plain text.

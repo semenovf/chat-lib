@@ -49,6 +49,9 @@ std::string error_category::message (int ev) const
         case static_cast<int>(errc::inconsistent_data):
             return std::string{"inconsistent data"};
 
+        case static_cast<int>(errc::filesystem_error):
+            return std::string{"filesystem_error"};
+
         case static_cast<int>(errc::storage_error):
             return std::string{"storage error"};
 

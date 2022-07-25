@@ -32,6 +32,7 @@ portable_target(SOURCES ${PROJECT_NAME}
     ${CMAKE_CURRENT_LIST_DIR}/src/contact.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/emoji_db.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/error.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/src/file.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/mime.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/backend/json/content.cpp)
 

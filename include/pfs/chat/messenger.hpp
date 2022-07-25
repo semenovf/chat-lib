@@ -10,6 +10,7 @@
 #include "contact.hpp"
 #include "contact_manager.hpp"
 #include "error.hpp"
+#include "file_cache.hpp"
 #include "message.hpp"
 #include "message_store.hpp"
 #include "protocol.hpp"
@@ -101,6 +102,7 @@ namespace chat {
 //
 template <typename ContactManagerBackend
     , typename MessageStoreBackend
+    , typename FileCacheBackend
     , typename SerializerBackend>
 class messenger
 {
@@ -108,12 +110,11 @@ public:
     using contact_type = contact::contact;
     using person_type  = contact::person;
     using group_type   = contact::group;
-//     using message_credentials_type = message::message_credentials;
-    using contact_manager_type     = contact_manager<ContactManagerBackend>;
-    using message_store_type       = message_store<MessageStoreBackend>;
-    using serializer_type          = serializer<SerializerBackend>;
+    using contact_manager_type = contact_manager<ContactManagerBackend>;
+    using message_store_type   = message_store<MessageStoreBackend>;
+    using file_cache_type      = file_cache<FileCacheBackend>;
+    using serializer_type      = serializer<SerializerBackend>;
 //     using icon_library_type    = typename ...;
-//     using media_cache_type     = typename ...;
 
     using conversation_type = typename message_store_type::conversation_type;
 
@@ -123,8 +124,10 @@ public:
 private:
     std::unique_ptr<contact_manager_type> _contact_manager;
     std::unique_ptr<message_store_type>   _message_store;
+    std::unique_ptr<file_cache_type>      _file_cache;
     contact::id_generator _contact_id_generator;
     message::id_generator _message_id_generator;
+    file::id_generator    _file_id_generator;
 
 public: // Callbacks
     mutable std::function<void (std::string const &)> failure;
@@ -156,9 +159,11 @@ public: // Callbacks
 
 public:
     messenger (std::unique_ptr<contact_manager_type> && contact_manager
-        , std::unique_ptr<message_store_type> && message_store)
+        , std::unique_ptr<message_store_type> && message_store
+        , std::unique_ptr<file_cache_type> && file_cache)
         : _contact_manager(std::move(contact_manager))
         , _message_store(std::move(message_store))
+        , _file_cache(std::move(file_cache))
     {
         // Set default failure callback
         failure = [] (std::string const & errstr) {
@@ -739,9 +744,10 @@ private:
 
 template <typename ContactManagerBackend
     , typename MessageStoreBackend
+    , typename FileCacheBackend
     , typename SerializerBackend>
 message::id const
-messenger<ContactManagerBackend, MessageStoreBackend, SerializerBackend>
+messenger<ContactManagerBackend, MessageStoreBackend, FileCacheBackend, SerializerBackend>
     ::CONTACT_MESSAGE {"00000000000000000000000001"_uuid};
 
 } // namespace chat

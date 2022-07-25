@@ -81,9 +81,9 @@ contact_manager::make (contact::person const & me, shared_db_handle dbh)
 
     rep.dbh = dbh;
     rep.me  = me;
-    rep.contacts_table_name      = DEFAULT_CONTACTS_TABLE_NAME;
-    rep.members_table_name       = DEFAULT_MEMBERS_TABLE_NAME;
-    rep.followers_table_name     = DEFAULT_FOLLOWERS_TABLE_NAME;
+    rep.contacts_table_name  = DEFAULT_CONTACTS_TABLE_NAME;
+    rep.members_table_name   = DEFAULT_MEMBERS_TABLE_NAME;
+    rep.followers_table_name = DEFAULT_FOLLOWERS_TABLE_NAME;
 
     std::array<std::string, 7> sqls = {
           fmt::format(CREATE_CONTACTS_TABLE

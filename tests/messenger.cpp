@@ -17,6 +17,7 @@
 #include "pfs/chat/serializer.hpp"
 #include "pfs/chat/backend/sqlite3/contact_manager.hpp"
 #include "pfs/chat/backend/sqlite3/message_store.hpp"
+#include "pfs/chat/backend/sqlite3/file_cache.hpp"
 #include "pfs/chat/backend/serializer/cereal.hpp"
 #include <fstream>
 
@@ -39,6 +40,7 @@ auto on_failure = [] (std::string const & errstr) {
 using Messenger = chat::messenger<
       chat::backend::sqlite3::contact_manager
     , chat::backend::sqlite3::message_store
+    , chat::backend::sqlite3::file_cache
     , chat::backend::cereal::serializer>;
 
 using SharedMessenger = std::shared_ptr<Messenger>;
@@ -69,7 +71,7 @@ public:
             }
         }
 
-        contactListPath /= "contact_list.db";
+        contactListPath /= PFS__LITERAL_PATH("contact_list.db");
 
         auto dbh = chat::backend::sqlite3::make_handle(contactListPath, true);
 
@@ -100,7 +102,7 @@ public:
             }
         }
 
-        messageStorePath /= "messages.db";
+        messageStorePath /= PFS__LITERAL_PATH("messages.db");
 
         //auto dbh = chat::persistent_storage::sqlite3::make_handle(messageStorePath, true);
         auto dbh = chat::backend::sqlite3::make_handle(messageStorePath, true);
@@ -114,6 +116,39 @@ public:
             return nullptr;
 
         return messageStore;
+    }
+
+    // Mandatory file cache builder
+    std::unique_ptr<Messenger::file_cache_type> make_file_cache () const
+    {
+        auto fileCachePath = rootPath;
+        auto fileCacheRoot = rootPath / PFS__LITERAL_PATH("Files");
+
+        if (!fs::exists(fileCachePath)) {
+            std::error_code ec;
+
+            if (!fs::create_directory(fileCachePath, ec)) {
+                on_failure(fmt::format("Create directory failure: {}: {}"
+                    , pfs::filesystem::utf8_encode(fileCachePath)
+                    , ec.message()));
+                return nullptr;
+            }
+        }
+
+        fileCachePath /= PFS__LITERAL_PATH("file_cache.db");
+
+        //auto dbh = chat::persistent_storage::sqlite3::make_handle(messageStorePath, true);
+        auto dbh = chat::backend::sqlite3::make_handle(fileCachePath, true);
+
+        if (!dbh)
+            return nullptr;
+
+        auto fileCache = Messenger::file_cache_type::make_unique(fileCacheRoot, dbh);
+
+        if (!*fileCache)
+            return nullptr;
+
+        return fileCache;
     }
 };
 
@@ -160,11 +195,13 @@ TEST_CASE("messenger") {
 
     auto messenger1 = std::make_shared<Messenger>(
           messengerBuilder1.make_contact_manager()
-        , messengerBuilder1.make_message_store());
+        , messengerBuilder1.make_message_store()
+        , messengerBuilder1.make_file_cache());
 
     auto messenger2 = std::make_shared<Messenger>(
           messengerBuilder2.make_contact_manager()
-        , messengerBuilder2.make_message_store());
+        , messengerBuilder2.make_message_store()
+        , messengerBuilder2.make_file_cache());
 
     REQUIRE(*messenger1);
     REQUIRE(*messenger2);

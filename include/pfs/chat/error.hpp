@@ -31,6 +31,7 @@ enum class errc
     , attachment_failure
     , bad_emoji_shortcode
     , inconsistent_data  //
+    , filesystem_error
     , storage_error      // Any error of underlying storage subsystem
     , json_error         // Any error of JSON backend
 };

@@ -8,15 +8,19 @@
 ////////////////////////////////////////////////////////////////////////////////
 #include "pfs/chat/error.hpp"
 #include "pfs/chat/message.hpp"
+#include "pfs/filesystem.hpp"
 #include <cassert>
 
 namespace chat {
 namespace message {
 
+namespace fs = pfs::filesystem;
+
 namespace {
     char const * MIME_KEY   = "mime";
     char const * TEXT_KEY   = "text"; // message text or attachment path
     char const * ID_KEY     = "id";
+    char const * PATH_KEY   = "path";
     char const * SIZE_KEY   = "size";
     char const * SHA256_KEY = "sha256";
 }
@@ -83,7 +87,7 @@ content_credentials content::at (std::size_t index) const
     return content_credentials{mime_enum::invalid, std::string{}};
 }
 
-attachment_credentials content::attachment (std::size_t index) const
+file::file_credentials content::attachment (std::size_t index) const
 {
     if (index < _d.size()) {
         auto elem = _d[index];
@@ -97,13 +101,15 @@ attachment_credentials content::attachment (std::size_t index) const
             case mime_enum::audio__ogg:
             case mime_enum::video__mp4: {
                 auto id     = jeyson::get_or<std::string>(elem[ID_KEY], std::string{});
-                auto path   = jeyson::get_or<std::string>(elem[TEXT_KEY], std::string{});
+                auto path   = jeyson::get_or<std::string>(elem[PATH_KEY], std::string{});
+                auto name   = jeyson::get_or<std::string>(elem[TEXT_KEY], std::string{});
                 auto size   = jeyson::get_or<std::size_t>(elem[SIZE_KEY], 0);
                 auto sha256 = jeyson::get_or<std::string>(elem[SHA256_KEY], std::string{});
 
-                return attachment_credentials {
-                      std::move(id)
-                    , std::move(path)
+                return file::file_credentials {
+                      pfs::from_string<file::id>(id)
+                    , fs::utf8_decode(path)
+                    , std::move(name)
                     , size
                     , std::move(sha256)
                 };
@@ -114,12 +120,7 @@ attachment_credentials content::attachment (std::size_t index) const
         }
     }
 
-    return attachment_credentials {
-          std::string{}
-        , std::string{}
-        , 0
-        , std::string{}
-    };
+    return file::file_credentials{};
 }
 
 void content::add_text (std::string const & text)
