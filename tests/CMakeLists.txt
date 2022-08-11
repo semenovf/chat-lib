@@ -11,7 +11,7 @@ project(chat-TESTS CXX C)
 
 set(TESTS
     contact_manager
-#     file_cache
+    file_cache
     message_store
     messenger
     serializer)

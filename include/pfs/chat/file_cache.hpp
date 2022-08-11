@@ -68,7 +68,7 @@ public:
     CHAT__EXPORT void wipe () noexcept;
 
 private:
-    file::file_credentials load (file::id file_id);
+    file::file_credentials load (file::id fileid);
     file::file_credentials load (pfs::filesystem::path const & abspath);
 
 public:

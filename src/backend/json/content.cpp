@@ -103,7 +103,7 @@ file::file_credentials content::attachment (std::size_t index) const
                 auto id     = jeyson::get_or<std::string>(elem[ID_KEY], std::string{});
                 auto path   = jeyson::get_or<std::string>(elem[PATH_KEY], std::string{});
                 auto name   = jeyson::get_or<std::string>(elem[TEXT_KEY], std::string{});
-                auto size   = jeyson::get_or<std::size_t>(elem[SIZE_KEY], 0);
+                auto size   = jeyson::get_or<file::filesize_t>(elem[SIZE_KEY], 0);
                 auto sha256 = jeyson::get_or<std::string>(elem[SHA256_KEY], std::string{});
 
                 return file::file_credentials {
@@ -139,17 +139,18 @@ void content::add_html (std::string const & text)
     _d.push_back(std::move(elem));
 }
 
-void content::attach (file::id file_id, std::string const & filename
-    , std::size_t filesize, std::string const & sha256)
+void content::attach (file::file_credentials const & fc
+    /* file::id fileid, std::string const & filename
+    , file::filesize_t filesize, std::string const & sha256*/)
 {
     using pfs::to_string;
 
     json elem;
     elem[MIME_KEY]   = static_cast<int>(mime_enum::attachment);
-    elem[ID_KEY]     = to_string(file_id);
-    elem[TEXT_KEY]   = filename;
-    elem[SIZE_KEY]   = filesize;
-    elem[SHA256_KEY] = sha256;
+    elem[ID_KEY]     = to_string(fc.fileid);
+    elem[TEXT_KEY]   = fc.name;
+    elem[SIZE_KEY]   = fc.size;
+    elem[SHA256_KEY] = fc.sha256;
     _d.push_back(std::move(elem));
 }
 

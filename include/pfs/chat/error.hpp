@@ -16,8 +16,6 @@
 
 namespace chat {
 
-#define CHAT__ASSERT(condition, message) PFS__ASSERT(condition, message)
-
 enum class errc
 {
       success = 0

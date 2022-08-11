@@ -8,6 +8,7 @@
 //      2022.02.17 Refactored totally.
 ////////////////////////////////////////////////////////////////////////////////
 #include "content_traits.hpp"
+#include "pfs/assert.hpp"
 #include "pfs/chat/editor.hpp"
 #include "pfs/chat/backend/sqlite3/conversation.hpp"
 
@@ -80,7 +81,8 @@ template <>
 void
 editor<BACKEND>::attach (fs::path const & path)
 {
-    // FIXME
+    auto fc = file::make_credentials(path);
+    _rep.content.attach(fc);
 }
 
 template <>
@@ -114,7 +116,7 @@ editor<BACKEND>::save ()
         if (_rep.message_id != message::id{}) {
             auto stmt = _rep.convers->dbh->prepare(fmt::format(DELETE_MESSAGE
                 , _rep.convers->table_name));
-            CHAT__ASSERT(!!stmt, "");
+            PFS__ASSERT(!!stmt, "");
             stmt.bind(":message_id", _rep.message_id);
             stmt.exec();
             (*_rep.convers->invalidate_cache)(_rep.convers);
@@ -130,7 +132,7 @@ editor<BACKEND>::save ()
             auto stmt = _rep.convers->dbh->prepare(fmt::format(INSERT_MESSAGE
                 , _rep.convers->table_name));
 
-            CHAT__ASSERT(!!stmt, "");
+            PFS__ASSERT(!!stmt, "");
 
             stmt.bind(":message_id", _rep.message_id);
             stmt.bind(":author_id", _rep.convers->me);
@@ -140,13 +142,13 @@ editor<BACKEND>::save ()
 
             stmt.exec();
 
-            CHAT__ASSERT(stmt.rows_affected() > 0, "Non-unique ID generated for message");
+            PFS__ASSERT(stmt.rows_affected() > 0, "Non-unique ID generated for message");
         } else {
             // Modify content
             auto stmt = _rep.convers->dbh->prepare(fmt::format(MODIFY_CONTENT
                 , _rep.convers->table_name));
 
-            CHAT__ASSERT(!!stmt, "");
+            PFS__ASSERT(!!stmt, "");
 
             auto now = pfs::current_utc_time_point();
 

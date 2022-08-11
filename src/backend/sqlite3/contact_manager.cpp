@@ -8,6 +8,7 @@
 //      2022.02.16 Refactored totally.
 ////////////////////////////////////////////////////////////////////////////////
 #include "contact_type_enum.hpp"
+#include "pfs/assert.hpp"
 #include "pfs/chat/contact_manager.hpp"
 #include "pfs/chat/error.hpp"
 #include "pfs/chat/backend/sqlite3/contact_manager.hpp"
@@ -275,7 +276,7 @@ contact_manager<BACKEND>::add_or_update (contact::person const & p)
         n = add(p);
     }
 
-    CHAT__ASSERT(n, "Need to fix unexpected error in `contact_manager::add_or_update`");
+    PFS__ASSERT(n, "Need to fix unexpected error in `contact_manager::add_or_update`");
 }
 
 namespace {
@@ -296,8 +297,8 @@ contact_manager<BACKEND>::remove (contact::id id)
     auto stmt1 = _rep.dbh->prepare(fmt::format(REMOVE_MEMBERSHIPS, _rep.members_table_name));
     auto stmt2 = _rep.dbh->prepare(fmt::format(REMOVE_GROUP, _rep.members_table_name));
 
-    CHAT__ASSERT(!!stmt1, "");
-    CHAT__ASSERT(!!stmt2, "");
+    PFS__ASSERT(!!stmt1, "");
+    PFS__ASSERT(!!stmt2, "");
 
     stmt1.bind(":member_id", id);
     stmt2.bind(":group_id", id);

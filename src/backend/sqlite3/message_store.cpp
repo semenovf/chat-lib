@@ -7,6 +7,7 @@
 //      2021.12.13 Initial version.
 //      2021.12.27 Refactored.
 ////////////////////////////////////////////////////////////////////////////////
+#include "pfs/assert.hpp"
 #include "pfs/chat/message_store.hpp"
 #include "pfs/chat/backend/sqlite3/message_store.hpp"
 #include "pfs/debby/backend/sqlite3/time_point_traits.hpp"
@@ -52,7 +53,7 @@ template <>
 message_store<BACKEND>::conversation_type
 message_store<BACKEND>::conversation (contact::id addressee_id) const
 {
-    CHAT__ASSERT(addressee_id != contact::id{}, "bad addressee identifier");
+    PFS__ASSERT(addressee_id != contact::id{}, "bad addressee identifier");
     return conversation_type::make(_rep.me, addressee_id, _rep.dbh);
 }
 

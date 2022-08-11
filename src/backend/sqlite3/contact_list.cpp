@@ -8,6 +8,7 @@
 //      2022.02.17 Refactored totally.
 ////////////////////////////////////////////////////////////////////////////////
 #include "contact_type_enum.hpp"
+#include "pfs/assert.hpp"
 #include "pfs/chat/contact_list.hpp"
 #include "pfs/chat/error.hpp"
 #include "pfs/chat/backend/sqlite3/contact_list.hpp"
@@ -99,7 +100,7 @@ void contact_list::prefetch (rep_type const * rep, int offset, int limit, int so
           fmt::format(SELECT_ROWS_RANGE, rep->table_name
         , order_by, limit, offset));
 
-    CHAT__ASSERT(!!stmt, "");
+    PFS__ASSERT(!!stmt, "");
 
     auto res = stmt.exec();
 
@@ -141,7 +142,7 @@ contact_list<BACKEND>::count (contact::type_enum type) const
 {
     std::size_t count = 0;
     auto stmt = _rep.dbh->prepare(fmt::format(COUNT_CONTACTS_BY_TYPE, _rep.table_name));
-    CHAT__ASSERT(!!stmt, "");
+    PFS__ASSERT(!!stmt, "");
 
     stmt.bind(":type", to_storage(type));
 
@@ -169,7 +170,7 @@ contact_list<BACKEND>::add (contact::contact const & c)
 {
     auto stmt = _rep.dbh->prepare(fmt::format(INSERT_CONTACT, _rep.table_name));
 
-    CHAT__ASSERT(!!stmt, "");
+    PFS__ASSERT(!!stmt, "");
 
     stmt.bind(":id"         , to_storage(c.contact_id));
     stmt.bind(":creator_id" , to_storage(c.creator_id));
@@ -202,7 +203,7 @@ contact_list<BACKEND>::update (contact::contact const & c)
 {
     auto stmt = _rep.dbh->prepare(fmt::format(UPDATE_CONTACT, _rep.table_name));
 
-    CHAT__ASSERT(!!stmt, "");
+    PFS__ASSERT(!!stmt, "");
 
     stmt.bind(":alias" , to_storage(c.alias));
     stmt.bind(":avatar", to_storage(c.avatar));
@@ -231,7 +232,7 @@ contact_list<BACKEND>::remove (contact::id id)
 {
     auto stmt = _rep.dbh->prepare(fmt::format(REMOVE_CONTACT, _rep.table_name));
 
-    CHAT__ASSERT(!!stmt, "");
+    PFS__ASSERT(!!stmt, "");
 
     stmt.bind(":id", id);
 
@@ -261,7 +262,7 @@ contact_list<BACKEND>::get (contact::id id) const
 
     auto stmt = _rep.dbh->prepare(fmt::format(SELECT_CONTACT, _rep.table_name));
 
-    CHAT__ASSERT(!!stmt, "");
+    PFS__ASSERT(!!stmt, "");
 
     stmt.bind(":id", id);
 
@@ -310,7 +311,7 @@ contact_list<BACKEND>::for_each (std::function<void(contact::contact const &)> f
 {
     auto stmt = _rep.dbh->prepare(fmt::format(SELECT_ALL_CONTACTS, _rep.table_name));
 
-    CHAT__ASSERT(!!stmt, "");
+    PFS__ASSERT(!!stmt, "");
 
     auto res = stmt.exec();
 
@@ -327,7 +328,7 @@ contact_list<BACKEND>::for_each_until (std::function<bool(contact::contact const
 {
     auto stmt = _rep.dbh->prepare(fmt::format(SELECT_ALL_CONTACTS, _rep.table_name));
 
-    CHAT__ASSERT(!!stmt, "");
+    PFS__ASSERT(!!stmt, "");
 
     auto res = stmt.exec();
 

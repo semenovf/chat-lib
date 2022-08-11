@@ -143,10 +143,11 @@ public:
     /**
      * Attach file.
      */
-    CHAT__EXPORT void attach (file::id file_id
+    CHAT__EXPORT void attach (file::file_credentials const & fc
+/*        file::id fileid
         , std::string const & filename
-        , std::size_t filesize
-        , std::string const & sha256);
+        , file::filesize_t filesize
+        , std::string const & sha256*/);
 
     /**
      * Clear content (delete all content components).

@@ -7,6 +7,7 @@
 //      2022.03.10 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
 #include "contact_type_enum.hpp"
+#include "pfs/assert.hpp"
 #include "pfs/chat/contact_manager.hpp"
 #include "pfs/chat/backend/sqlite3/contact_manager.hpp"
 
@@ -29,10 +30,10 @@ contact_manager<BACKEND>::group_ref::add_member_unchecked (contact::id member_id
 
     auto & rep = _pmanager->_rep;
 
-    TRY {
+    try {
         auto stmt = rep.dbh->prepare(fmt::format(INSERT_MEMBER, rep.members_table_name));
 
-        CHAT__ASSERT(!!stmt, "");
+        PFS__ASSERT(!!stmt, "");
 
         stmt.bind(":group_id" , _id);
         stmt.bind(":member_id", member_id);
@@ -43,7 +44,7 @@ contact_manager<BACKEND>::group_ref::add_member_unchecked (contact::id member_id
         // If stmt.rows_affected() == 0 then new member not added (already added earlier);
         // The last situation is not en error.
         return stmt.rows_affected() > 0;
-    } CATCH (debby::error ex) {
+    } catch (debby::error ex) {
         error err {errc::storage_error
             , fmt::format("add member {} to group {} failure {}:"
                 , member_id, _id, ex.what())};
@@ -97,7 +98,7 @@ contact_manager<BACKEND>::group_ref::remove_member (contact::id member_id)
     auto & rep = _pmanager->_rep;
     auto stmt = rep.dbh->prepare(fmt::format(REMOVE_MEMBER, rep.members_table_name));
 
-    CHAT__ASSERT(!!stmt, "");
+    PFS__ASSERT(!!stmt, "");
 
     stmt.bind(":group_id", _id);
     stmt.bind(":member_id", member_id);
@@ -120,7 +121,7 @@ contact_manager<BACKEND>::group_ref::remove_all_members ()
     auto & rep = _pmanager->_rep;
     auto stmt = rep.dbh->prepare(fmt::format(REMOVE_ALL_MEMBERS, rep.members_table_name));
 
-    CHAT__ASSERT(!!stmt, "");
+    PFS__ASSERT(!!stmt, "");
 
     stmt.bind(":group_id", _id);
     auto res = stmt.exec();
@@ -143,7 +144,7 @@ contact_manager<BACKEND>::group_ref::is_member_of (contact::id member_id) const
     auto & rep = _pmanager->_rep;
     auto stmt = rep.dbh->prepare(fmt::format(IS_MEMBER_OF, rep.members_table_name));
 
-    CHAT__ASSERT(!!stmt, "");
+    PFS__ASSERT(!!stmt, "");
 
     stmt.bind(":group_id", _id);
     stmt.bind(":member_id", member_id);
@@ -175,7 +176,7 @@ contact_manager<BACKEND>::group_ref::members () const
     auto stmt = rep.dbh->prepare(fmt::format(SELECT_MEMBERS
         , rep.members_table_name, rep.contacts_table_name));
 
-    CHAT__ASSERT(!!stmt, "");
+    PFS__ASSERT(!!stmt, "");
 
     stmt.bind(":group_id", _id);
 
@@ -230,7 +231,7 @@ std::size_t contact_manager<BACKEND>::group_ref::count () const
     auto & rep = _pmanager->_rep;
     auto stmt = rep.dbh->prepare(fmt::format(MEMBER_COUNT, rep.members_table_name));
 
-    CHAT__ASSERT(!!stmt, "");
+    PFS__ASSERT(!!stmt, "");
 
     stmt.bind(":group_id", _id);
 

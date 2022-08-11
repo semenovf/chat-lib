@@ -7,6 +7,7 @@
 //      2021.12.06 Initial version.
 //      2022.07.23 Totally refactored.
 ////////////////////////////////////////////////////////////////////////////////
+#include "pfs/assert.hpp"
 #include "pfs/chat/file_cache.hpp"
 #include "pfs/chat/backend/sqlite3/file_cache.hpp"
 #include "pfs/debby/backend/sqlite3/path_traits.hpp"
@@ -119,20 +120,20 @@ std::string const SELECT_BY_ID {
 
 template<>
 file::file_credentials
-file_cache<BACKEND>::load (file::id file_id)
+file_cache<BACKEND>::load (file::id fileid)
 {
     auto stmt = _rep.dbh->prepare(fmt::format(SELECT_BY_ID, _rep.table_name));
 
-    CHAT__ASSERT(!!stmt, "");
+    PFS__ASSERT(!!stmt, "");
 
-    stmt.bind(":id", file_id);
+    stmt.bind(":id", fileid);
 
     auto res = stmt.exec();
 
     if (res.has_more()) {
         file::file_credentials fc;
 
-        res["id"]     >> fc.file_id;
+        res["id"]     >> fc.fileid;
         res["path"]   >> fc.path;
         res["name"]   >> fc.name;
         res["size"]   >> fc.size;
@@ -155,7 +156,7 @@ file_cache<BACKEND>::load (pfs::filesystem::path const & abspath)
 {
     auto stmt = _rep.dbh->prepare(fmt::format(SELECT_BY_PATH, _rep.table_name));
 
-    CHAT__ASSERT(!!stmt, "");
+    PFS__ASSERT(!!stmt, "");
 
     stmt.bind(":path", abspath);
 
@@ -164,7 +165,7 @@ file_cache<BACKEND>::load (pfs::filesystem::path const & abspath)
     if (res.has_more()) {
         file::file_credentials fc;
 
-        res["id"]     >> fc.file_id;
+        res["id"]     >> fc.fileid;
         res["path"]   >> fc.path;
         res["name"]   >> fc.name;
         res["size"]   >> fc.size;
@@ -178,7 +179,7 @@ file_cache<BACKEND>::load (pfs::filesystem::path const & abspath)
 
 std::string const INSERT {
     "INSERT INTO `{}` (`id`, `path`, `name`, `size`, `sha256`)"
-    " VALUES (:file_id, :path, :name, :size, :sha256)"
+    " VALUES (:fileid, :path, :name, :size, :sha256)"
 };
 
 template<>
@@ -198,9 +199,9 @@ file_cache<BACKEND>::ensure (fs::path const & path)
 
     auto stmt = _rep.dbh->prepare(fmt::format(INSERT, _rep.table_name));
 
-    CHAT__ASSERT(!!stmt, "");
+    PFS__ASSERT(!!stmt, "");
 
-    stmt.bind(":id"    , fc.file_id);
+    stmt.bind(":fileid", fc.fileid);
     stmt.bind(":path"  , fc.path);
     stmt.bind(":name"  , fc.name);
     stmt.bind(":size"  , fc.size);
@@ -226,27 +227,27 @@ file_cache<BACKEND>::remove_broken ()
 
     auto stmt = _rep.dbh->prepare(fmt::format(SELECT_PATH, _rep.table_name));
 
-    CHAT__ASSERT(!!stmt, "");
+    PFS__ASSERT(!!stmt, "");
 
     auto res = stmt.exec();
 
     if (res.has_more()) {
-        file::id file_id;
+        file::id fileid;
         fs::path path;
 
-        res["id"]   >> file_id;
+        res["id"]   >> fileid;
         res["path"] >> path;
 
         if (!fs::exists(path))
-            broken_ids.push_back(file_id);
+            broken_ids.push_back(fileid);
     }
 
     if (!broken_ids.empty()) {
         try {
             _rep.dbh->begin();
 
-            for (auto const & file_id: broken_ids) {
-                auto sql = fmt::format(DELETE_BY_ID, _rep.table_name, file_id);
+            for (auto const & fileid: broken_ids) {
+                auto sql = fmt::format(DELETE_BY_ID, _rep.table_name, fileid);
                 _rep.dbh->query(sql);
             }
 
@@ -269,7 +270,7 @@ void
 file_cache<BACKEND>::clear () noexcept
 {
     auto stmt = _rep.dbh->prepare(fmt::format(CLEAR_TABLE, _rep.table_name));
-    CHAT__ASSERT(!!stmt, "");
+    PFS__ASSERT(!!stmt, "");
     stmt.exec();
 }
 
@@ -282,7 +283,7 @@ void
 file_cache<BACKEND>::wipe () noexcept
 {
     auto stmt = _rep.dbh->prepare(fmt::format(DROP_TABLE, _rep.table_name));
-    CHAT__ASSERT(!!stmt, "");
+    PFS__ASSERT(!!stmt, "");
     stmt.exec();
 }
 

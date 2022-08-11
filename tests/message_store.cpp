@@ -20,7 +20,8 @@ using message_store_t = chat::message_store<chat::backend::sqlite3::message_stor
 using conversation_t  = message_store_t::conversation_type;
 using editor_t        = conversation_t::editor_type;
 
-auto message_db_path = pfs::filesystem::temp_directory_path() / "messages.db";
+auto message_db_path = pfs::filesystem::temp_directory_path()
+    / PFS__LITERAL_PATH("messages.db");
 
 namespace fs = pfs::filesystem;
 
@@ -96,8 +97,8 @@ TEST_CASE("outgoing messages") {
 
     conversation.for_each([& conversation] (chat::message::message_credentials const & m) {
         fmt::print("{} | {} | {}\n"
-            , std::to_string(m.message_id)
-            , std::to_string(m.author_id)
+            , to_string(m.message_id)
+            , to_string(m.author_id)
             , to_string(m.creation_time));
 
         auto ed = conversation.open(m.message_id);

@@ -16,6 +16,7 @@ namespace chat {
 namespace file {
 
 using id = ::pfs::universal_id;
+using filesize_t = std::int32_t;
 
 class id_generator
 {
@@ -31,7 +32,7 @@ public:
 struct file_credentials
 {
     // Unique ID associated with file name
-    id file_id;
+    id fileid;
 
     // Absolute path.
     // For outgoing file it is absolute path in local filesystem.
@@ -45,7 +46,7 @@ struct file_credentials
     std::string name;
 
     // File size
-    std::size_t size;
+    filesize_t size;
 
     // File SHA-256 checksum
     std::string sha256;
@@ -53,7 +54,7 @@ struct file_credentials
 
 inline bool is_valid (file_credentials const & fc)
 {
-    return fc.file_id != id{};
+    return fc.fileid != id{};
 }
 
 file::file_credentials make_credentials (pfs::filesystem::path const & path);

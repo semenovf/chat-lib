@@ -7,6 +7,7 @@
 //      2021.01.02 Initial version.
 //      2022.02.17 Refactored totally.
 ////////////////////////////////////////////////////////////////////////////////
+#include "pfs/assert.hpp"
 #include "pfs/chat/conversation.hpp"
 #include "pfs/chat/error.hpp"
 #include "pfs/chat/backend/sqlite3/conversation.hpp"
@@ -168,7 +169,7 @@ static void prefetch (BACKEND::rep_type const * rep
         , field, order
         , limit, offset));
 
-    CHAT__ASSERT(!!stmt, "");
+    PFS__ASSERT(!!stmt, "");
 
     auto res = stmt.exec();
 
@@ -213,7 +214,7 @@ conversation<BACKEND>::unread_messages_count () const
 {
     std::size_t count = 0;
     auto stmt = _rep.dbh->prepare(fmt::format(UNREAD_MESSAGES_COUNT, _rep.table_name));
-    CHAT__ASSERT(!!stmt, "");
+    PFS__ASSERT(!!stmt, "");
 
     stmt.bind(":opponent", _rep.opponent);
 
@@ -252,7 +253,7 @@ static void mark_message_status (
 {
     auto stmt = dbh->prepare(fmt::format(sql, table_name));
 
-    CHAT__ASSERT(!!stmt, "");
+    PFS__ASSERT(!!stmt, "");
 
     stmt.bind(":time", time);
     stmt.bind(":message_id", message_id);
@@ -334,7 +335,7 @@ conversation<BACKEND>::open (message::id message_id)
 {
     auto stmt = _rep.dbh->prepare(fmt::format(SELECT_OUTGOING_CONTENT, _rep.table_name));
 
-    CHAT__ASSERT(!!stmt, "");
+    PFS__ASSERT(!!stmt, "");
 
     stmt.bind(":message_id", message_id);
     stmt.bind(":author_id", _rep.me);
@@ -412,7 +413,7 @@ conversation<BACKEND>::message (message::id message_id) const
 
     auto stmt = _rep.dbh->prepare(fmt::format(SELECT_MESSAGE, _rep.table_name));
 
-    CHAT__ASSERT(!!stmt, "");
+    PFS__ASSERT(!!stmt, "");
 
     stmt.bind(":message_id", message_id);
 
@@ -448,7 +449,7 @@ conversation<BACKEND>::last_message () const
 {
     auto stmt = _rep.dbh->prepare(fmt::format(SELECT_LAST_MESSAGE, _rep.table_name));
 
-    CHAT__ASSERT(!!stmt, "");
+    PFS__ASSERT(!!stmt, "");
 
     auto res = stmt.exec();
 
@@ -518,7 +519,7 @@ conversation<BACKEND>::save_incoming (message::id message_id
         if (need_update) {
             auto stmt = _rep.dbh->prepare(fmt::format(UPDATE_INCOMING_MESSAGE, _rep.table_name));
 
-            CHAT__ASSERT(!!stmt, "");
+            PFS__ASSERT(!!stmt, "");
 
             stmt.bind(":time", creation_time);
             stmt.bind(":content", content);
@@ -531,7 +532,7 @@ conversation<BACKEND>::save_incoming (message::id message_id
     } else {
         auto stmt = _rep.dbh->prepare(fmt::format(INSERT_INCOMING_MESSAGE, _rep.table_name));
 
-        CHAT__ASSERT(!!stmt, "");
+        PFS__ASSERT(!!stmt, "");
 
         stmt.bind(":message_id", message_id);
         stmt.bind(":author_id", author_id);
@@ -540,7 +541,7 @@ conversation<BACKEND>::save_incoming (message::id message_id
         stmt.bind(":content", content);
 
         stmt.exec();
-        CHAT__ASSERT(stmt.rows_affected() > 0, "May be non-unique ID for incoming message");
+        PFS__ASSERT(stmt.rows_affected() > 0, "May be non-unique ID for incoming message");
 
         invalidate_cache(& _rep);
     }
@@ -588,7 +589,7 @@ conversation<BACKEND>::for_each (std::function<void(message::message_credentials
     auto stmt = _rep.dbh->prepare(
         fmt::format(SELECT_ALL_MESSAGES, _rep.table_name, field, order));
 
-    CHAT__ASSERT(!!stmt, "");
+    PFS__ASSERT(!!stmt, "");
 
     auto res = stmt.exec();
 

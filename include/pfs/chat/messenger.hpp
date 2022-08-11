@@ -28,13 +28,13 @@ namespace chat {
 //  |                                                            |
 //  |   chat-lib                                                 |
 //  |                                                            |
-//  |   ------------------------      -----------------------    |
-//  |   |    Contact manager   |      |Message store manager|    |
-//  |   ------------------------      -----------------------    |
-//  |               ^                           ^                |
-//  |               |                           |                |
-//  |               |                           |                |
-//  |               v                           v                |
+//  |   -----------------  -----------   ----------------------- |
+//  |   |Contact manager|  |File cache|  |Message store manager| |
+//  |   -----------------  ------------  ----------------------- |
+//  |               ^           ^                 ^              |
+//  |               |           |                 |              |
+//  |               |           |                 |              |
+//  |               v           v                 v              |
 //  |       --------------------------------------------         |
 //  |       |                                          |         |
 //  |       |           M E S S E N G E R              |         |
@@ -124,7 +124,7 @@ public:
 private:
     std::unique_ptr<contact_manager_type> _contact_manager;
     std::unique_ptr<message_store_type>   _message_store;
-    std::unique_ptr<file_cache_type>      _file_cache;
+    std::shared_ptr<file_cache_type>      _file_cache;
     contact::id_generator _contact_id_generator;
     message::id_generator _message_id_generator;
     file::id_generator    _file_id_generator;
