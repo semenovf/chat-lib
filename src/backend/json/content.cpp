@@ -20,9 +20,7 @@ namespace {
     char const * MIME_KEY   = "mime";
     char const * TEXT_KEY   = "text"; // message text or attachment path
     char const * ID_KEY     = "id";
-    char const * PATH_KEY   = "path";
     char const * SIZE_KEY   = "size";
-    char const * SHA256_KEY = "sha256";
 }
 
 content::content () = default;
@@ -87,7 +85,7 @@ content_credentials content::at (std::size_t index) const
     return content_credentials{mime_enum::invalid, std::string{}};
 }
 
-file::file_credentials content::attachment (std::size_t index) const
+attachment_credentials content::attachment (std::size_t index) const
 {
     if (index < _d.size()) {
         auto elem = _d[index];
@@ -100,18 +98,14 @@ file::file_credentials content::attachment (std::size_t index) const
             case mime_enum::attachment:
             case mime_enum::audio__ogg:
             case mime_enum::video__mp4: {
-                auto id     = jeyson::get_or<std::string>(elem[ID_KEY], std::string{});
-                auto path   = jeyson::get_or<std::string>(elem[PATH_KEY], std::string{});
+                auto fileid = jeyson::get_or<std::string>(elem[ID_KEY], std::string{});
                 auto name   = jeyson::get_or<std::string>(elem[TEXT_KEY], std::string{});
                 auto size   = jeyson::get_or<file::filesize_t>(elem[SIZE_KEY], 0);
-                auto sha256 = jeyson::get_or<std::string>(elem[SHA256_KEY], std::string{});
 
-                return file::file_credentials {
-                      pfs::from_string<file::id>(id)
-                    , fs::utf8_decode(path)
-                    , std::move(name)
+                return attachment_credentials {
+                      pfs::from_string<file::id>(fileid)
+                    , name
                     , size
-                    , std::move(sha256)
                 };
             }
 
@@ -120,7 +114,7 @@ file::file_credentials content::attachment (std::size_t index) const
         }
     }
 
-    return file::file_credentials{};
+    return attachment_credentials{};
 }
 
 void content::add_text (std::string const & text)
@@ -139,9 +133,7 @@ void content::add_html (std::string const & text)
     _d.push_back(std::move(elem));
 }
 
-void content::attach (file::file_credentials const & fc
-    /* file::id fileid, std::string const & filename
-    , file::filesize_t filesize, std::string const & sha256*/)
+void content::attach (file::file_credentials const & fc)
 {
     using pfs::to_string;
 
@@ -150,7 +142,6 @@ void content::attach (file::file_credentials const & fc
     elem[ID_KEY]     = to_string(fc.fileid);
     elem[TEXT_KEY]   = fc.name;
     elem[SIZE_KEY]   = fc.size;
-    elem[SHA256_KEY] = fc.sha256;
     _d.push_back(std::move(elem));
 }
 

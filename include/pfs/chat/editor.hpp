@@ -71,7 +71,7 @@ public:
      *
      * @throw chat::error @c errc::attachment_failure.
      */
-    CHAT__EXPORT void attach (pfs::filesystem::path const & path);
+    CHAT__EXPORT void attach (file::file_credentials const & fc);
 
     /**
      * Clear message content.

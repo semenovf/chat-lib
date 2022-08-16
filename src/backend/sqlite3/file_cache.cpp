@@ -57,7 +57,7 @@ file_cache::rep_type file_cache::make (pfs::filesystem::path const & root_dir
                 , tr::f_("Create directory failure: {}: {}", root_dir, ec.message())};
         }
 
-        fs::permissions("root_dir"
+        fs::permissions(root_dir
             , fs::perms::owner_all | fs::perms::group_all
             , fs::perm_options::replace
             , ec);
@@ -177,6 +177,15 @@ file_cache<BACKEND>::load (pfs::filesystem::path const & abspath)
     return file::file_credentials{};
 }
 
+std::string const DELETE_BY_ID { "DELETE FROM `{}` WHERE `id` = {}" };
+
+template<>
+void file_cache<BACKEND>::remove (file::id fileid)
+{
+    auto sql = fmt::format(DELETE_BY_ID, _rep.table_name, fileid);
+    _rep.dbh->query(sql);
+}
+
 std::string const INSERT {
     "INSERT INTO `{}` (`id`, `path`, `name`, `size`, `sha256`)"
     " VALUES (:fileid, :path, :name, :size, :sha256)"
@@ -184,7 +193,7 @@ std::string const INSERT {
 
 template<>
 file::file_credentials
-file_cache<BACKEND>::ensure (fs::path const & path)
+file_cache<BACKEND>::ensure (fs::path const & path, std::string const & sha256)
 {
     auto abspath = path.is_absolute()
         ? path
@@ -192,10 +201,15 @@ file_cache<BACKEND>::ensure (fs::path const & path)
 
     auto fc = load(abspath);
 
-    if (is_valid(fc))
-        return fc;
+    if (is_valid(fc)) {
+        if (fc.sha256 == sha256)
+            return fc;
 
-    fc = file::make_credentials(abspath);
+        // Remove record due to checksum change
+        remove(fc.fileid);
+    }
+
+    fc = file::make_credentials(abspath, sha256);
 
     auto stmt = _rep.dbh->prepare(fmt::format(INSERT, _rep.table_name));
 
@@ -211,13 +225,12 @@ file_cache<BACKEND>::ensure (fs::path const & path)
     auto n = stmt.rows_affected();
 
     if (n > 0)
-        return file::file_credentials{};
+        return fc;
 
-    return fc;
+    return file::file_credentials{};
 }
 
 std::string const SELECT_PATH { "SELECT `id`, `path` FROM `{}`" };
-std::string const DELETE_BY_ID { "DELETE FROM `{}` WHERE `id` = {}" };
 
 template<>
 std::size_t

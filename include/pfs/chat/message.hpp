@@ -75,6 +75,13 @@ struct content_credentials
                       // and video files)
 };
 
+struct attachment_credentials
+{
+    file::id         fileid;
+    std::string      name;   // file name
+    file::filesize_t size;
+};
+
 class content
 {
     json _d;
@@ -128,7 +135,7 @@ public:
      * If no attachment specified for component by @a index, result will
      * contain zeroed values for @c name, @c size and @c sha256.
      */
-    CHAT__EXPORT file::file_credentials attachment (std::size_t index) const;
+    CHAT__EXPORT attachment_credentials attachment (std::size_t index) const;
 
     /**
      * Add plain text.
@@ -143,11 +150,7 @@ public:
     /**
      * Attach file.
      */
-    CHAT__EXPORT void attach (file::file_credentials const & fc
-/*        file::id fileid
-        , std::string const & filename
-        , file::filesize_t filesize
-        , std::string const & sha256*/);
+    CHAT__EXPORT void attach (file::file_credentials const & fc);
 
     /**
      * Clear content (delete all content components).

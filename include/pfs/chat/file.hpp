@@ -57,6 +57,15 @@ inline bool is_valid (file_credentials const & fc)
     return fc.fileid != id{};
 }
 
+/**
+ * Makes file credentials. @a sha256 may be empty.
+ */
+file::file_credentials make_credentials (pfs::filesystem::path const & path
+    , std::string const & sha256);
+
+/**
+ * Makes file credentials. May take some time to calculate SHA256 digest.
+ */
 file::file_credentials make_credentials (pfs::filesystem::path const & path);
 
 }} // namespace chat::file

@@ -16,7 +16,8 @@ namespace file {
 
 namespace fs = pfs::filesystem;
 
-file::file_credentials make_credentials (fs::path const & path)
+file::file_credentials make_credentials (pfs::filesystem::path const & path
+    , std::string const & sha256)
 {
     auto abspath = path.is_absolute()
         ? path
@@ -37,23 +38,33 @@ file::file_credentials make_credentials (fs::path const & path)
     if (ec)
         throw error {errc::attachment_failure, utf8_path, ec.message()};
 
-    auto digest = pfs::crypto::sha256::digest(abspath, ec);
-
-    if (ec) {
-        throw error {errc::attachment_failure
-            , utf8_path
-            , tr::f_("SHA256 generation failure: {}", ec.message())};
-    }
-
     file_credentials res;
 
     res.fileid = id_generator{}.next();
     res.path   = abspath;
     res.name   = fs::utf8_encode(path.filename());
     res.size   = filesize;
-    res.sha256 = to_string(digest);
+    res.sha256 = sha256;
 
     return res;
+}
+
+file::file_credentials make_credentials (pfs::filesystem::path const & path)
+{
+    auto abspath = path.is_absolute()
+        ? path
+        : fs::absolute(path);
+
+    std::error_code ec;
+    auto digest = pfs::crypto::sha256::digest(abspath, ec);
+
+    if (ec) {
+        throw error {errc::attachment_failure
+            , fs::utf8_encode(abspath)
+            , tr::f_("SHA256 generation failure: {}", ec.message())};
+    }
+
+    return make_credentials(path, to_string(digest));
 }
 
 }} // namespace chat::file

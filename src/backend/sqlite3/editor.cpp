@@ -79,9 +79,8 @@ editor<BACKEND>::add_html (std::string const & text)
 
 template <>
 void
-editor<BACKEND>::attach (fs::path const & path)
+editor<BACKEND>::attach (file::file_credentials const & fc)
 {
-    auto fc = file::make_credentials(path);
     _rep.content.attach(fc);
 }
 

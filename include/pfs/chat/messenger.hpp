@@ -428,6 +428,17 @@ public:
     }
 
     /**
+     * Load file from cache.
+     *
+     * @details If the file is not found in the cache, it will be stored.
+     */
+    file::file_credentials ensure_file (pfs::filesystem::path const & path
+        , std::string const & sha256)
+    {
+        return _file_cache->ensure(path, sha256);
+    }
+
+    /**
      * Total unread messages count.
      */
     std::size_t unread_messages_count () const

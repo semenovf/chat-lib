@@ -42,7 +42,8 @@ public:
      * Stores the credentials if they don't exist in the cache, or loads them
      * otherwise.
      */
-    file::file_credentials ensure (pfs::filesystem::path const & path);
+    file::file_credentials ensure (pfs::filesystem::path const & path
+        , std::string const & sha256);
 
     /**
      * Remove broken credentials (when there is no file in file system)
@@ -70,6 +71,7 @@ public:
 private:
     file::file_credentials load (file::id fileid);
     file::file_credentials load (pfs::filesystem::path const & abspath);
+    void remove (file::id fileid);
 
 public:
     /**
