@@ -55,25 +55,27 @@ public:
     /**
      * Adds contact.
      *
-     * @return @c 1 if contact successfully added or @c 0 if contact already
-     *         exists with @c contact_id.
+     * @return @c true if contact successfully added or @c false if contact
+     *         already exists with @c contact_id.
      *
-     * @throw debby::error on storage error.
+     * @throw chat::error (@c errc::storage_error) on storage error.
      */
-    int add (contact::contact const & c);
+    bool add (contact::contact const & c);
 
     /**
-     * @return @c 1 if contact successfully updated or @c 0 if contact not found
-     *         with @c contact_id.
+     * Update contact.
      *
-     * @throw debby::error on storage error.
+     * @return @c true if contact successfully updated or @c false if contact
+     *         not found with @c contact_id.
+     *
+     * @throw chat::error (@c errc::storage_error) on storage error.
      */
-    int update (contact::contact const & c);
+    bool update (contact::contact const & c);
 
     /**
      * Removes contact from contact list.
      *
-     * @throw debby::error on storage error.
+     * @throw chat::error (@c errc::storage_error) on storage error.
      */
     void remove (contact::id id);
 
@@ -82,16 +84,14 @@ public:
      *
      * @return Contact with @a id or invalid contact if not found.
      *
-     * @throw debby::error on storage error.
+     * @throw chat::error (@c errc::storage_error) on storage error.
      */
     contact::contact get (contact::id id) const;
 
     /**
      * Get contact by @a offset. On error returns invalid contact.
      *
-     * @return Contact with @a id or invalid contact if not found.
-     *
-     * @throw debby::error on storage error.
+     * @throw chat::error (@c errc::storage_error) on storage error.
      */
     //contact::contact get (int offset, int sf = sort_flags(contact_sort_flag::by_alias
     //    , contact_sort_flag::ascending_order)) const;
@@ -101,7 +101,7 @@ public:
     /**
      * Fetch all contacts and process them by @a f
      *
-     * @throw debby::error on storage error.
+     * @throw chat::error (@c errc::storage_error) on storage error.
      */
     void for_each (std::function<void(contact::contact const &)> f);
 
@@ -109,7 +109,7 @@ public:
      * Fetch all contacts and process them by @a f until @f does not
      * return @c false.
      *
-     * @throw debby::error on storage error.
+     * @throw chat::error (@c errc::storage_error) on storage error.
      */
     void for_each_until (std::function<bool(contact::contact const &)> f);
 

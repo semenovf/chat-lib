@@ -12,7 +12,8 @@
 #include "pfs/chat/message.hpp"
 #include "pfs/chat/serializer.hpp"
 #include "pfs/chat/protocol.hpp"
-#include <cereal/types/string.hpp>
+#include "cereal/types/string.hpp"
+#include "cereal/types/vector.hpp"
 
 namespace cereal {
 
@@ -162,6 +163,31 @@ serializer::output_packet::operator << <protocol::contact_credentials> (
         << payload.contact.avatar
         << payload.contact.description
         << payload.contact.type;
+
+    return *this;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// group_members serializer/deserializer
+////////////////////////////////////////////////////////////////////////////////
+template <>
+serializer::input_packet &
+serializer::input_packet::operator >> <protocol::group_members> (
+    protocol::group_members & target)
+{
+    // Note: packet type must be read before
+    _ar >> target.group_id >> target.members;
+    return *this;
+}
+
+template <>
+serializer::output_packet &
+serializer::output_packet::operator << <protocol::group_members> (
+    protocol::group_members const & payload)
+{
+    _ar << protocol::packet_type_enum::group_members
+        << payload.group_id
+        << payload.members;
 
     return *this;
 }

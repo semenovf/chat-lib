@@ -46,7 +46,7 @@ struct contact
     std::string avatar;     // Application specific image path/name/code.
     std::string description;
     id          creator_id; // For person same as ID.
-    type_enum type;
+    type_enum   type;
 };
 
 struct person

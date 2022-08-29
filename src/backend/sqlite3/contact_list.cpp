@@ -165,27 +165,31 @@ std::string const INSERT_CONTACT {
 } // namespace
 
 template <>
-int
+bool
 contact_list<BACKEND>::add (contact::contact const & c)
 {
-    auto stmt = _rep.dbh->prepare(fmt::format(INSERT_CONTACT, _rep.table_name));
+    try {
+        auto stmt = _rep.dbh->prepare(fmt::format(INSERT_CONTACT, _rep.table_name));
 
-    PFS__ASSERT(!!stmt, "");
+        PFS__ASSERT(!!stmt, "");
 
-    stmt.bind(":id"         , to_storage(c.contact_id));
-    stmt.bind(":creator_id" , to_storage(c.creator_id));
-    stmt.bind(":alias"      , to_storage(c.alias));
-    stmt.bind(":avatar"     , to_storage(c.avatar));
-    stmt.bind(":description", to_storage(c.description));
-    stmt.bind(":type"       , to_storage(c.type));
+        stmt.bind(":id"         , to_storage(c.contact_id));
+        stmt.bind(":creator_id" , to_storage(c.creator_id));
+        stmt.bind(":alias"      , to_storage(c.alias));
+        stmt.bind(":avatar"     , to_storage(c.avatar));
+        stmt.bind(":description", to_storage(c.description));
+        stmt.bind(":type"       , to_storage(c.type));
 
-    auto res = stmt.exec();
-    auto n = stmt.rows_affected();
+        auto res = stmt.exec();
+        auto n = stmt.rows_affected();
 
-    if (n > 0)
-        BACKEND::invalidate_cache(& _rep);
+        if (n > 0)
+            BACKEND::invalidate_cache(& _rep);
 
-    return n;
+        return n > 0;
+    } catch (debby::error ex) {
+        throw error {errc::storage_error, ex.what()};
+    }
 }
 
 namespace {
@@ -198,26 +202,30 @@ std::string const UPDATE_CONTACT {
 } // namespace
 
 template <>
-int
+bool
 contact_list<BACKEND>::update (contact::contact const & c)
 {
-    auto stmt = _rep.dbh->prepare(fmt::format(UPDATE_CONTACT, _rep.table_name));
+    try {
+        auto stmt = _rep.dbh->prepare(fmt::format(UPDATE_CONTACT, _rep.table_name));
 
-    PFS__ASSERT(!!stmt, "");
+        PFS__ASSERT(!!stmt, "");
 
-    stmt.bind(":alias" , to_storage(c.alias));
-    stmt.bind(":avatar", to_storage(c.avatar));
-    stmt.bind(":description", to_storage(c.description));
-    stmt.bind(":id", to_storage(c.contact_id));
-    stmt.bind(":type", to_storage(c.type));
+        stmt.bind(":alias" , to_storage(c.alias));
+        stmt.bind(":avatar", to_storage(c.avatar));
+        stmt.bind(":description", to_storage(c.description));
+        stmt.bind(":id", to_storage(c.contact_id));
+        stmt.bind(":type", to_storage(c.type));
 
-    auto res = stmt.exec();
-    auto n = stmt.rows_affected();
+        auto res = stmt.exec();
+        auto n = stmt.rows_affected();
 
-    if (n > 0)
-        BACKEND::invalidate_cache(& _rep);
+        if (n > 0)
+            BACKEND::invalidate_cache(& _rep);
 
-    return n;
+        return n > 0;
+    } catch (debby::error ex) {
+        throw error {errc::storage_error, ex.what()};
+    }
 }
 
 namespace {
@@ -230,14 +238,18 @@ template <>
 void
 contact_list<BACKEND>::remove (contact::id id)
 {
-    auto stmt = _rep.dbh->prepare(fmt::format(REMOVE_CONTACT, _rep.table_name));
+    try {
+        auto stmt = _rep.dbh->prepare(fmt::format(REMOVE_CONTACT, _rep.table_name));
 
-    PFS__ASSERT(!!stmt, "");
+        PFS__ASSERT(!!stmt, "");
 
-    stmt.bind(":id", id);
+        stmt.bind(":id", id);
 
-    auto res = stmt.exec();
-    BACKEND::invalidate_cache(& _rep);
+        auto res = stmt.exec();
+        BACKEND::invalidate_cache(& _rep);
+    } catch (debby::error ex) {
+        throw error {errc::storage_error, ex.what()};
+    }
 }
 
 namespace {
@@ -260,21 +272,25 @@ contact_list<BACKEND>::get (contact::id id) const
         }
     }
 
-    auto stmt = _rep.dbh->prepare(fmt::format(SELECT_CONTACT, _rep.table_name));
+    try {
+        auto stmt = _rep.dbh->prepare(fmt::format(SELECT_CONTACT, _rep.table_name));
 
-    PFS__ASSERT(!!stmt, "");
+        PFS__ASSERT(!!stmt, "");
 
-    stmt.bind(":id", id);
+        stmt.bind(":id", id);
 
-    auto res = stmt.exec();
+        auto res = stmt.exec();
 
-    if (res.has_more()) {
-        contact::contact c;
-        fill_contact(res, c);
-        return c;
+        if (res.has_more()) {
+            contact::contact c;
+            fill_contact(res, c);
+            return c;
+        }
+
+        return contact::contact{};
+    } catch (debby::error ex) {
+        throw error {errc::storage_error, ex.what()};
     }
-
-    return contact::contact{};
 }
 
 template <>
@@ -309,16 +325,20 @@ template <>
 void
 contact_list<BACKEND>::for_each (std::function<void(contact::contact const &)> f)
 {
-    auto stmt = _rep.dbh->prepare(fmt::format(SELECT_ALL_CONTACTS, _rep.table_name));
+    try {
+        auto stmt = _rep.dbh->prepare(fmt::format(SELECT_ALL_CONTACTS, _rep.table_name));
 
-    PFS__ASSERT(!!stmt, "");
+        PFS__ASSERT(!!stmt, "");
 
-    auto res = stmt.exec();
+        auto res = stmt.exec();
 
-    for (; res.has_more(); res.next()) {
-        contact::contact c;
-        fill_contact(res, c);
-        f(c);
+        for (; res.has_more(); res.next()) {
+            contact::contact c;
+            fill_contact(res, c);
+            f(c);
+        }
+    } catch (debby::error ex) {
+        throw error {errc::storage_error, ex.what()};
     }
 }
 
@@ -326,17 +346,21 @@ template <>
 void
 contact_list<BACKEND>::for_each_until (std::function<bool(contact::contact const &)> f)
 {
-    auto stmt = _rep.dbh->prepare(fmt::format(SELECT_ALL_CONTACTS, _rep.table_name));
+    try {
+        auto stmt = _rep.dbh->prepare(fmt::format(SELECT_ALL_CONTACTS, _rep.table_name));
 
-    PFS__ASSERT(!!stmt, "");
+        PFS__ASSERT(!!stmt, "");
 
-    auto res = stmt.exec();
+        auto res = stmt.exec();
 
-    for (; res.has_more(); res.next()) {
-        contact::contact c;
-        fill_contact(res, c);
-        if (!f(c))
-            break;
+        for (; res.has_more(); res.next()) {
+            contact::contact c;
+            fill_contact(res, c);
+            if (!f(c))
+                break;
+        }
+    } catch (debby::error ex) {
+        throw error {errc::storage_error, ex.what()};
     }
 }
 

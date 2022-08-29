@@ -21,8 +21,6 @@ namespace chat {
 using namespace debby::backend::sqlite3;
 
 namespace {
-    constexpr std::size_t CACHE_WINDOW_SIZE = 100;
-
     std::string const DEFAULT_CONTACTS_TABLE_NAME  { "chat_contacts" };
     std::string const DEFAULT_MEMBERS_TABLE_NAME   { "chat_members" };
     std::string const DEFAULT_FOLLOWERS_TABLE_NAME { "chat_channels" };
@@ -202,6 +200,28 @@ contact_manager<BACKEND>::my_contact () const
 }
 
 template <>
+void
+contact_manager<BACKEND>::change_my_alias (std::string const & alias)
+{
+    if (!alias.empty())
+        _rep.me.alias = alias;
+}
+
+template <>
+void
+contact_manager<BACKEND>::change_my_avatar (std::string const & avatar)
+{
+    _rep.me.avatar = avatar;
+}
+
+template <>
+void
+contact_manager<BACKEND>::change_my_desc (std::string const & desc)
+{
+    _rep.me.description = desc;
+}
+
+template <>
 std::size_t
 contact_manager<BACKEND>::count () const
 {
@@ -228,20 +248,20 @@ contact_manager<BACKEND>::add (contact::person const & p)
         , chat::contact::type_enum::person
     };
 
-    return _rep.contacts->add(c) > 0;
+    return _rep.contacts->add(c);
 }
 
 template <>
 bool
-contact_manager<BACKEND>::add (contact::group const & g, contact::id creator_id)
+contact_manager<BACKEND>::add (contact::group const & g)
 {
-    return transaction([this, & g, creator_id] {
+    return transaction([this, & g/*, creator_id*/] {
         contact::contact c {
               g.contact_id
             , g.alias
             , g.avatar
             , g.description
-            , creator_id
+            , g.creator_id
             , chat::contact::type_enum::group};
 
         if (_rep.contacts->add(c) > 0) {
@@ -250,7 +270,7 @@ contact_manager<BACKEND>::add (contact::group const & g, contact::id creator_id)
             if (!gr)
                 return false;
 
-            gr.add_member_unchecked(creator_id);
+            gr.add_member_unchecked(g.creator_id);
 
             return true;
         }
@@ -263,20 +283,7 @@ template <>
 bool
 contact_manager<BACKEND>::update (contact::contact const & c)
 {
-    return _rep.contacts->update(c) > 0;
-}
-
-template <>
-void
-contact_manager<BACKEND>::add_or_update (contact::person const & p)
-{
-    auto n = update(p);
-
-    if (n == 0) {
-        n = add(p);
-    }
-
-    PFS__ASSERT(n, "Need to fix unexpected error in `contact_manager::add_or_update`");
+    return _rep.contacts->update(c);
 }
 
 namespace {

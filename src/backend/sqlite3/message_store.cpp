@@ -17,10 +17,8 @@
 
 namespace chat {
 
-namespace {
-    // NOTE Must be synchronized with analog in conversation.cpp
-    std::string const DEFAULT_TABLE_NAME_PREFIX { "#" };
-}
+// NOTE Must be synchronized with analog in conversation.cpp
+static std::string const DEFAULT_TABLE_NAME_PREFIX { "#" };
 
 namespace backend {
 namespace sqlite3 {

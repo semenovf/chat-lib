@@ -17,7 +17,10 @@
 #include "serializer.hpp"
 #include "pfs/assert.hpp"
 #include "pfs/fmt.hpp"
+#include "pfs/i18n.hpp"
+#include <algorithm>
 #include <functional>
+#include <iterator>
 #include <memory>
 #include <vector>
 
@@ -120,6 +123,7 @@ public:
 
 public:
     static message::id const CONTACT_MESSAGE;
+    static message::id const MEMBERS_MESSAGE;
 
 private:
     std::unique_ptr<contact_manager_type> _contact_manager;
@@ -155,7 +159,27 @@ public: // Callbacks
         , message::id /*message_id*/
         , pfs::utc_time_point /*read_time*/)> message_read;
 
+    /**
+     * Called after adding contact.
+     */
     mutable std::function<void (contact::id)> contact_added;
+
+    /**
+     * Called after updating contact.
+     */
+    mutable std::function<void (contact::id)> contact_updated;
+
+    /**
+     * Called after contact removed.
+     */
+    mutable std::function<void (contact::id)> contact_removed;
+
+    /**
+     * Called after updating group members.
+     */
+    mutable std::function<void (contact::id /*group_id*/
+        , std::vector<contact::id> /*added*/
+        , std::vector<contact::id> /*removed*/)> group_members_updated;
 
 public:
     messenger (std::unique_ptr<contact_manager_type> && contact_manager
@@ -194,6 +218,30 @@ public:
     }
 
     /**
+     * Changes @a alias for my contact.
+     */
+    void change_my_alias (std::string const & alias)
+    {
+        _contact_manager->change_my_alias(alias);
+    }
+
+    /**
+     * Changes @a avatar for my contact.
+     */
+    void change_my_avatar (std::string const & avatar)
+    {
+        _contact_manager->change_my_avatar(avatar);
+    }
+
+    /**
+     * Changes description for my contact.
+     */
+    void change_my_desc (std::string const & desc)
+    {
+        _contact_manager->change_my_description(desc);
+    }
+
+    /**
      * Total contacts count.
      */
     std::size_t contacts_count () const
@@ -215,7 +263,7 @@ public:
         auto group_ref = _contact_manager->gref(group_id);
 
         if (!group_ref) {
-            failure(fmt::format("attempt to add member into non-existent group: {}"
+            failure(tr::f_("attempt to add member into non-existent group: {}"
                 , group_id));
             return false;
         }
@@ -232,7 +280,7 @@ public:
         auto group_ref = _contact_manager->gref(group_id);
 
         if (!group_ref) {
-            failure(fmt::format("attempt to remove member from non-existent group: {}"
+            failure(tr::f_("attempt to remove member from non-existent group: {}"
                 , group_id));
             return;
         }
@@ -242,14 +290,13 @@ public:
 
     /**
      * Removes all members from the group specified by @a group_id.
-     *
      */
     void remove_all_members (contact::id group_id)
     {
         auto group_ref = _contact_manager->gref(group_id);
 
         if (!group_ref) {
-            failure(fmt::format("attempt to remove all members from non-existent group: {}"
+            failure(tr::f_("attempt to remove all members from non-existent group: {}"
                 , group_id));
             return;
         }
@@ -265,7 +312,7 @@ public:
         auto group_ref = _contact_manager->gref(group_id);
 
         if (!group_ref) {
-            failure(fmt::format("attempt to get members of non-existent group: {}"
+            failure(tr::f_("attempt to get members of non-existent group: {}"
                 , group_id));
             return std::vector<contact::contact>{};
         }
@@ -273,6 +320,21 @@ public:
         return group_ref.members();
     }
 
+    /**
+      * Get member identifiers of the specified group.
+      */
+    std::vector<contact::id> member_ids (contact::id group_id) const
+    {
+        auto group_ref = _contact_manager->gref(group_id);
+
+        if (!group_ref) {
+            failure(tr::f_("attempt to get members of non-existent group: {}"
+                , group_id));
+            return std::vector<contact::id>{};
+        }
+
+        return group_ref.member_ids();
+    }
     /**
      * Count of contacts in specified group.
      */
@@ -309,54 +371,76 @@ public:
     }
 
     /**
-     * Add person contact.
+     * Add personal or group contact.
      *
      * @return Identifier of just added contact or @c chat::contact::id{}
-     *         on error.
+     *         if contact already exists with specified identifier.
      */
-    contact::id add (contact::person c)
+    template <typename ConcreteContactType>
+    typename std::enable_if<std::is_same<ConcreteContactType, contact::person>::value
+        || std::is_same<ConcreteContactType, contact::group>::value, contact::id>::type
+    add (ConcreteContactType c)
     {
         if (c.contact_id == contact::id{})
             c.contact_id = _contact_id_generator.next();
 
-        auto success = _contact_manager->add(c);
-        return success ? c.contact_id : contact::id{};
+        if (_contact_manager->add(c)) {
+            if (contact_added)
+                contact_added(c.contact_id);
+
+            return c.contact_id;
+        }
+
+        return contact::id{};
     }
 
     /**
-     * Add group contact.
-     *
-     * @return Identifier of just added contact or @c chat::contact::id{}
-     *         on error.
-     */
-    contact::id add (contact::group g, contact::id creator_id)
-    {
-        if (g.contact_id == contact::id{})
-            g.contact_id = _contact_id_generator.next();
-
-        auto success = _contact_manager->add(g, creator_id);
-        return success ? g.contact_id : contact::id{};
-    }
-
-    /**
-     * Update contact.
+     * Update contact (personal or group).
      *
      * @return @c true if contact updated successfully, @c false on error or
      *         contact does not exist.
      */
-    bool update (contact::contact const & c)
+    template <typename ConcreteContactType>
+    typename std::enable_if<std::is_same<ConcreteContactType, contact::person>::value
+        || std::is_same<ConcreteContactType, contact::group>::value, bool>::type
+    update (ConcreteContactType const & c)
     {
-        return _contact_manager->update(c);
+        if (!_contact_manager->update(c))
+            return false;
+
+        if (contact_updated)
+            contact_updated(c.contact_id);
+
+        return true;
     }
 
-    bool update (contact::person const & c)
+    /**
+     * Updates or adds (if update is not possible) person or group contact.
+     *
+     * @brief @c ConcreteContactType must be @c contact::person or
+     *        @c contact::group.
+     *
+     * @return Identifier of updated or added contact.
+     *
+     * @throw chat::error (@c errc::storage_error) on storage error.
+     */
+    template <typename ConcreteContactType>
+    typename std::enable_if<std::is_same<ConcreteContactType, contact::person>::value
+        || std::is_same<ConcreteContactType, contact::group>::value, contact::id>::type
+    update_or_add (ConcreteContactType p)
     {
-        return _contact_manager->update(c);
-    }
+        if (p.contact_id == contact::id{}) {
+            p.contact_id = _contact_id_generator.next();
+            return add(p);
+        }
 
-    bool update (contact::group const & g)
-    {
-        return _contact_manager->update(g);
+        if (!update(p)) {
+            auto id = add(p);
+            PFS__ASSERT(id != contact::id{}, "");
+            return id;
+        }
+
+        return p.contact_id;
     }
 
     /**
@@ -369,6 +453,9 @@ public:
     void remove (contact::id id)
     {
         _contact_manager->remove(id);
+
+        if (contact_removed)
+            contact_removed(id);
     }
 
     /**
@@ -392,7 +479,7 @@ public:
     /**
      * Fetch all contacts and process them by @a f
      *
-     * @throw debby::error on storage error.
+     * @throw chat::error{errc::storage_error} on storage error.
      */
     template <typename F>
     void for_each_contact (F && f) const
@@ -404,7 +491,7 @@ public:
      * Fetch all contacts and process them by @a f until @f does not
      * return @c false.
      *
-     * @throw debby::error on storage error.
+     * @throw chat::error{errc::storage_error} on storage error.
      */
     template <typename F>
     void for_each_until (F && f)
@@ -487,7 +574,7 @@ public:
     /**
      * Dispatch read notification.
      */
-    bool dispatch_read_notification (contact::id addressee_id
+    void dispatch_read_notification (contact::id addressee_id
         , message::id message_id
         , pfs::utc_time_point read_time)
     {
@@ -501,14 +588,13 @@ public:
 
         typename serializer_type::output_packet_type out {};
         out << m;
-        auto success = dispatch_data(addressee_id, message_id, out.data());
-        return success;
+        dispatch_data(addressee_id, message_id, out.data());
     }
 
     /**
      * Dispatch contact credentials.
      */
-    bool dispatch_contact (contact::id addressee)
+    void dispatch_contact (contact::id addressee) const
     {
         auto me = my_contact();
 
@@ -523,8 +609,92 @@ public:
 
         typename serializer_type::output_packet_type out {};
         out << c;
-        auto success = dispatch_data(addressee, CONTACT_MESSAGE, out.data());
-        return success;
+        dispatch_data(addressee, CONTACT_MESSAGE, out.data());
+    }
+
+    /**
+     * Dispatch group contact and list of group members.
+     * Used when group created or updated localy.
+     */
+    void dispatch_group (contact::id addressee, contact::id group_id) const
+    {
+        // Skip own contact
+        if (addressee == my_contact().contact_id)
+            return;
+
+        auto g = _contact_manager->get(group_id);
+
+        if (!is_valid(g)) {
+            failure(tr::f_("group not found by id {}", group_id));
+            return;
+        }
+
+        // Send group contact
+        protocol::contact_credentials c {{
+              g.contact_id
+            , g.alias
+            , g.avatar
+            , g.description
+            , g.creator_id
+            , chat::contact::type_enum::group
+        }};
+
+        {
+            typename serializer_type::output_packet_type out {};
+            out << c;
+            dispatch_data(addressee, CONTACT_MESSAGE, out.data());
+        }
+
+        // Send group members
+        auto gref = _contact_manager->gref(group_id);
+        auto members = gref.members();
+
+        protocol::group_members gm;
+        gm.group_id = group_id;
+
+        for (auto const & c: members)
+            gm.members.push_back(c.contact_id);
+
+        {
+            typename serializer_type::output_packet_type out {};
+            out << gm;
+            dispatch_data(addressee, MEMBERS_MESSAGE, out.data());
+        }
+    }
+
+    /**
+     * Dispatch group removed message.
+     * Used when group removed localy.
+     */
+    void dispatch_group_removed (contact::id addressee, contact::id group_id) const
+    {
+        // Skip own contact
+        if (addressee == my_contact().contact_id)
+            return;
+
+        protocol::group_members gm;
+        gm.group_id = group_id;
+
+        typename serializer_type::output_packet_type out {};
+        out << gm;
+
+        dispatch_data(addressee, MEMBERS_MESSAGE, out.data());
+    }
+
+    /**
+     * Dispatch self created group contacts and list of members.
+     */
+    void dispatch_self_created_groups (contact::id addressee) const
+    {
+        auto my_contact_id = my_contact().contact_id;
+
+        for_each_contact([this, addressee, my_contact_id] (contact::contact const & c) {
+            auto self_created_group = (c.type == contact::type_enum::group)
+                && (c.creator_id == my_contact_id);
+
+            if (self_created_group)
+                dispatch_group(addressee, c.contact_id);
+        });
     }
 
     /**
@@ -569,13 +739,7 @@ public:
                         p.avatar = std::move(c.contact.avatar);
                         p.description = std::move(c.contact.description);
 
-                        auto id = add(std::move(p));
-
-                        if (id != contact::id{}) {
-                            if (contact_added)
-                                contact_added(id);
-                        }
-
+                        /*auto id = */update_or_add(std::move(p));
                         break;
                     }
 
@@ -587,13 +751,7 @@ public:
                         g.avatar = std::move(c.contact.avatar);
                         g.description = std::move(c.contact.description);
 
-                        auto id = add(std::move(g), c.contact.creator_id);
-
-                        if (id != contact::id{}) {
-                            if (contact_added)
-                                contact_added(id);
-                        }
-
+                        /*auto id = */update_or_add(std::move(g));
                         break;
                     }
 
@@ -605,6 +763,35 @@ public:
                         failure(fmt::format("Unsupported contact type: {}"
                             , static_cast<int>(c.contact.type)));
                         break;
+                }
+
+                break;
+            }
+
+            case protocol::packet_type_enum::group_members: {
+                protocol::group_members gm;
+                in >> gm;
+
+                if (gm.members.empty()) {
+                    // Group removed or contact has been removed from group.
+                    // So remove group locally.
+                    //gref.remove_all_members();
+                    remove(gm.group_id);
+                } else {
+                    auto gref = _contact_manager->gref(gm.group_id);
+
+                    if (!gref) {
+                        failure(tr::f_("group members received but group contact"
+                            " not found: {}", gm.group_id));
+                        break;
+                    }
+
+                    auto diffs = gref.update(gm.members);
+
+                    if (group_members_updated)
+                        group_members_updated(gm.group_id
+                            , std::move(diffs.added)
+                            , std::move(diffs.removed));
                 }
 
                 break;
@@ -679,8 +866,8 @@ public:
         , message::id message_id
         , pfs::utc_time_point dispatched_time)
     {
-        // This is a contact message, ignore it
-        if (message_id == CONTACT_MESSAGE)
+        // This is a service message, ignore it
+        if (message_id == CONTACT_MESSAGE || message_id == MEMBERS_MESSAGE)
             return;
 
         auto conv = this->conversation(addressee);
@@ -760,5 +947,13 @@ template <typename ContactManagerBackend
 message::id const
 messenger<ContactManagerBackend, MessageStoreBackend, FileCacheBackend, SerializerBackend>
     ::CONTACT_MESSAGE {"00000000000000000000000001"_uuid};
+
+template <typename ContactManagerBackend
+    , typename MessageStoreBackend
+    , typename FileCacheBackend
+    , typename SerializerBackend>
+message::id const
+messenger<ContactManagerBackend, MessageStoreBackend, FileCacheBackend, SerializerBackend>
+    ::MEMBERS_MESSAGE {"00000000000000000000000002"_uuid};
 
 } // namespace chat
