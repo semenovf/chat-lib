@@ -76,9 +76,24 @@ struct channel
 };
 
 template <typename T>
-inline bool is_valid (T const & t)
+inline bool is_valid (T const & t) noexcept
 {
     return t.contact_id != id{};
+}
+
+inline bool is_person (contact const & c) noexcept
+{
+    return c.type == type_enum::person;
+}
+
+inline bool is_group (contact const & c) noexcept
+{
+    return c.type == type_enum::group;
+}
+
+inline bool is_channel (contact const & c) noexcept
+{
+    return c.type == type_enum::channel;
 }
 
 CHAT__EXPORT type_enum to_type_enum (int n);
