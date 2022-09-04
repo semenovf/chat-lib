@@ -66,8 +66,8 @@ struct serializer
 template <>
 CHAT__EXPORT
 serializer::input_packet &
-serializer::input_packet::operator >> <protocol::packet_type_enum> (
-    protocol::packet_type_enum & target);
+serializer::input_packet::operator >> <protocol::packet_enum> (
+    protocol::packet_enum & target);
 
 template <>
 CHAT__EXPORT
@@ -84,14 +84,14 @@ serializer::output_packet::operator << <protocol::contact_credentials> (
 template <>
 CHAT__EXPORT
 serializer::input_packet &
-serializer::input_packet::operator >> <protocol::original_message> (
-    protocol::original_message & target);
+serializer::input_packet::operator >> <protocol::regular_message> (
+    protocol::regular_message & target);
 
 template <>
 CHAT__EXPORT
 serializer::output_packet &
-serializer::output_packet::operator << <protocol::original_message> (
-    protocol::original_message const & payload);
+serializer::output_packet::operator << <protocol::regular_message> (
+    protocol::regular_message const & payload);
 
 template <>
 CHAT__EXPORT
@@ -117,17 +117,17 @@ serializer::output_packet &
 serializer::output_packet::operator << <protocol::read_notification> (
     protocol::read_notification const & payload);
 
-template <>
-CHAT__EXPORT
-serializer::input_packet &
-serializer::input_packet::operator >> <protocol::edited_message> (
-    protocol::edited_message & target);
-
-template <>
-CHAT__EXPORT
-serializer::output_packet &
-serializer::output_packet::operator << <protocol::edited_message> (
-    protocol::edited_message const & payload);
+// template <>
+// CHAT__EXPORT
+// serializer::input_packet &
+// serializer::input_packet::operator >> <protocol::edited_message> (
+//     protocol::edited_message & target);
+//
+// template <>
+// CHAT__EXPORT
+// serializer::output_packet &
+// serializer::output_packet::operator << <protocol::edited_message> (
+//     protocol::edited_message const & payload);
 
 }}} // namespace chat::backend::cereal
 

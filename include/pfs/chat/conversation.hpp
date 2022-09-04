@@ -21,9 +21,8 @@ enum class conversation_sort_flag: int
 {
       by_creation_time       = 1 << 0
     , by_modification_time   = 1 << 1
-    , by_dispatched_time     = 1 << 2
-    , by_delivered_time      = 1 << 3
-    , by_read_time           = 1 << 4
+    , by_delivered_time      = 1 << 2
+    , by_read_time           = 1 << 3
 
     , ascending_order  = 1 << 8
     , descending_order = 1 << 9
@@ -64,6 +63,11 @@ public:
     CHAT__EXPORT operator bool () const noexcept;
 
     /**
+     * This conversation identifier.
+     */
+    CHAT__EXPORT contact::id id () const noexcept;
+
+    /**
      * Total number of messages in conversation.
      */
     CHAT__EXPORT std::size_t count () const;
@@ -73,15 +77,6 @@ public:
      * Number of unread messages for conversation.
      */
     CHAT__EXPORT std::size_t unread_messages_count () const;
-
-    /**
-     * Mark (if not already marked) message dispatched to addressee.
-     *
-     * @throw debby::error on storage error.
-     * @throw chat::error if message not found.
-     */
-    CHAT__EXPORT void mark_dispatched (message::id message_id
-        , pfs::utc_time_point dispatched_time);
 
     /**
      * Mark (if not already marked) message delivered by addressee.
@@ -147,8 +142,8 @@ public:
      *
      * @return Message credentials or @c nullopt if message not found.
      *
-     * @throw debby::error on storage error.
-     * @throw chat::error if message content is invalid (i.e. bad JSON source).
+     * @throw chat::error{errc::storage_error} on storage error.
+     * @throw chat::error{} if message content is invalid (i.e. bad JSON source).
      */
     CHAT__EXPORT pfs::optional<message::message_credentials>
     message (message::id message_id) const;

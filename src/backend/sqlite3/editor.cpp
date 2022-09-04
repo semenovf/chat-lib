@@ -92,8 +92,10 @@ editor<BACKEND>::clear ()
 }
 
 static std::string const INSERT_MESSAGE {
-    "INSERT INTO `{}` (`message_id`, `author_id`, `creation_time`, `modification_time`, `content`)"
-    " VALUES (:message_id, :author_id, :creation_time, :modification_time, :content)"
+    "INSERT INTO `{}` (`message_id`, `author_id`"
+    ", `creation_time`, `modification_time`, `content`)"
+    " VALUES (:message_id, :author_id, :creation_time"
+    ", :modification_time, :content)"
 };
 
 static std::string const DELETE_MESSAGE {
@@ -133,11 +135,11 @@ editor<BACKEND>::save ()
 
             PFS__ASSERT(!!stmt, "");
 
-            stmt.bind(":message_id", _rep.message_id);
-            stmt.bind(":author_id", _rep.convers->me);
-            stmt.bind(":creation_time", creation_time);
+            stmt.bind(":message_id"       , _rep.message_id);
+            stmt.bind(":author_id"        , _rep.convers->author_id);
+            stmt.bind(":creation_time"    , creation_time);
             stmt.bind(":modification_time", creation_time);
-            stmt.bind(":content", _rep.content);
+            stmt.bind(":content"          , _rep.content);
 
             stmt.exec();
 

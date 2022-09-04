@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright (c) 2021 Vladislav Trifochkin
+// Copyright (c) 2021,2022 Vladislav Trifochkin
 //
 // This file is part of `chat-lib`.
 //
@@ -7,13 +7,11 @@
 //      2021.12.13 Initial version.
 //      2021.12.27 Refactored.
 ////////////////////////////////////////////////////////////////////////////////
-#include "pfs/assert.hpp"
 #include "pfs/chat/message_store.hpp"
 #include "pfs/chat/backend/sqlite3/message_store.hpp"
 #include "pfs/debby/backend/sqlite3/time_point_traits.hpp"
 #include "pfs/debby/backend/sqlite3/uuid_traits.hpp"
 #include <array>
-#include <cassert>
 
 namespace chat {
 
@@ -49,10 +47,12 @@ message_store<BACKEND>::operator bool () const noexcept
 
 template <>
 message_store<BACKEND>::conversation_type
-message_store<BACKEND>::conversation (contact::id addressee_id) const
+message_store<BACKEND>::conversation (contact::id conversation_id) const
 {
-    PFS__ASSERT(addressee_id != contact::id{}, "bad addressee identifier");
-    return conversation_type::make(_rep.me, addressee_id, _rep.dbh);
+    if (conversation_id == contact::id{})
+        return conversation_type{};
+
+    return conversation_type::make(_rep.me, conversation_id, _rep.dbh);
 }
 
 template <>

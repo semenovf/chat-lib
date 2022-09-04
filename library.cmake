@@ -29,7 +29,7 @@ portable_target(ADD_SHARED ${PROJECT_NAME} ALIAS pfs::chat
     STATIC_EXPORTS CHAT__STATIC)
 
 portable_target(SOURCES ${PROJECT_NAME}
-    ${CMAKE_CURRENT_LIST_DIR}/src/contact.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/src/conversation_enum.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/emoji_db.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/error.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/file.cpp

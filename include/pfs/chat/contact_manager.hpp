@@ -181,14 +181,14 @@ public:
     /**
      * Count of contacts with specified type.
      */
-    CHAT__EXPORT std::size_t count (contact::type_enum type) const;
+    CHAT__EXPORT std::size_t count (conversation_enum type) const;
 
     /**
      * Count of person contacts.
      */
     std::size_t person_count () const
     {
-        return count(contact::type_enum::person);
+        return count(conversation_enum::person);
     }
 
     /**
@@ -196,7 +196,7 @@ public:
      */
     std::size_t groups_count () const
     {
-        return count(contact::type_enum::group);
+        return count(conversation_enum::group);
     }
 
     /**
@@ -237,7 +237,7 @@ public:
             , p.avatar
             , p.description
             , p.contact_id
-            , chat::contact::type_enum::person
+            , conversation_enum::person
         };
 
         return update(c);
@@ -259,13 +259,13 @@ public:
             , g.avatar
             , g.description
             , g.creator_id
-            , chat::contact::type_enum::group };
+            , conversation_enum::group };
         return update(c);
     }
 
     /**
-     * Group reference if @a group_id is identifier of exist group or invalid
-     * reference otherwise.
+     * Conversation group reference if @a group_id is identifier of exist
+     * conversation group or invalid reference otherwise.
      *
      * @throw chat::error{errc::storage_error} on storage error.
      */

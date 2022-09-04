@@ -7,7 +7,7 @@
 //      2021.11.21 Initial version.
 //      2022.02.16 Refactored totally.
 ////////////////////////////////////////////////////////////////////////////////
-#include "contact_type_enum.hpp"
+#include "conversation_enum.hpp"
 #include "pfs/assert.hpp"
 #include "pfs/chat/contact_manager.hpp"
 #include "pfs/chat/error.hpp"
@@ -181,7 +181,7 @@ contact_manager<BACKEND>::gref (contact::id group_id)
 {
     auto c = get(group_id);
 
-    if (is_valid(c) && c.type == contact::type_enum::group)
+    if (is_valid(c) && c.type == conversation_enum::group)
         return group_ref{group_id, this};
 
     return group_ref{};
@@ -230,7 +230,7 @@ contact_manager<BACKEND>::count () const
 
 template <>
 std::size_t
-contact_manager<BACKEND>::count (contact::type_enum type) const
+contact_manager<BACKEND>::count (conversation_enum type) const
 {
     return _rep.contacts->count(type);
 }
@@ -245,7 +245,7 @@ contact_manager<BACKEND>::add (contact::person const & p)
         , p.avatar
         , p.description
         , p.contact_id
-        , chat::contact::type_enum::person
+        , chat::conversation_enum::person
     };
 
     return _rep.contacts->add(c);
@@ -262,7 +262,7 @@ contact_manager<BACKEND>::add (contact::group const & g)
             , g.avatar
             , g.description
             , g.creator_id
-            , chat::contact::type_enum::group};
+            , chat::conversation_enum::group};
 
         if (_rep.contacts->add(c) > 0) {
             auto gr = this->gref(g.contact_id);

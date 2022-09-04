@@ -7,7 +7,7 @@
 //      2021.11.21 Initial version.
 //      2022.02.17 Refactored totally.
 ////////////////////////////////////////////////////////////////////////////////
-#include "contact_type_enum.hpp"
+#include "conversation_enum.hpp"
 #include "pfs/assert.hpp"
 #include "pfs/chat/contact_list.hpp"
 #include "pfs/chat/error.hpp"
@@ -138,7 +138,7 @@ contact_list<BACKEND>::count () const
 
 template <>
 std::size_t
-contact_list<BACKEND>::count (contact::type_enum type) const
+contact_list<BACKEND>::count (conversation_enum type) const
 {
     std::size_t count = 0;
     auto stmt = _rep.dbh->prepare(fmt::format(COUNT_CONTACTS_BY_TYPE, _rep.table_name));

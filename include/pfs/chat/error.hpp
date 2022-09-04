@@ -22,11 +22,14 @@ enum class errc
     , invalid_argument
     , contact_not_found
     , group_not_found
+    , conversation_not_found
     , message_not_found
     , unsuitable_group_member
     , unsuitable_group_creator
     , group_creator_already_set
     , attachment_failure
+    , bad_conversation_type
+    , bad_packet_type
     , bad_emoji_shortcode
     , inconsistent_data  //
     , filesystem_error

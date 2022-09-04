@@ -6,7 +6,7 @@
 // Changelog:
 //      2022.03.10 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
-#include "contact_type_enum.hpp"
+#include "conversation_enum.hpp"
 #include "pfs/assert.hpp"
 #include "pfs/chat/contact_manager.hpp"
 #include "pfs/chat/backend/sqlite3/contact_manager.hpp"
@@ -71,7 +71,7 @@ contact_manager<BACKEND>::group_ref::add_member (contact::id member_id)
             throw err;
         }
 
-        if (c.type != contact::type_enum::person) {
+        if (c.type != conversation_enum::person) {
             error err {errc::unsuitable_group_member
                 , to_string(member_id)
                 , "member must be a person to add to group"};
@@ -197,7 +197,7 @@ contact_manager<BACKEND>::group_ref::members () const
         c.alias       = me.alias;
         c.avatar      = me.avatar;
         c.description = me.description;
-        c.type        = contact::type_enum::person;
+        c.type        = conversation_enum::person;
 
         members.push_back(std::move(c));
     }

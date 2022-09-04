@@ -23,14 +23,6 @@ namespace message {
 
 using id = ::pfs::universal_id;
 
-// enum class status_enum
-// {
-//       draft
-//     , dispatched
-//     , delivered
-//     , read
-// };
-
 // Media Types
 // [Media Types](https://www.iana.org/assignments/media-types/media-types.xhtml)
 enum class mime_enum
@@ -165,21 +157,18 @@ inline std::string to_string (content const & c)
 
 struct message_credentials
 {
-    // Unique message ID
+    // Unique message ID.
     id message_id;
 
-    // Author contact ID
+    // Author contact ID.
     contact::id author_id;
 
     // Message creation time (UTC).
     // Creation time in the author side.
     pfs::utc_time_point creation_time;
 
-    // Message last modification time (UTC). Reserved for future use.
+    // Message last modification time (UTC).
     pfs::utc_time_point modification_time;
-
-    // Message dispatched time (UTC)
-    pfs::optional<pfs::utc_time_point> dispatched_time;
 
     // Delivered time (for outgoing) or received (for incoming) (UTC)
     pfs::optional<pfs::utc_time_point> delivered_time;
@@ -188,41 +177,6 @@ struct message_credentials
     pfs::optional<pfs::utc_time_point> read_time;
 
     pfs::optional<content> contents;
-};
-
-struct group_message_credentials
-{
-    // Unique group message ID
-    id message_id;
-
-    // Author contact ID
-    contact::id author_id;
-
-    // Message creation time (UTC).
-    pfs::utc_time_point creation_time;
-
-    // Message last modification time (UTC). Reserved for future use.
-    pfs::utc_time_point modification_time;
-
-    pfs::optional<content> contents;
-};
-
-struct member_message_credentials
-{
-    // Personal unique message ID
-    id message_id;
-
-    // Group message ID
-    id group_message_id;
-
-    // Message dispatched time (UTC)
-    pfs::optional<pfs::utc_time_point> dispatched_time;
-
-    // Delivered time (for outgoing) or received (for incoming) (UTC)
-    pfs::optional<pfs::utc_time_point> delivered_time;
-
-    // Message read time (UTC)
-    pfs::optional<pfs::utc_time_point> read_time;
 };
 
 }} // namespace chat::message

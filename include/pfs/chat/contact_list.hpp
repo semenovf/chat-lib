@@ -50,7 +50,7 @@ public:
 
     /**
      */
-    std::size_t count (contact::type_enum type) const;
+    std::size_t count (conversation_enum type) const;
 
     /**
      * Adds contact.

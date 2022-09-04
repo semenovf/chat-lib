@@ -214,15 +214,6 @@ TEST_CASE("messenger") {
             , to_string(message_id));
     };
 
-    auto dispatched_callback = [] (chat::contact::id addressee
-        , chat::message::id message_id
-        , pfs::utc_time_point /*dispatched_time*/) {
-
-        fmt::print("Message dispatched for #{}: #{}\n"
-            , to_string(addressee)
-            , to_string(message_id));
-    };
-
     auto delivered_callback = [] (chat::contact::id addressee
         , chat::message::id message_id
         , pfs::utc_time_point /*delivered_time*/) {
@@ -246,9 +237,6 @@ TEST_CASE("messenger") {
 
     messenger1->message_received = received_callback;
     messenger2->message_received = received_callback;
-
-    messenger1->message_dispatched = dispatched_callback;
-    messenger2->message_dispatched = dispatched_callback;
 
     messenger1->message_delivered = delivered_callback;
     messenger2->message_delivered = delivered_callback;
@@ -411,7 +399,6 @@ TEST_CASE("messenger") {
         REQUIRE_EQ(m->message_id, last_message_id);
 
         messenger1->dispatch_message(contactId2, *m);
-        messenger1->dispatched(contactId2, last_message_id, pfs::current_utc_time_point());
     }
 
 ////////////////////////////////////////////////////////////////////////////////

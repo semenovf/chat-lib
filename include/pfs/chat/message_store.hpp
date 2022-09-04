@@ -43,12 +43,12 @@ public:
     CHAT__EXPORT operator bool () const noexcept;
 
     /**
-     * Opens conversation with contact @a c.
+     * Opens conversation by @a conversation_id.
      *
      * @brief This method initializes/opens data storage for conversation messages
      *        associated with specified contact.
      */
-    CHAT__EXPORT conversation_type conversation (contact::id addressee_id) const;
+    CHAT__EXPORT conversation_type conversation (contact::id conversation_id) const;
 
     /**
      * Wipes (erases all, drop all conversations) messages.

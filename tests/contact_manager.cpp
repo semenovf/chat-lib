@@ -195,7 +195,7 @@ TEST_CASE("contacts") {
         contact_t c;
         c.contact_id = pfs::generate_uuid();
         c.alias = "Noname";
-        c.type = chat::contact::type_enum::person;
+        c.type = chat::conversation_enum::person;
 
         auto success = contact_manager.update(c);
         REQUIRE_FALSE(success);
@@ -205,14 +205,14 @@ TEST_CASE("contacts") {
     {
         auto c = contact_manager.get(all_contacts[1].contact_id);
         REQUIRE_EQ(c.alias, all_contacts[1].alias);
-        REQUIRE_EQ(c.type, chat::contact::type_enum::person);
+        REQUIRE_EQ(c.type, chat::conversation_enum::person);
     }
 
     // Get contact by offset
     {
         auto c = contact_manager.get(1);
         REQUIRE_EQ(c.alias, all_contacts[1].alias);
-        REQUIRE_EQ(c.type, chat::contact::type_enum::person);
+        REQUIRE_EQ(c.type, chat::conversation_enum::person);
     }
 
     // Attempt to get non-existent contact

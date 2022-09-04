@@ -40,8 +40,8 @@ struct conversation
     struct rep_type
     {
         shared_db_handle dbh;
-        contact::id me;
-        contact::id opponent;
+        contact::id author_id;
+        contact::id conversation_id;
         mutable in_memory_cache cache;
         std::string table_name;
         void (* invalidate_cache) (rep_type * rep);
@@ -50,8 +50,8 @@ struct conversation
     /**
      * @throw chat::error @c errc::storage_error.
      */
-    static CHAT__EXPORT rep_type make (contact::id me
-        , contact::id opponent
+    static CHAT__EXPORT rep_type make (contact::id author_id
+        , contact::id conversation_id
         , shared_db_handle dbh);
 };
 

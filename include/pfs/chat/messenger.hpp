@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright (c) 2021 Vladislav Trifochkin
+// Copyright (c) 2021,2022 Vladislav Trifochkin
 //
 // This file is part of `chat-lib`.
 //
@@ -18,6 +18,7 @@
 #include "pfs/assert.hpp"
 #include "pfs/fmt.hpp"
 #include "pfs/i18n.hpp"
+#include "pfs/log.hpp"
 #include <algorithm>
 #include <functional>
 #include <iterator>
@@ -36,7 +37,6 @@ namespace chat {
 //  |   -----------------  ------------  ----------------------- |
 //  |               ^           ^                 ^              |
 //  |               |           |                 |              |
-//  |               |           |                 |              |
 //  |               v           v                 v              |
 //  |       --------------------------------------------         |
 //  |       |                                          |         |
@@ -45,14 +45,12 @@ namespace chat {
 //  |       --------------------------------------------         |
 //  |                                           ^                |
 //  |                                           |                |
-//  |___________________________________________|________________|
-//                                              |
-//                                              |
-//                                              v
-//                                   -----------------------
-//                                   |   Delivery manager  |
-//                                   -----------------------
-//                                           ^    |
+//  |                                           v                |
+//  |                                -----------------------     |
+//  |                                |   Delivery manager  |     |
+//  |                                -----------------------     |
+//  |                                        ^    |              |
+//  |________________________________________|____|______________|
 //                                           |    |
 //                                           |    v
 //                                      Communication media
@@ -64,45 +62,79 @@ namespace chat {
 ////////////////////////////////////////////////////////////////////////////////
 //                          Message lifecycle
 //
-// Frontend               Messenger                     Delivery      Messenger
-//                          author                      manager       addressee
-// ---------              ---------                     --------      ---------
-//     |                      |                            |              |
-//     |                      |      1. message ID         |              |
-//     |                      |      2. author ID          |              |
-//     |   dispatch_message   |      3. creation time      |              |
-//     |--------------------->| (1)  4. content            |          (1')|
-//     |                      |--------------------------->|------------->|
-//     |                      |                            |              |
-//     |                      |      1. message ID         |              |
-//     |                      |      2. addressee ID       |              |
-//     |                      | (2') 3. delivered time     |           (2)|
-//     |                      |<---------------------------|<-------------|
-//     |                      |                            |              |
-//     |                      |      1. message ID         |              |
-//     |                      |      2. addressee ID       |              |
-//     |                      | (3') 3. read time          |           (3)|
-//     |                      |<---------------------------|<-------------|
-//     |                      |                            |              |
-//     |                      |      1. message ID         |              |
-//     |                      |      2. author ID          |              |
-//     |                      |      3. modification time  |              |
-//     |                      | (4)  4. content            |          (4')|
-//     |                      |----------------------------|<------------>|
-//     |                      |                            |              |
-//     |                      |               ...          |              |
-//     |                      |                            |              |
-//     |                      | (4)                        |          (4')|
-//     |                      |----------------------------|------------->|
-//     |                      |                            |              |
+// Frontend          Messenger                     Delivery      Messenger
+//                   author                        manager       addressee
+// ---------         ---------                     --------      ---------
+//     |                  |                            |              |
+//     |                  |      1. message ID         |              |
+//     |                  |      2. author ID          |              |
+//     |                  |      3. conversation ID    |              |
+//     | dispatch_message |      4. creation time      |              |
+//     |----------------->| (1)  5. content            |              |
+//     |                  |--------------------------->|          (1')|
+//     |                  |                            |------------->|
+//     |                  |      1. message ID         |              |
+//     |                  |      2. addressee ID       |              |
+//     |                  |      3. conversation ID'   |           (2)|
+//     |                  | (2') 4. delivered time     |<-------------|
+//     |                  |<---------------------------|              |
+//     |                  |                            |              |
+//     |                  |      1. message ID         |              |
+//     |                  |      2. addressee ID       |              |
+//     |                  |      3. conversation ID'   |           (3)|     (3")
+//     |                  | (3') 4. read time          |<-------------|-------->
+//     |                  |<---------------------------|              |
+//     |                  |                            |              |
+//     |                  |      1. message ID         |              |
+//     |                  |      2. author ID          |              |
+//     |                  |      3. conversation ID    |              |
+//     |                  |      4. modification time  |              |
+//     |                  | (4)  5. content            |              |
+//     |                  |--------------------------->|          (4')|
+//     |                  |                            |------------->|
+//     |                  |               ...          |              |
+//     |                  | (4)                        |              |
+//     |                  |--------------------------->|          (4')|
+//     |                  |                            |------------->|
+//     |                  |                            |              |
 //
 // Step (1-1') - dispatching message
 // Step (2-2') - delivery notification
 // Step (3-3') - read notification
+// Step (3")   - mark as read on receiver side
 // Step (4-4') - modification notification
 //
 // Step (4-4') can happen zero or more times.
 //
+// conversation ID  -> Author or group ID
+// conversation ID' -> Addressee or group ID
+////////////////////////////////////////////////////////////////////////////////
+/**
+ * Terms
+ *
+ * -# @c Addressee Side (person) of the conversation that received the message.
+ *      Synonym for @c Receiver.
+ * -# @c Addresser Side (person) of the conversation that send the message.
+ *      Synonym for @c Sender.
+ * -# @c Author Side (person) of the conversation that create and send the message.
+ * -# @c Conversation Conversation (dialogue) as is. Can be personal conversation,
+ *         group conversation or channel. Conversation associates with two
+ *         (personal) or more (group conversation or channel) sides.
+ * -# @c Conversation @c credentials Data that dsscribes conversation.
+ * -# @c Contact Is a synonym for conversation credentials.
+ * -# @c Message The unit of the conversation. Has author (creator) and destination
+ *          (another side of the conversation).
+ * -# @c Opponent Opposite side of the conversation. Can be synonym for
+ *          @c Addressee / @c Receiver.
+ * -# @c Receiver Side (person) of the conversation that received the message.
+ *          Synonym for @c Addressee.
+ * -# @c Sender Side (person) of the conversation that send the message.
+ */
+////////////////////////////////////////////////////////////////////////////////
+#ifndef CHAT__MESSENGER_TAG
+#   define CHAT__MESSENGER_TAG "chat::messenger"
+#endif
+
 template <typename ContactManagerBackend
     , typename MessageStoreBackend
     , typename FileCacheBackend
@@ -113,49 +145,62 @@ public:
     using contact_type = contact::contact;
     using person_type  = contact::person;
     using group_type   = contact::group;
-    using contact_manager_type = contact_manager<ContactManagerBackend>;
-    using message_store_type   = message_store<MessageStoreBackend>;
-    using file_cache_type      = file_cache<FileCacheBackend>;
-    using serializer_type      = serializer<SerializerBackend>;
+    using contact_manager_type  = contact_manager<ContactManagerBackend>;
+    using message_store_type    = message_store<MessageStoreBackend>;
+    using file_cache_type       = file_cache<FileCacheBackend>;
+    using serializer_type       = serializer<SerializerBackend>;
 //     using icon_library_type    = typename ...;
 
     using conversation_type = typename message_store_type::conversation_type;
 
-public:
-    static message::id const CONTACT_MESSAGE;
-    static message::id const MEMBERS_MESSAGE;
-
 private:
-    std::unique_ptr<contact_manager_type> _contact_manager;
-    std::unique_ptr<message_store_type>   _message_store;
-    std::shared_ptr<file_cache_type>      _file_cache;
+    std::unique_ptr<contact_manager_type>  _contact_manager;
+    std::unique_ptr<message_store_type>    _message_store;
+    std::shared_ptr<file_cache_type>       _file_cache;
     contact::id_generator _contact_id_generator;
     message::id_generator _message_id_generator;
     file::id_generator    _file_id_generator;
 
 public: // Callbacks
-    mutable std::function<void (std::string const &)> failure;
-
-    mutable std::function<bool (
-          contact::id
-        , message::id
+    /**
+     * Called to dispatch data (pass to delivery manager)
+     *
+     * @param message_address Message address.
+     */
+    mutable std::function<bool (contact::id /*addressee_id*/
         , std::string const & /*data*/)> dispatch_data;
 
-    mutable std::function<void (contact::id /*addressee*/
-        , message::id /*message_id*/)> about_to_dispatch_message;
-
-    mutable std::function<void (contact::id /*addressee*/
-        , message::id /*message_id*/
-        , pfs::utc_time_point /*dispatched_time*/)> message_dispatched;
-
-    mutable std::function<void (contact::id /*author*/
+    /**
+     * Called by receiver when message received.
+     *
+     * @param author_id Author/sender identifier.
+     * @param conversation_id Conversation identifier.
+     * @param message_id Message identifier.
+     */
+    mutable std::function<void (contact::id /*author_id*/
+        , contact::id /*conversation_id*/
         , message::id /*message_id*/)> message_received;
 
-    mutable std::function<void (contact::id /*addressee*/
+    /**
+     * Called by author when message delivered to addressee (receiver).
+     *
+     * @param conversation_id Conversation identifier.
+     * @param message_id Message identifier.
+     * @param delivered_time Delivered time in UTC.
+     */
+    mutable std::function<void (contact::id /*conversation_id*/
         , message::id /*message_id*/
         , pfs::utc_time_point /*delivered_time*/)> message_delivered;
 
-    mutable std::function<void (contact::id /*addressee*/
+    /**
+     * Called by author when received read message notification or opponent when
+     * read received message from author.
+     *
+     * @param conversation_id Conversation identifier.
+     * @param message_id Message identifier.
+     * @param delivered_time Read time in UTC.
+     */
+    mutable std::function<void (contact::id /*conversation_id*/
         , message::id /*message_id*/
         , pfs::utc_time_point /*read_time*/)> message_read;
 
@@ -188,12 +233,7 @@ public:
         : _contact_manager(std::move(contact_manager))
         , _message_store(std::move(message_store))
         , _file_cache(std::move(file_cache))
-    {
-        // Set default failure callback
-        failure = [] (std::string const & errstr) {
-            fmt::print(stderr, "ERROR: {}\n", errstr);
-        };
-    }
+    {}
 
     ~messenger () = default;
 
@@ -254,34 +294,49 @@ public:
 ////////////////////////////////////////////////////////////////////////////////
     /**
      * Adds member specified by @a member_id to the group specified by @a group_id.
-     *
-     * @return @c false on error or @c true if contact added was successfully
-     *         or it is already a member of the specified group.
      */
-    bool add_member (contact::id group_id, contact::id member_id)
+    void add_member (contact::id group_id, contact::id member_id
+        , std::error_code & ec) noexcept
     {
         auto group_ref = _contact_manager->gref(group_id);
 
         if (!group_ref) {
-            failure(tr::f_("attempt to add member into non-existent group: {}"
-                , group_id));
-            return false;
+            ec = make_error_code(errc::group_not_found);
+            return;
         }
 
-        return group_ref.add_member(member_id);
+        group_ref.add_member(member_id);
+
+        LOG_TRACE_3(CHAT__MESSENGER_TAG ": add_member: group_id={}; member_id={}"
+            , group_id, member_id);
+    }
+
+    /**
+     * Adds member specified by @a member_id to the group specified by @a group_id.
+     *
+     * @throw chat::error{errc::group_not_found} if conversation group not found
+     *        by @a group_id.
+     */
+    inline void add_member (contact::id group_id, contact::id member_id)
+    {
+        std::error_code ec;
+        add_member(group_id, member_id, ec);
+
+        if (ec)
+            throw error{ec, to_string(group_id)};
     }
 
     /**
      * Removes member specified by @a member_id from the group specified
      * by @a group_id.
      */
-    void remove_member (contact::id group_id, contact::id member_id)
+    void remove_member (contact::id group_id, contact::id member_id
+        , std::error_code & ec) noexcept
     {
         auto group_ref = _contact_manager->gref(group_id);
 
         if (!group_ref) {
-            failure(tr::f_("attempt to remove member from non-existent group: {}"
-                , group_id));
+            ec = make_error_code(errc::group_not_found);
             return;
         }
 
@@ -289,15 +344,30 @@ public:
     }
 
     /**
+     * Removes member specified by @a member_id from the group specified
+     * by @a group_id.
+     *
+     * @throw chat::error{errc::group_not_found} if conversation group not found
+     *        by @a group_id.
+     */
+    inline void remove_member (contact::id group_id, contact::id member_id)
+    {
+        std::error_code ec;
+        remove_member(group_id, member_id, ec);
+
+        if (ec)
+            throw error{ec, to_string(group_id)};
+    }
+
+    /**
      * Removes all members from the group specified by @a group_id.
      */
-    void remove_all_members (contact::id group_id)
+    void remove_all_members (contact::id group_id, std::error_code & ec) noexcept
     {
         auto group_ref = _contact_manager->gref(group_id);
 
         if (!group_ref) {
-            failure(tr::f_("attempt to remove all members from non-existent group: {}"
-                , group_id));
+            ec = make_error_code(errc::group_not_found);
             return;
         }
 
@@ -305,15 +375,31 @@ public:
     }
 
     /**
-      * Get members of the specified group.
-      */
-    std::vector<contact::contact> members (contact::id group_id) const
+     * Removes all members from the group specified by @a group_id.
+     *
+     * @throw chat::error{errc::group_not_found} if conversation group not found
+     *        by @a group_id.
+     */
+    inline void remove_all_members (contact::id group_id)
+    {
+        std::error_code ec;
+        remove_all_members(group_id, ec);
+
+        if (ec)
+            throw error{ec, to_string(group_id)};
+    }
+
+    /**
+     * Gets members of the specified group. Returns empty vector on error.
+     *
+     */
+    std::vector<contact::contact> members (contact::id group_id
+        , std::error_code & ec) const noexcept
     {
         auto group_ref = _contact_manager->gref(group_id);
 
         if (!group_ref) {
-            failure(tr::f_("attempt to get members of non-existent group: {}"
-                , group_id));
+            ec = make_error_code(errc::group_not_found);
             return std::vector<contact::contact>{};
         }
 
@@ -321,51 +407,127 @@ public:
     }
 
     /**
-      * Get member identifiers of the specified group.
-      */
-    std::vector<contact::id> member_ids (contact::id group_id) const
+     * Gets members of the specified group.
+     *
+     * @throw chat::error{errc::group_not_found} if conversation group not found
+     *        by @a group_id.
+     */
+    std::vector<contact::contact> members (contact::id group_id) const
+    {
+        std::error_code ec;
+        auto result = members(group_id, ec);
+
+        if (ec)
+            throw error{ec, to_string(group_id)};
+
+        return result;
+    }
+
+    /**
+     * Get member identifiers of the specified group.
+     */
+    std::vector<contact::id> member_ids (contact::id group_id
+        , std::error_code & ec) const noexcept
     {
         auto group_ref = _contact_manager->gref(group_id);
 
         if (!group_ref) {
-            failure(tr::f_("attempt to get members of non-existent group: {}"
-                , group_id));
+            ec = make_error_code(errc::group_not_found);
             return std::vector<contact::id>{};
         }
 
         return group_ref.member_ids();
     }
+
     /**
-     * Count of contacts in specified group.
+     * Get member identifiers of the specified group.
+     *
+     * @throw chat::error{errc::group_not_found} if conversation group not found
+     *        by @a group_id.
      */
-    std::size_t members_count (contact::id group_id) const
+    inline std::vector<contact::id> member_ids (contact::id group_id) const
+    {
+        std::error_code ec;
+        auto result = member_ids(group_id, ec);
+
+        if (ec)
+            throw error{ec, to_string(group_id)};
+
+        return result;
+    }
+
+    /**
+     * Count of contacts in specified group. Return @c 0 on error.
+     */
+    std::size_t members_count (contact::id group_id, std::error_code & ec) const noexcept
     {
         auto group_ref = _contact_manager->gref(group_id);
 
         // Attempt to get members count of non-existent group
-        if (!group_ref)
+        if (!group_ref) {
+            ec = make_error_code(errc::group_not_found);
             return 0;
+        }
 
-        return group_ref ? group_ref.count() : 0;
+        return group_ref.count();
+    }
+
+    /**
+     * Count of contacts in specified group.
+     *
+     * @throw chat::error{errc::group_not_found} if conversation group not found
+     *        by @a group_id.
+     */
+    inline std::size_t members_count (contact::id group_id) const
+    {
+        std::error_code ec;
+        auto result = members_count(group_id, ec);
+
+        // Attempt to get members count of non-existent group
+        if (ec)
+            throw error{ec, to_string(group_id)};
+
+        return result;
     }
 
     /**
      * Checks if contact @a member_id is the member of group @a group_id.
+     * Returns @c false on error.
      */
-    bool is_member_of (contact::id group_id, contact::id member_id) const
+    bool is_member_of (contact::id group_id, contact::id member_id
+        , std::error_code & ec) const noexcept
     {
         auto group_ref = _contact_manager->gref(group_id);
 
-        if (!group_ref)
+        if (!group_ref) {
+            ec = make_error_code(errc::group_not_found);
             return false;
+        }
 
         return group_ref.is_member_of(member_id);
     }
 
     /**
+     * Checks if contact @a member_id is the member of group @a group_id.
+     *
+     * @throw chat::error{errc::group_not_found} if conversation group not found
+     *        by @a group_id.
+     */
+    inline bool is_member_of (contact::id group_id, contact::id member_id) const
+    {
+        std::error_code ec;
+        auto result = is_member_of(group_id, member_id, ec);
+
+        if (ec)
+            throw error{ec, to_string(group_id)};
+
+        return result;
+    }
+
+    /**
      * Total count of contacts with specified @a type.
      */
-    std::size_t contacts_count (contact::type_enum type) const
+    std::size_t contacts_count (conversation_enum type) const
     {
         return _contact_manager->count(type);
     }
@@ -499,19 +661,15 @@ public:
         _contact_manager->for_each_until(std::forward<F>(f));
     }
 
-    conversation_type conversation (contact::id addressee_id) const
+    conversation_type conversation (contact::id conversation_id) const
     {
         // Check for contact exists
-        auto c = contact(addressee_id);
+        auto c = contact(conversation_id);
 
-        if (!is_valid(c)) {
-            // Invalid addressee ID to generate invalid conversation
-            //failure(fmt::format("No contact found: {}", addressee_id));
-            addressee_id = contact::id{};
+        if (!is_valid(c))
             return conversation_type{};
-        }
 
-        return _message_store->conversation(addressee_id);
+        return _message_store->conversation(conversation_id);
     }
 
     /**
@@ -549,52 +707,93 @@ public:
     }
 
     /**
-     * Dispatch message (original or edited)
+     * Dispatch message (original or edited) for person or group.
+     *
+     * @param conv Conversation that the message belongs to.
+     * @param message_id Message identifier.
+     *
+     * @throw error{errc::bad_conversation_type} Bad conversation type.
      */
-    bool dispatch_message (contact::id addressee
-        , message::message_credentials const & msg)
+    void dispatch_message (conversation_type const & conv, message::id message_id)
     {
-        protocol::original_message m;
-        m.message_id    = msg.message_id;
-        m.author_id     = msg.author_id;
-        m.creation_time = msg.creation_time;
-        m.content       = msg.contents.has_value() ? to_string(*msg.contents) : std::string{};
+        if (!conv)
+            return;
+
+        auto addressee = contact(conv.id());
+        auto msg = conv.message(message_id);
+
+        protocol::regular_message m;
+        m.message_id = msg->message_id;
+        m.author_id  = msg->author_id;
+        m.conversation_id = is_person(addressee) ? msg->author_id : conv.id();
+        m.mod_time   = msg->modification_time;
+        m.content    = msg->contents.has_value()
+            ? to_string(*msg->contents)
+            : std::string{};
 
         typename serializer_type::output_packet_type out {};
         out << m;
-
-        if (about_to_dispatch_message)
-            about_to_dispatch_message(addressee, msg.message_id);
-
-        PFS__ASSERT(!!dispatch_data, "dispatch_data callback must be initialized");
-        auto success = dispatch_data(addressee, msg.message_id, out.data());
-        return success;
+        dispatch_packet(addressee, out.data());
     }
 
     /**
-     * Dispatch read notification.
+     * This is a convenient method for dispatch message
+     * (@see messenger::dispatch_message(conversation_type const &, message::id)).
      */
-    void dispatch_read_notification (contact::id addressee_id
+    inline void dispatch_message (contact::id conversation_id, message::id message_id)
+    {
+        dispatch(this->conversation(conversation_id), message_id);
+    }
+
+    /**
+     * Mark received message as read and dispatch read notification to message
+     * author or members of conversation group.
+     *
+     * @param conversation_id Conversation identifier.
+     * @param message_id Message identifier.
+     * @param read_time Read time in UTC.
+     *
+     * @throw chat::error{errc::conversation_not_found} if conversation not found
+     *        specified by @a message_address.
+     * @throw chat::error{errc::message_not_found} if message not found
+     *        specified by @a message_address.
+     */
+    void dispatch_read_notification (contact::id conversation_id
         , message::id message_id
         , pfs::utc_time_point read_time)
     {
-        // Process (mark as read) incoming message.
-        process_read_notification(addressee_id, message_id, read_time);
+        //
+        // Mark incoming message as read
+        //
+        auto conv = this->conversation(conversation_id);
+
+        if (!conv) {
+            throw chat::error{errc::conversation_not_found
+                , to_string(conversation_id)};
+        }
+
+        process_read_notification(conv, message_id, read_time);
+
+        //
+        // Dispatch message read notification to message sender.
+        //
+        auto conv_contact = contact(conv.id());
 
         protocol::read_notification m;
         m.message_id = message_id;
-        m.addressee_id = my_contact().contact_id; // Addressee is me
+        m.conversation_id = is_person(conv_contact)
+            ? my_contact().contact_id : conversation_id;
         m.read_time = read_time;
 
         typename serializer_type::output_packet_type out {};
         out << m;
-        dispatch_data(addressee_id, message_id, out.data());
+        dispatch_packet(conv_contact, out.data());
     }
 
     /**
      * Dispatch contact credentials.
      */
-    void dispatch_contact (contact::id addressee) const
+    void dispatch_contact (contact::id addressee_id) const
     {
         auto me = my_contact();
 
@@ -604,30 +803,31 @@ public:
             , me.avatar
             , me.description
             , me.contact_id
-            , chat::contact::type_enum::person
+            , conversation_enum::person
         }};
 
         typename serializer_type::output_packet_type out {};
         out << c;
-        dispatch_data(addressee, CONTACT_MESSAGE, out.data());
+        dispatch_data(addressee_id, out.data());
     }
 
     /**
      * Dispatch group contact and list of group members.
      * Used when group created or updated localy.
+     *
+     * @throw chat::error{errc::group_not_found} if conversation group not found
+     *        by @a group_id.
      */
-    void dispatch_group (contact::id addressee, contact::id group_id) const
+    void dispatch_group (contact::id addressee_id, contact::id group_id) const
     {
         // Skip own contact
-        if (addressee == my_contact().contact_id)
+        if (addressee_id == my_contact().contact_id)
             return;
 
         auto g = _contact_manager->get(group_id);
 
-        if (!is_valid(g)) {
-            failure(tr::f_("group not found by id {}", group_id));
-            return;
-        }
+        if (!is_valid(g))
+            throw error{errc::group_not_found, to_string(group_id)};
 
         // Send group contact
         protocol::contact_credentials c {{
@@ -636,13 +836,13 @@ public:
             , g.avatar
             , g.description
             , g.creator_id
-            , chat::contact::type_enum::group
+            , conversation_enum::group
         }};
 
         {
             typename serializer_type::output_packet_type out {};
             out << c;
-            dispatch_data(addressee, CONTACT_MESSAGE, out.data());
+            dispatch_data(addressee_id, out.data());
         }
 
         // Send group members
@@ -658,7 +858,7 @@ public:
         {
             typename serializer_type::output_packet_type out {};
             out << gm;
-            dispatch_data(addressee, MEMBERS_MESSAGE, out.data());
+            dispatch_data(addressee_id, out.data());
         }
     }
 
@@ -666,10 +866,10 @@ public:
      * Dispatch group removed message.
      * Used when group removed localy.
      */
-    void dispatch_group_removed (contact::id addressee, contact::id group_id) const
+    void dispatch_group_removed (contact::id addressee_id, contact::id group_id) const
     {
         // Skip own contact
-        if (addressee == my_contact().contact_id)
+        if (addressee_id == my_contact().contact_id)
             return;
 
         protocol::group_members gm;
@@ -678,205 +878,137 @@ public:
         typename serializer_type::output_packet_type out {};
         out << gm;
 
-        dispatch_data(addressee, MEMBERS_MESSAGE, out.data());
+        dispatch_data(addressee_id, out.data());
     }
 
     /**
      * Dispatch self created group contacts and list of members.
      */
-    void dispatch_self_created_groups (contact::id addressee) const
+    void dispatch_self_created_groups (contact::id addressee_id) const
     {
         auto my_contact_id = my_contact().contact_id;
 
-        for_each_contact([this, addressee, my_contact_id] (contact::contact const & c) {
-            auto self_created_group = (c.type == contact::type_enum::group)
+        for_each_contact([this, addressee_id, my_contact_id] (contact::contact const & c) {
+            auto self_created_group = (c.type == conversation_enum::group)
                 && (c.creator_id == my_contact_id);
 
             if (self_created_group)
-                dispatch_group(addressee, c.contact_id);
+                dispatch_group(addressee_id, c.contact_id);
         });
     }
 
     /**
-     * Dispatch messages limited by @a max_count that not dispatched or not delivered
-     * (received on opponent side) status.
+     * Process received data. Must be called by messenger implementer to
+     * process incomming data.
+     *
+     * @param data Data received.
+     *
+     * @throw chat::error{errc::bad_conversation_type} Unsupported conversation type.
+     * @throw chat::error{errc::group_not_found} Received conversation group
+     *        specific data but conversation group not found.
+     * @throw chat::error{} Bad/corrupted message content.
+     * @throw chat::error{errc::bad_packet_type} Bad packet type received.
      */
-    void dispatch_delayed_messages (contact::id addressee_id, int max_count = -1)
-    {
-        auto conv = conversation(addressee_id);
-
-        if (conv) {
-            conv.for_each([this, addressee_id] (message::message_credentials const & m) {
-                if (m.author_id != addressee_id) {
-                    if (!m.dispatched_time)
-                        dispatch_message(addressee_id, m);
-                    else if (!m.delivered_time)
-                        dispatch_message(addressee_id, m);
-                }
-            }, max_count);
-        }
-    }
-
-    /**
-     * Process received data.
-     */
-    void process_received_data (contact::id author, std::string const & data)
+    void process_incoming_data (std::string const & data)
     {
         typename serializer_type::input_packet_type in {data};
-        protocol::packet_type_enum packet_type;
+        protocol::packet_enum packet_type;
         in >> packet_type;
 
         switch (packet_type) {
-            case protocol::packet_type_enum::contact_credentials: {
-                protocol::contact_credentials c;
-                in >> c;
+            case protocol::packet_enum::contact_credentials: {
+                protocol::contact_credentials cc;
+                in >> cc;
 
-                switch (c.contact.type) {
-                    case contact::type_enum::person: {
+                switch (cc.contact.type) {
+                    case conversation_enum::person: {
                         contact::person p;
-                        p.contact_id = c.contact.contact_id;
-                        p.alias = std::move(c.contact.alias);
-                        p.avatar = std::move(c.contact.avatar);
-                        p.description = std::move(c.contact.description);
+                        p.contact_id = cc.contact.contact_id;
+                        p.alias = std::move(cc.contact.alias);
+                        p.avatar = std::move(cc.contact.avatar);
+                        p.description = std::move(cc.contact.description);
 
                         /*auto id = */update_or_add(std::move(p));
                         break;
                     }
 
-                    case contact::type_enum::group: {
+                    case conversation_enum::group: {
                         contact::group g;
-                        g.contact_id = c.contact.contact_id;
-                        g.creator_id = c.contact.creator_id;
-                        g.alias = std::move(c.contact.alias);
-                        g.avatar = std::move(c.contact.avatar);
-                        g.description = std::move(c.contact.description);
+                        g.contact_id = cc.contact.contact_id;
+                        g.creator_id = cc.contact.creator_id;
+                        g.alias = std::move(cc.contact.alias);
+                        g.avatar = std::move(cc.contact.avatar);
+                        g.description = std::move(cc.contact.description);
 
                         /*auto id = */update_or_add(std::move(g));
                         break;
                     }
 
-                    case contact::type_enum::channel:
+                    case conversation_enum::channel:
                         // TODO Implement
                         break;
 
                     default:
-                        failure(fmt::format("Unsupported contact type: {}"
-                            , static_cast<int>(c.contact.type)));
+                        throw error{errc::bad_conversation_type};
                         break;
                 }
 
                 break;
             }
 
-            case protocol::packet_type_enum::group_members: {
+            case protocol::packet_enum::group_members: {
                 protocol::group_members gm;
                 in >> gm;
 
                 if (gm.members.empty()) {
                     // Group removed or contact has been removed from group.
                     // So remove group locally.
-                    //gref.remove_all_members();
                     remove(gm.group_id);
                 } else {
                     auto gref = _contact_manager->gref(gm.group_id);
 
                     if (!gref) {
-                        failure(tr::f_("group members received but group contact"
-                            " not found: {}", gm.group_id));
+                        throw error{errc::group_not_found, to_string(gm.group_id)};
                         break;
                     }
 
                     auto diffs = gref.update(gm.members);
 
-                    if (group_members_updated)
+                    if (group_members_updated) {
                         group_members_updated(gm.group_id
                             , std::move(diffs.added)
                             , std::move(diffs.removed));
-                }
-
-                break;
-            }
-
-            case protocol::packet_type_enum::original_message: {
-                protocol::original_message m;
-                in >> m;
-                auto conv = this->conversation(m.author_id);
-
-                if (conv) {
-                    try {
-                        message::content content{m.content};
-                        conv.save_incoming(m.message_id
-                            , m.author_id
-                            , m.creation_time
-                            , to_string(content));
-
-                        auto received_time = pfs::current_utc_time_point();
-                        conv.mark_received(m.message_id, received_time);
-
-                        // Send notification
-                        dispatch_received_notification(m.author_id, m.message_id
-                            , received_time);
-
-                        // Notify message received
-                        if (message_received)
-                            message_received(m.author_id, m.message_id);
-                    } catch (error ex) {
-                        failure(fmt::format("Bad/corrupted content in "
-                            "incoming message {} from: {}"
-                            , m.message_id
-                            , author));
                     }
                 }
+
                 break;
             }
 
-            case protocol::packet_type_enum::delivery_notification: {
+            case protocol::packet_enum::regular_message: {
+                protocol::regular_message m;
+                in >> m;
+                process_regular_message(m);
+                break;
+            }
+
+            case protocol::packet_enum::delivery_notification: {
                 protocol::delivery_notification m;
                 in >> m;
-                process_delivered_notification(m.addressee_id, m.message_id, m.delivered_time);
+                process_delivered_notification(m);
                 break;
             }
 
-            case protocol::packet_type_enum::read_notification: {
+            case protocol::packet_enum::read_notification: {
                 protocol::read_notification m;
                 in >> m;
-
-                // Process (mark as read) outgoing message.
-                process_read_notification(m.addressee_id, m.message_id, m.read_time);
-                break;
-            }
-
-            case protocol::packet_type_enum::edited_message: {
-                protocol::edited_message m;
-                in >> m;
-                // TODO Implement
+                process_read_notification(m);
                 break;
             }
 
             default:
-                failure(fmt::format("Bad message received from: {}", author));
+                // Bad message received
+                throw error{errc::bad_packet_type};
                 break;
-        }
-    }
-
-    /**
-     * Process notification of message dispatched to @a addressee.
-     */
-    void dispatched (contact::id addressee
-        , message::id message_id
-        , pfs::utc_time_point dispatched_time)
-    {
-        // This is a service message, ignore it
-        if (message_id == CONTACT_MESSAGE || message_id == MEMBERS_MESSAGE)
-            return;
-
-        auto conv = this->conversation(addressee);
-
-        if (conv) {
-            conv.mark_dispatched(message_id, dispatched_time);
-
-            if (message_dispatched)
-                message_dispatched(addressee, message_id, dispatched_time);
         }
     }
 
@@ -887,73 +1019,147 @@ public:
     }
 
 private:
+    void dispatch_packet (contact::contact const & addressee, std::string const & data)
+    {
+        if (dispatch_data) {
+            switch (addressee.type) {
+                case conversation_enum::person:
+                    dispatch_data(addressee.contact_id, data);
+                    break;
+
+                case conversation_enum::group: {
+                    auto group_ref = _contact_manager->gref(addressee.contact_id);
+                    auto member_ids = group_ref.member_ids();
+
+                    for (auto const & member_id: member_ids) {
+                        if (member_id != my_contact().contact_id)
+                            dispatch_data(member_id, data);
+                    }
+
+                    break;
+                }
+
+                case conversation_enum::channel:
+                    // TODO Unsupported yet
+                    break;
+
+                default:
+                    throw error{errc::bad_conversation_type};
+                    break;
+            }
+        }
+    }
+
     /**
-     * Dispatch received notification.
+     * @throw chat::error{errc::conversation_not_found} if specified in message
+     *        @a m conversation not found.
      */
-    bool dispatch_received_notification (contact::id addressee_id
+    void process_regular_message (protocol::regular_message const & m)
+    {
+        auto conv = this->conversation(m.conversation_id);
+
+        if (!conv) {
+            throw error {errc::conversation_not_found
+                , to_string(m.conversation_id)};
+        }
+
+
+        // Can throw when bad/corrupted content in incoming message
+        message::content content{m.content};
+
+        conv.save_incoming(m.message_id
+            , m.author_id
+            , m.mod_time
+            , to_string(content));
+
+        auto received_time = pfs::current_utc_time_point();
+        conv.mark_received(m.message_id, received_time);
+
+        // Send notification
+        dispatch_delivery_notification(m.author_id, conv.id()
+            , m.message_id, received_time);
+
+        // Notify message received
+        if (message_received)
+            message_received(m.author_id, m.conversation_id, m.message_id);
+    }
+
+    /**
+     * Dispatch delivery (received by addressee) notification (to author only).
+     */
+    void dispatch_delivery_notification (contact::id author_id
+        , contact::id conversation_id
         , message::id message_id
         , pfs::utc_time_point received_time)
     {
+        auto conv_contact = contact(conversation_id);
+
+        if (!is_valid(conv_contact))
+            throw error{errc::contact_not_found, to_string(conversation_id)};
+
+        auto addressee = contact(author_id);
+
+        if (!is_valid(addressee))
+            throw error{errc::contact_not_found, to_string(addressee.contact_id)};
+
         protocol::delivery_notification m;
-        m.message_id     = message_id;
-        m.addressee_id   = my_contact().contact_id; // Addressee is me
-        m.delivered_time = received_time;
+        m.message_id      = message_id;
+        m.conversation_id = is_person(conv_contact)
+            ? my_contact().contact_id : conversation_id;
+        m.delivered_time  = received_time;
 
         typename serializer_type::output_packet_type out {};
         out << m;
-        auto success = dispatch_data(addressee_id, message_id, out.data());
-        return success;
+        dispatch_packet(addressee, out.data());
     }
 
     /**
-     * Process notification of message delivered to @a addressee.
+     * Process notification of message delivered to addressee (receiver).
+     *
+     * @throw chat::error{errc::conversation_not_found} if specified in
+     *        notification @a m conversation not found.
      */
-    void process_delivered_notification (contact::id addressee
-        , message::id message_id
-        , pfs::utc_time_point delivered_time)
+    void process_delivered_notification (protocol::delivery_notification const & m)
     {
-        auto conv = this->conversation(addressee);
+        auto conv = this->conversation(m.conversation_id);
 
-        if (conv) {
-            conv.mark_delivered(message_id, delivered_time);
-
-            if (message_delivered)
-                message_delivered(addressee, message_id, delivered_time);
+        if (!conv) {
+            throw error {errc::conversation_not_found
+                , to_string(m.conversation_id)};
         }
+
+        conv.mark_delivered(m.message_id, m.delivered_time);
+
+        if (message_delivered)
+            message_delivered(m.conversation_id, m.message_id, m.delivered_time);
+    }
+
+    inline void process_read_notification(conversation_type & conv
+        , message::id message_id, pfs::utc_time_point read_time)
+    {
+        conv.mark_read(message_id, read_time);
+
+        if (message_read)
+            message_read(conv.id(), message_id, read_time);
     }
 
     /**
-     * Process notification of message read by @a addressee.
+     * Process notification of message read by addressee (receiver).
+     *
+     * @throw chat::error{errc::conversation_not_found} if specified in
+     *        notification @a m conversation not found.
      */
-    void process_read_notification (contact::id addressee_id
-        , message::id message_id
-        , pfs::utc_time_point read_time)
+    void process_read_notification (protocol::read_notification const & m)
     {
-        auto conv = this->conversation(addressee_id);
+        auto conv = this->conversation(m.conversation_id);
 
-        if (conv) {
-            conv.mark_read(message_id, read_time);
-
-            if (message_read)
-                message_read(addressee_id, message_id, read_time);
+        if (!conv) {
+            throw error {errc::conversation_not_found
+                , to_string(m.conversation_id)};
         }
+
+        process_read_notification(conv, m.message_id, m.read_time);
     }
 };
-
-template <typename ContactManagerBackend
-    , typename MessageStoreBackend
-    , typename FileCacheBackend
-    , typename SerializerBackend>
-message::id const
-messenger<ContactManagerBackend, MessageStoreBackend, FileCacheBackend, SerializerBackend>
-    ::CONTACT_MESSAGE {"00000000000000000000000001"_uuid};
-
-template <typename ContactManagerBackend
-    , typename MessageStoreBackend
-    , typename FileCacheBackend
-    , typename SerializerBackend>
-message::id const
-messenger<ContactManagerBackend, MessageStoreBackend, FileCacheBackend, SerializerBackend>
-    ::MEMBERS_MESSAGE {"00000000000000000000000002"_uuid};
 
 } // namespace chat

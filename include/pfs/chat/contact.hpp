@@ -7,7 +7,8 @@
 //      2021.11.20 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
-#include "pfs/chat/exports.hpp"
+#include "conversation_enum.hpp"
+#include "exports.hpp"
 #include "pfs/time_point.hpp"
 #include "pfs/universal_id.hpp"
 #include <string>
@@ -28,17 +29,6 @@ public:
     }
 };
 
-// There are three exchange modes
-//      1. One-to-one   (individual)
-//      2. Many-to-many (group)
-//      3. One-to-many  (channel)
-enum class type_enum
-{
-      person = 1
-    , group
-    , channel
-};
-
 struct contact
 {
     id          contact_id;
@@ -46,7 +36,7 @@ struct contact
     std::string avatar;     // Application specific image path/name/code.
     std::string description;
     id          creator_id; // For person same as ID.
-    type_enum   type;
+    conversation_enum type;
 };
 
 struct person
@@ -83,20 +73,17 @@ inline bool is_valid (T const & t) noexcept
 
 inline bool is_person (contact const & c) noexcept
 {
-    return c.type == type_enum::person;
+    return c.type == conversation_enum::person;
 }
 
 inline bool is_group (contact const & c) noexcept
 {
-    return c.type == type_enum::group;
+    return c.type == conversation_enum::group;
 }
 
 inline bool is_channel (contact const & c) noexcept
 {
-    return c.type == type_enum::channel;
+    return c.type == conversation_enum::channel;
 }
-
-CHAT__EXPORT type_enum to_type_enum (int n);
-CHAT__EXPORT std::string to_string (type_enum type);
 
 }} // namespace chat::contact

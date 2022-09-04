@@ -23,7 +23,7 @@ TEST_CASE("serializer") {
     using serializer = chat::serializer<chat::backend::cereal::serializer>;
     auto time_point = pfs::current_utc_time_point();
 
-    chat::protocol::original_message m;
+    chat::protocol::regular_message m;
     m.message_id    = "01FV1KFY7WCBKDQZ5B4T5ZJMSA"_uuid;
     m.author_id     = "01FV1KFY7WWS3WSBV4BFYF7ZC9"_uuid;
     m.creation_time = time_point;
@@ -32,11 +32,11 @@ TEST_CASE("serializer") {
     serializer::output_packet_type out;
     out << m;
 
-    chat::protocol::original_message m1;
+    chat::protocol::regular_message m1;
     serializer::input_packet_type in {out.data()};
-    chat::protocol::packet_type_enum packet_type;
+    chat::protocol::packet_enum packet_type;
     in >> packet_type >> m1;
 
-    CHECK_EQ(packet_type, chat::protocol::packet_type_enum::original_message);
+    CHECK_EQ(packet_type, chat::protocol::packet_enum::regular_message);
 }
 

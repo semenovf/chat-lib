@@ -39,21 +39,21 @@ static std::string const CREATE_CONVERSATION_TABLE {
     ", `author_id` {} NOT NULL"           // Author contact ID
     ", `creation_time` {} NOT NULL"       // Creation time (UTC)
     ", `modification_time` {} NOT NULL"   // Modification time (UTC)
-    ", `dispatched_time` {}"              // Dispatched (for outgoing) time (UTC)
     ", `delivered_time` {}"               // Delivered time (for outgoing) or received (for incoming) (UTC)
     ", `read_time` {}"                    // Read time (for outgoing and incoming) (UTC)
     ", `content` {})"                     // Message content
 };
 
 conversation::rep_type
-conversation::make (contact::id me, contact::id opponent, shared_db_handle dbh)
+conversation::make (contact::id author_id, contact::id conversation_id
+    , shared_db_handle dbh)
 {
     rep_type rep;
 
     rep.dbh = dbh;
-    rep.me = me;
-    rep.opponent = opponent;
-    rep.table_name = DEFAULT_TABLE_NAME_PREFIX + to_string(opponent);
+    rep.author_id = author_id;
+    rep.conversation_id = conversation_id;
+    rep.table_name = DEFAULT_TABLE_NAME_PREFIX + to_string(conversation_id);
     rep.invalidate_cache = & invalidate_cache;
 
     std::array<std::string, 1> sqls = {
@@ -63,7 +63,6 @@ conversation::make (contact::id me, contact::id opponent, shared_db_handle dbh)
             , affinity_traits<decltype(message::message_credentials{}.author_id)>::name()
             , affinity_traits<decltype(message::message_credentials{}.creation_time)>::name()
             , affinity_traits<decltype(message::message_credentials{}.modification_time)>::name()
-            , affinity_traits<decltype(message::message_credentials{}.dispatched_time)>::name()
             , affinity_traits<decltype(message::message_credentials{}.delivered_time)>::name()
             , affinity_traits<decltype(message::message_credentials{}.read_time)>::name()
             , affinity_traits<std::string>::name())
@@ -100,7 +99,6 @@ static void fill_message (backend::sqlite3::db_traits::result_type & result
     result["author_id"]         >> m.author_id;
     result["creation_time"]     >> m.creation_time;
     result["modification_time"] >> m.modification_time;
-    result["dispatched_time"]   >> m.dispatched_time;
     result["delivered_time"]    >> m.delivered_time;
     result["read_time"]         >> m.read_time;
     result["content"]           >> content_data;
@@ -116,7 +114,6 @@ static std::string const SELECT_ROWS_RANGE {
         ", `author_id`"
         ", `creation_time`"
         ", `modification_time`"
-        ", `dispatched_time`"
         ", `delivered_time`"
         ", `read_time`"
         ", `content`"
@@ -152,8 +149,6 @@ static void prefetch (BACKEND::rep_type const * rep
         field = "`creation_time`";
     else if (sort_flag_on(sort_flags, conversation_sort_flag::by_modification_time))
         field = "`modification_time`";
-    else if (sort_flag_on(sort_flags, conversation_sort_flag::by_dispatched_time))
-        field = "`dispatched_time`";
     else if (sort_flag_on(sort_flags, conversation_sort_flag::by_delivered_time))
         field = "`delivered_time`";
     else if (sort_flag_on(sort_flags, conversation_sort_flag::by_read_time))
@@ -196,6 +191,13 @@ conversation<BACKEND>::operator bool () const noexcept
 }
 
 template <>
+contact::id
+conversation<BACKEND>::id () const noexcept
+{
+    return _rep.conversation_id;
+}
+
+template <>
 std::size_t
 conversation<BACKEND>::count () const
 {
@@ -205,7 +207,7 @@ conversation<BACKEND>::count () const
 static std::string const UNREAD_MESSAGES_COUNT {
     "SELECT COUNT(1) as count FROM `{}`"
     " WHERE `read_time` IS NULL"
-    " AND `author_id` = :opponent"
+    " AND `author_id` != :author_id"
 };
 
 template <>
@@ -216,7 +218,7 @@ conversation<BACKEND>::unread_messages_count () const
     auto stmt = _rep.dbh->prepare(fmt::format(UNREAD_MESSAGES_COUNT, _rep.table_name));
     PFS__ASSERT(!!stmt, "");
 
-    stmt.bind(":opponent", _rep.opponent);
+    stmt.bind(":author_id", _rep.author_id);
 
     auto res = stmt.exec();
 
@@ -227,11 +229,6 @@ conversation<BACKEND>::unread_messages_count () const
 
     return count;
 }
-
-static std::string const UPDATE_DISPATCHED_TIME {
-    "UPDATE OR IGNORE `{}` SET `dispatched_time` = :time"
-    " WHERE `message_id` = :message_id"
-};
 
 static std::string const UPDATE_DELIVERED_TIME {
     "UPDATE OR IGNORE `{}` SET `delivered_time` = :time"
@@ -269,20 +266,6 @@ static void mark_message_status (
 
         throw err;
     }
-}
-
-template <>
-void conversation<BACKEND>::mark_dispatched (message::id message_id
-    , pfs::utc_time_point dispatched_time)
-{
-    mark_message_status(_rep.dbh
-        , UPDATE_DISPATCHED_TIME
-        , _rep.table_name
-        , message_id
-        , dispatched_time
-        , "dispatched");
-
-    invalidate_cache(& _rep);
 }
 
 template <>
@@ -338,7 +321,7 @@ conversation<BACKEND>::open (message::id message_id)
     PFS__ASSERT(!!stmt, "");
 
     stmt.bind(":message_id", message_id);
-    stmt.bind(":author_id", _rep.me);
+    stmt.bind(":author_id", _rep.author_id);
 
     auto res = stmt.exec();
 
@@ -360,9 +343,6 @@ conversation<BACKEND>::open (message::id message_id)
     return editor_type{};
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// conversation::message
-////////////////////////////////////////////////////////////////////////////////
 template <>
 pfs::optional<message::message_credentials>
 conversation<BACKEND>::message (int offset, int sort_flag) const
@@ -383,15 +363,11 @@ conversation<BACKEND>::message (int offset, int sort_flag) const
     return _rep.cache.data[offset - _rep.cache.offset];
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// conversation::message
-////////////////////////////////////////////////////////////////////////////////
 static std::string const SELECT_MESSAGE {
     "SELECT `message_id`"
         ", `author_id`"
         ", `creation_time`"
         ", `modification_time`"
-        ", `dispatched_time`"
         ", `delivered_time`"
         ", `read_time`"
         ", `content`"
@@ -411,32 +387,32 @@ conversation<BACKEND>::message (message::id message_id) const
         }
     }
 
-    auto stmt = _rep.dbh->prepare(fmt::format(SELECT_MESSAGE, _rep.table_name));
+    try {
+        auto stmt = _rep.dbh->prepare(fmt::format(SELECT_MESSAGE, _rep.table_name));
 
-    PFS__ASSERT(!!stmt, "");
+        PFS__ASSERT(!!stmt, "");
 
-    stmt.bind(":message_id", message_id);
+        stmt.bind(":message_id", message_id);
 
-    auto res = stmt.exec();
+        auto res = stmt.exec();
 
-    if (res.has_more()) {
-        message::message_credentials m;
-        fill_message(res, m);
-        return m;
+        if (res.has_more()) {
+            message::message_credentials m;
+            fill_message(res, m);
+            return m;
+        }
+    } catch (debby::error ex) {
+        throw error{errc::storage_error, ex.what()};
     }
 
     return pfs::nullopt;
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// conversation::last_message
-////////////////////////////////////////////////////////////////////////////////
 static std::string const SELECT_LAST_MESSAGE {
     "SELECT `message_id`"
         ", `author_id`"
         ", `creation_time`"
         ", `modification_time`"
-        ", `dispatched_time`"
         ", `delivered_time`"
         ", `read_time`"
         ", `content`"
@@ -462,9 +438,6 @@ conversation<BACKEND>::last_message () const
     return pfs::nullopt;
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// conversation::save_incoming
-////////////////////////////////////////////////////////////////////////////////
 static std::string const INSERT_INCOMING_MESSAGE {
     "INSERT INTO `{}` (`message_id`, `author_id`, `creation_time`"
     ", `modification_time`, `content`)"
@@ -547,15 +520,11 @@ conversation<BACKEND>::save_incoming (message::id message_id
     }
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// conversation::for_each
-////////////////////////////////////////////////////////////////////////////////
 static std::string const SELECT_ALL_MESSAGES {
     "SELECT `message_id`"
         ", `author_id`"
         ", `creation_time`"
         ", `modification_time`"
-        ", `dispatched_time`"
         ", `delivered_time`"
         ", `read_time`"
         ", `content`"
@@ -574,8 +543,6 @@ conversation<BACKEND>::for_each (std::function<void(message::message_credentials
         field = "`creation_time`";
     else if (sort_flag_on(sort_flags, conversation_sort_flag::by_modification_time))
         field = "`modification_time`";
-    else if (sort_flag_on(sort_flags, conversation_sort_flag::by_dispatched_time))
-        field = "`dispatched_time`";
     else if (sort_flag_on(sort_flags, conversation_sort_flag::by_delivered_time))
         field = "`delivered_time`";
     else if (sort_flag_on(sort_flags, conversation_sort_flag::by_read_time))
@@ -606,7 +573,6 @@ conversation<BACKEND>::for_each (std::function<void(message::message_credentials
         res["author_id"]           >> m.author_id;
         res["creation_time"]       >> m.creation_time;
         res["modification_time"]   >> m.modification_time;
-        res["dispatched_time"]     >> m.dispatched_time;
         res["delivered_time"]      >> m.delivered_time;
         res["read_time"]           >> m.read_time;
         res["content"]             >> content_data;
@@ -622,9 +588,6 @@ conversation<BACKEND>::for_each (std::function<void(message::message_credentials
     }
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// conversation::clear
-////////////////////////////////////////////////////////////////////////////////
 template <>
 void
 conversation<BACKEND>::clear ()
@@ -633,9 +596,6 @@ conversation<BACKEND>::clear ()
     invalidate_cache(& _rep);
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// conversation::wipe
-////////////////////////////////////////////////////////////////////////////////
 template <>
 void
 conversation<BACKEND>::wipe ()
