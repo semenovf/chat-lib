@@ -17,7 +17,7 @@ namespace file {
 namespace fs = pfs::filesystem;
 
 file::file_credentials make_credentials (pfs::filesystem::path const & path
-    , std::string const & sha256)
+    , pfs::crypto::sha256_digest const & sha256)
 {
     auto abspath = path.is_absolute()
         ? path
@@ -64,7 +64,7 @@ file::file_credentials make_credentials (pfs::filesystem::path const & path)
             , tr::f_("SHA256 generation failure: {}", ec.message())};
     }
 
-    return make_credentials(path, to_string(digest));
+    return make_credentials(path, digest);
 }
 
 }} // namespace chat::file

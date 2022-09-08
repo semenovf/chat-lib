@@ -8,6 +8,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 #include "contact.hpp"
+#include "file.hpp"
 #include "message.hpp"
 
 namespace chat {
@@ -20,6 +21,7 @@ enum class packet_enum: std::int8_t {
     , regular_message       = 3
     , delivery_notification = 4
     , read_notification     = 5
+    , file_request          = 6
 };
 
 struct contact_credentials
@@ -55,6 +57,11 @@ struct read_notification
     message::id message_id;
     contact::id conversation_id;
     pfs::utc_time_point read_time;
+};
+
+struct file_request
+{
+    file::id file_id;
 };
 
 }} // namespace chat::protocol

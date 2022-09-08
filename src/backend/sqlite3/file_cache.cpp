@@ -8,6 +8,7 @@
 //      2022.07.23 Totally refactored.
 ////////////////////////////////////////////////////////////////////////////////
 #include "pfs/assert.hpp"
+#include "sha256_traits.hpp"
 #include "pfs/chat/file_cache.hpp"
 #include "pfs/chat/backend/sqlite3/file_cache.hpp"
 #include "pfs/debby/backend/sqlite3/path_traits.hpp"
@@ -145,7 +146,7 @@ file_cache<BACKEND>::load (file::id fileid)
     return file::file_credentials{};
 }
 
-std::string const SELECT_BY_PATH {
+static std::string const SELECT_BY_PATH {
     "SELECT `id`, `path`, `name`, `size`, `sha256`"
     " FROM `{}` WHERE `path` = :path"
 };
@@ -186,14 +187,15 @@ void file_cache<BACKEND>::remove (file::id fileid)
     _rep.dbh->query(sql);
 }
 
-std::string const INSERT {
+static std::string const INSERT {
     "INSERT INTO `{}` (`id`, `path`, `name`, `size`, `sha256`)"
     " VALUES (:fileid, :path, :name, :size, :sha256)"
 };
 
 template<>
 file::file_credentials
-file_cache<BACKEND>::ensure (fs::path const & path, std::string const & sha256)
+file_cache<BACKEND>::ensure (fs::path const & path
+    , pfs::crypto::sha256_digest const & sha256)
 {
     auto abspath = path.is_absolute()
         ? path
@@ -230,7 +232,10 @@ file_cache<BACKEND>::ensure (fs::path const & path, std::string const & sha256)
     return file::file_credentials{};
 }
 
-std::string const SELECT_PATH { "SELECT `id`, `path` FROM `{}`" };
+
+
+
+static std::string const SELECT_PATH { "SELECT `id`, `path` FROM `{}`" };
 
 template<>
 std::size_t

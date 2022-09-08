@@ -24,6 +24,7 @@ enum class errc
     , group_not_found
     , conversation_not_found
     , message_not_found
+    , file_not_found
     , unsuitable_group_member
     , unsuitable_group_creator
     , group_creator_already_set

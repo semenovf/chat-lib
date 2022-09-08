@@ -10,6 +10,7 @@
 #include "contact.hpp"
 #include "contact_manager.hpp"
 #include "error.hpp"
+#include "file.hpp"
 #include "file_cache.hpp"
 #include "message.hpp"
 #include "message_store.hpp"
@@ -19,6 +20,7 @@
 #include "pfs/fmt.hpp"
 #include "pfs/i18n.hpp"
 #include "pfs/log.hpp"
+#include "pfs/sha256.hpp"
 #include <algorithm>
 #include <functional>
 #include <iterator>
@@ -225,6 +227,9 @@ public: // Callbacks
     mutable std::function<void (contact::id /*group_id*/
         , std::vector<contact::id> /*added*/
         , std::vector<contact::id> /*removed*/)> group_members_updated;
+
+    mutable std::function<void (contact::id /*requester*/
+        , file::file_credentials)> file_requested;
 
 public:
     messenger (std::unique_ptr<contact_manager_type> && contact_manager
@@ -678,7 +683,7 @@ public:
      * @details If the file is not found in the cache, it will be stored.
      */
     file::file_credentials ensure_file (pfs::filesystem::path const & path
-        , std::string const & sha256)
+        , pfs::crypto::sha256_digest const & sha256)
     {
         return _file_cache->ensure(path, sha256);
     }
@@ -897,10 +902,23 @@ public:
         });
     }
 
+    void dispatch_file_request (contact::id addressee_id, file::id file_id)
+    {
+        // Skip own contact
+        if (addressee_id == my_contact().contact_id)
+            return;
+
+        typename serializer_type::output_packet_type out {};
+        out << protocol::file_request{file_id};
+
+        dispatch_data(addressee_id, out.data());
+    }
+
     /**
      * Process received data. Must be called by messenger implementer to
      * process incomming data.
      *
+     * @param addresser_id Data sender.
      * @param data Data received.
      *
      * @throw chat::error{errc::bad_conversation_type} Unsupported conversation type.
@@ -909,7 +927,7 @@ public:
      * @throw chat::error{} Bad/corrupted message content.
      * @throw chat::error{errc::bad_packet_type} Bad packet type received.
      */
-    void process_incoming_data (std::string const & data)
+    void process_incoming_data (contact::id addresser_id, std::string const & data)
     {
         typename serializer_type::input_packet_type in {data};
         protocol::packet_enum packet_type;
@@ -1002,6 +1020,13 @@ public:
                 protocol::read_notification m;
                 in >> m;
                 process_read_notification(m);
+                break;
+            }
+
+            case protocol::packet_enum::file_request: {
+                protocol::file_request m;
+                in >> m;
+                process_file_request(addresser_id, m);
                 break;
             }
 
@@ -1159,6 +1184,24 @@ private:
         }
 
         process_read_notification(conv, m.message_id, m.read_time);
+    }
+
+    /**
+     * Process file file_request.
+     *
+     * @throw chat::error{errc::file_not_found} if specified by identifier
+     *        from @a m file not found.
+     */
+    void process_file_request (contact::id addresser_id
+        , protocol::file_request const & m)
+    {
+        auto fc = _file_cache->file(m.file_id);
+
+        if (!is_valid(fc))
+            throw error {errc::file_not_found, to_string(m.file_id)};
+
+        if (file_requested)
+            file_requested(addresser_id, fc);
     }
 };
 

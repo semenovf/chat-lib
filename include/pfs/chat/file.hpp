@@ -9,6 +9,7 @@
 #pragma once
 #include "exports.hpp"
 #include "pfs/filesystem.hpp"
+#include "pfs/sha256.hpp"
 #include "pfs/universal_id.hpp"
 #include <memory>
 
@@ -49,7 +50,7 @@ struct file_credentials
     filesize_t size;
 
     // File SHA-256 checksum
-    std::string sha256;
+    pfs::crypto::sha256_digest sha256;
 };
 
 inline bool is_valid (file_credentials const & fc)
@@ -61,7 +62,7 @@ inline bool is_valid (file_credentials const & fc)
  * Makes file credentials. @a sha256 may be empty.
  */
 file::file_credentials make_credentials (pfs::filesystem::path const & path
-    , std::string const & sha256);
+    , pfs::crypto::sha256_digest const & sha256);
 
 /**
  * Makes file credentials. May take some time to calculate SHA256 digest.
