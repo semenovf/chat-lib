@@ -48,9 +48,6 @@ struct file_credentials
 
     // File size
     filesize_t size;
-
-    // File SHA-256 checksum
-    pfs::crypto::sha256_digest sha256;
 };
 
 inline bool is_valid (file_credentials const & fc)
@@ -59,10 +56,13 @@ inline bool is_valid (file_credentials const & fc)
 }
 
 /**
- * Makes file credentials. @a sha256 may be empty.
+ * Obtains file size with checking the upper limit.
+ *
+ * @return File size or @c filesize_t{-1} if the file size exceeded the limit.
+ *
+ * @throw chat::error (@c errc::filesystem_error) on filesystem error while.
  */
-file::file_credentials make_credentials (pfs::filesystem::path const & path
-    , pfs::crypto::sha256_digest const & sha256);
+filesize_t file_size_check_limit (pfs::filesystem::path const & path);
 
 /**
  * Makes file credentials. May take some time to calculate SHA256 digest.

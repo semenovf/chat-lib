@@ -16,8 +16,21 @@ namespace file {
 
 namespace fs = pfs::filesystem;
 
-file::file_credentials make_credentials (pfs::filesystem::path const & path
-    , pfs::crypto::sha256_digest const & sha256)
+filesize_t file_size_check_limit (pfs::filesystem::path const & path)
+{
+    std::error_code ec;
+    auto filesize = fs::file_size(path, ec);
+
+    if (ec)
+        throw error {errc::filesystem_error, fs::utf8_encode(path), ec.message()};
+
+    if (filesize > (std::numeric_limits<filesize_t>::max)())
+        return filesize_t{-1};
+
+    return static_cast<filesize_t>(filesize);
+}
+
+file::file_credentials make_credentials (pfs::filesystem::path const & path)
 {
     auto abspath = path.is_absolute()
         ? path
@@ -33,10 +46,13 @@ file::file_credentials make_credentials (pfs::filesystem::path const & path
         throw error {errc::attachment_failure, utf8_path, tr::_("attachment must be a regular file")};
 
     std::error_code ec;
-    auto filesize = fs::file_size(path, ec);
+    auto filesize = file_size_check_limit(path);
 
-    if (ec)
-        throw error {errc::attachment_failure, utf8_path, ec.message()};
+    if (filesize < 0) {
+        throw error {errc::attachment_failure, utf8_path
+            , tr::_("maximum file size limit exceeded"
+                ", use another way to transfer file or data")};
+    }
 
     file_credentials res;
 
@@ -44,27 +60,8 @@ file::file_credentials make_credentials (pfs::filesystem::path const & path
     res.path   = abspath;
     res.name   = fs::utf8_encode(path.filename());
     res.size   = filesize;
-    res.sha256 = sha256;
 
     return res;
-}
-
-file::file_credentials make_credentials (pfs::filesystem::path const & path)
-{
-    auto abspath = path.is_absolute()
-        ? path
-        : fs::absolute(path);
-
-    std::error_code ec;
-    auto digest = pfs::crypto::sha256::digest(abspath, ec);
-
-    if (ec) {
-        throw error {errc::attachment_failure
-            , fs::utf8_encode(abspath)
-            , tr::f_("SHA256 generation failure: {}", ec.message())};
-    }
-
-    return make_credentials(path, digest);
 }
 
 }} // namespace chat::file

@@ -20,7 +20,6 @@
 #include "pfs/fmt.hpp"
 #include "pfs/i18n.hpp"
 #include "pfs/log.hpp"
-#include "pfs/sha256.hpp"
 #include <algorithm>
 #include <functional>
 #include <iterator>
@@ -678,14 +677,16 @@ public:
     }
 
     /**
-     * Load file from cache.
+     * Load credentials for outcome file from cache.
      *
      * @details If the file is not found in the cache, it will be stored.
+     *
+     * @throw chat::error{errc::filesystem_error} on filesystem error.
+     * @throw chat::error{errc::attachment_failure} if specific attachment error occurred.
      */
-    file::file_credentials ensure_file (pfs::filesystem::path const & path
-        , pfs::crypto::sha256_digest const & sha256)
+    file::file_credentials ensure_outcome_file (pfs::filesystem::path const & path)
     {
-        return _file_cache->ensure(path, sha256);
+        return _file_cache->ensure_outcome(path);
     }
 
     /**
@@ -1195,7 +1196,7 @@ private:
     void process_file_request (contact::id addresser_id
         , protocol::file_request const & m)
     {
-        auto fc = _file_cache->file(m.file_id);
+        auto fc = _file_cache->outcome_file(m.file_id);
 
         if (!is_valid(fc))
             throw error {errc::file_not_found, to_string(m.file_id)};

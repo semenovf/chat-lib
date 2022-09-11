@@ -8,7 +8,6 @@
 //      2022.07.23 Totally refactored.
 ////////////////////////////////////////////////////////////////////////////////
 #include "pfs/assert.hpp"
-#include "sha256_traits.hpp"
 #include "pfs/chat/file_cache.hpp"
 #include "pfs/chat/backend/sqlite3/file_cache.hpp"
 #include "pfs/debby/backend/sqlite3/path_traits.hpp"
@@ -27,7 +26,7 @@ static std::string const CREATE_TABLE {
     ", `path` {} NOT NULL"
     ", `name` {} NOT NULL"
     ", `size` {} NOT NULL"
-    ", `sha256` {} NOT NULL)"
+    ", PRIMARY KEY (`id`)) WITHOUT ROWID"
 };
 
 static std::string const CREATE_INDEX_BY_ID {
@@ -74,10 +73,9 @@ file_cache::rep_type file_cache::make (pfs::filesystem::path const & root_dir
           fmt::format(CREATE_TABLE
             , rep.table_name
             , affinity_traits<file::id>::name()
+            , affinity_traits<decltype(file::file_credentials{}.path)>::name()
             , affinity_traits<decltype(file::file_credentials{}.name)>::name()
-            , affinity_traits<decltype(file::file_credentials{}.name)>::name()
-            , affinity_traits<decltype(file::file_credentials{}.size)>::name()
-            , affinity_traits<decltype(file::file_credentials{}.sha256)>::name())
+            , affinity_traits<decltype(file::file_credentials{}.size)>::name())
         , fmt::format(CREATE_INDEX_BY_ID , rep.table_name)
         , fmt::format(CREATE_INDEX_BY_PATH , rep.table_name)
     };
@@ -115,8 +113,7 @@ file_cache<BACKEND>::operator bool () const noexcept
     return !!_rep.dbh;
 }
 std::string const SELECT_BY_ID {
-    "SELECT `id`, `path`, `name`, `size`, `sha256`"
-    " FROM `{}` WHERE `id` = :id"
+    "SELECT `id`, `path`, `name`, `size` FROM `{}` WHERE `id` = :id"
 };
 
 template<>
@@ -138,7 +135,6 @@ file_cache<BACKEND>::load (file::id fileid)
         res["path"]   >> fc.path;
         res["name"]   >> fc.name;
         res["size"]   >> fc.size;
-        res["sha256"] >> fc.sha256;
 
         return fc;
     }
@@ -147,8 +143,7 @@ file_cache<BACKEND>::load (file::id fileid)
 }
 
 static std::string const SELECT_BY_PATH {
-    "SELECT `id`, `path`, `name`, `size`, `sha256`"
-    " FROM `{}` WHERE `path` = :path"
+    "SELECT `id`, `path`, `name`, `size` FROM `{}` WHERE `path` = :path"
 };
 
 template<>
@@ -166,11 +161,10 @@ file_cache<BACKEND>::load (pfs::filesystem::path const & abspath)
     if (res.has_more()) {
         file::file_credentials fc;
 
-        res["id"]     >> fc.fileid;
-        res["path"]   >> fc.path;
-        res["name"]   >> fc.name;
-        res["size"]   >> fc.size;
-        res["sha256"] >> fc.sha256;
+        res["id"]   >> fc.fileid;
+        res["path"] >> fc.path;
+        res["name"] >> fc.name;
+        res["size"] >> fc.size;
 
         return fc;
     }
@@ -188,14 +182,13 @@ void file_cache<BACKEND>::remove (file::id fileid)
 }
 
 static std::string const INSERT {
-    "INSERT INTO `{}` (`id`, `path`, `name`, `size`, `sha256`)"
-    " VALUES (:fileid, :path, :name, :size, :sha256)"
+    "INSERT INTO `{}` (`id`, `path`, `name`, `size`)"
+    " VALUES (:fileid, :path, :name, :size)"
 };
 
 template<>
 file::file_credentials
-file_cache<BACKEND>::ensure (fs::path const & path
-    , pfs::crypto::sha256_digest const & sha256)
+file_cache<BACKEND>::ensure_outcome (fs::path const & path)
 {
     auto abspath = path.is_absolute()
         ? path
@@ -204,14 +197,17 @@ file_cache<BACKEND>::ensure (fs::path const & path
     auto fc = load(abspath);
 
     if (is_valid(fc)) {
-        if (fc.sha256 == sha256)
+        std::error_code ec;
+        auto filesize = file::file_size_check_limit(path);
+
+        if (fc.size == filesize)
             return fc;
 
-        // Remove record due to checksum change
+        // Remove record due the difference in file size
         remove(fc.fileid);
     }
 
-    fc = file::make_credentials(abspath, sha256);
+    fc = file::make_credentials(abspath);
 
     auto stmt = _rep.dbh->prepare(fmt::format(INSERT, _rep.table_name));
 
@@ -221,7 +217,6 @@ file_cache<BACKEND>::ensure (fs::path const & path
     stmt.bind(":path"  , fc.path);
     stmt.bind(":name"  , fc.name);
     stmt.bind(":size"  , fc.size);
-    stmt.bind(":sha256", fc.sha256);
 
     auto res = stmt.exec();
     auto n = stmt.rows_affected();
@@ -231,9 +226,6 @@ file_cache<BACKEND>::ensure (fs::path const & path
 
     return file::file_credentials{};
 }
-
-
-
 
 static std::string const SELECT_PATH { "SELECT `id`, `path` FROM `{}`" };
 

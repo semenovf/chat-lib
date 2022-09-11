@@ -10,7 +10,6 @@
 #include "file.hpp"
 #include "pfs/filesystem.hpp"
 #include "pfs/universal_id.hpp"
-#include "pfs/sha256.hpp"
 
 namespace chat {
 
@@ -43,8 +42,7 @@ public:
      * Stores the outcome file credentials if they don't exist in the cache,
      * or loads them otherwise.
      */
-    CHAT__EXPORT file::file_credentials ensure (pfs::filesystem::path const & path
-        , pfs::crypto::sha256_digest const & sha256);
+    CHAT__EXPORT file::file_credentials ensure_outcome (pfs::filesystem::path const & path);
 
     /**
      * Get file credentials by identifier @a file_id.
@@ -52,7 +50,7 @@ public:
      * @return File credentials on success or invalid credentials if file not
      *         found by specified identifier.
      */
-    inline file::file_credentials file (file::id file_id)
+    inline file::file_credentials outcome_file (file::id file_id)
     {
         return load(file_id);
     }
@@ -62,8 +60,7 @@ public:
      */
     // TODO
 //     CHAT__EXPORT void reserve (contact::id author_id, file::id file_id
-//         , std::string const & name, file::filsize_t size
-//         , pfs::crypto::sha256_digest const & sha256);
+//         , std::string const & name, file::filsize_t size);
 
     /**
      * Remove broken credentials (when there is no file in file system)
