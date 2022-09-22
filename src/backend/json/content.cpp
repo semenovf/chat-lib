@@ -98,12 +98,12 @@ attachment_credentials content::attachment (std::size_t index) const
             case mime_enum::attachment:
             case mime_enum::audio__ogg:
             case mime_enum::video__mp4: {
-                auto fileid = jeyson::get_or<std::string>(elem[ID_KEY], std::string{});
-                auto name   = jeyson::get_or<std::string>(elem[TEXT_KEY], std::string{});
-                auto size   = jeyson::get_or<file::filesize_t>(elem[SIZE_KEY], 0);
+                auto file_id = jeyson::get_or<std::string>(elem[ID_KEY], std::string{});
+                auto name    = jeyson::get_or<std::string>(elem[TEXT_KEY], std::string{});
+                auto size    = jeyson::get_or<file::filesize_t>(elem[SIZE_KEY], 0);
 
                 return attachment_credentials {
-                      pfs::from_string<file::id>(fileid)
+                      pfs::from_string<file::id>(file_id)
                     , name
                     , size
                 };
@@ -139,7 +139,7 @@ void content::attach (file::file_credentials const & fc)
 
     json elem;
     elem[MIME_KEY]   = static_cast<int>(mime_enum::attachment);
-    elem[ID_KEY]     = to_string(fc.fileid);
+    elem[ID_KEY]     = to_string(fc.file_id);
     elem[TEXT_KEY]   = fc.name;
     elem[SIZE_KEY]   = fc.size;
     _d.push_back(std::move(elem));

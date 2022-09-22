@@ -32,8 +32,6 @@ contact_manager<BACKEND>::group_ref::add_member_unchecked (contact::id member_id
     try {
         auto stmt = rep.dbh->prepare(fmt::format(INSERT_MEMBER, rep.members_table_name));
 
-        PFS__ASSERT(!!stmt, "");
-
         stmt.bind(":group_id" , _id);
         stmt.bind(":member_id", member_id);
 
@@ -98,8 +96,6 @@ contact_manager<BACKEND>::group_ref::remove_member (contact::id member_id)
         auto stmt = rep.dbh->prepare(fmt::format(REMOVE_MEMBER
             , rep.members_table_name));
 
-        PFS__ASSERT(!!stmt, "");
-
         stmt.bind(":group_id", _id);
         stmt.bind(":member_id", member_id);
 
@@ -128,9 +124,6 @@ contact_manager<BACKEND>::group_ref::remove_all_members ()
     try {
         auto stmt = rep.dbh->prepare(fmt::format(REMOVE_ALL_MEMBERS
             , rep.members_table_name));
-
-        PFS__ASSERT(!!stmt, "");
-
         stmt.bind(":group_id", _id);
         auto res = stmt.exec();
     } catch (debby::error ex) {
@@ -154,8 +147,6 @@ contact_manager<BACKEND>::group_ref::is_member_of (contact::id member_id) const
 
     try {
         auto stmt = rep.dbh->prepare(fmt::format(IS_MEMBER_OF, rep.members_table_name));
-
-        PFS__ASSERT(!!stmt, "");
 
         stmt.bind(":group_id", _id);
         stmt.bind(":member_id", member_id);
@@ -206,8 +197,6 @@ contact_manager<BACKEND>::group_ref::members () const
         auto stmt = rep.dbh->prepare(fmt::format(SELECT_MEMBERS
             , rep.members_table_name, rep.contacts_table_name));
 
-        PFS__ASSERT(!!stmt, "");
-
         stmt.bind(":group_id", _id);
 
         auto res = stmt.exec();
@@ -250,8 +239,6 @@ contact_manager<BACKEND>::group_ref::member_ids () const
         auto stmt = rep.dbh->prepare(fmt::format(SELECT_MEMBER_IDS
             , rep.members_table_name));
 
-        PFS__ASSERT(!!stmt, "");
-
         stmt.bind(":group_id", _id);
 
         auto res = stmt.exec();
@@ -283,8 +270,6 @@ std::size_t contact_manager<BACKEND>::group_ref::count () const
 
     try {
         auto stmt = rep.dbh->prepare(fmt::format(MEMBER_COUNT, rep.members_table_name));
-
-        PFS__ASSERT(!!stmt, "");
 
         stmt.bind(":group_id", _id);
 

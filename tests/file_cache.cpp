@@ -38,9 +38,7 @@ TEST_CASE("file_cache") {
 
     REQUIRE(dbh);
 
-    auto root_dir = pfs::filesystem::temp_directory_path()
-        / PFS__LITERAL_PATH("Files");
-    auto file_cache = file_cache_t::make(root_dir, dbh);
+    auto file_cache = file_cache_t::make(dbh);
 
     REQUIRE(file_cache);
     file_cache.wipe();

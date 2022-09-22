@@ -21,16 +21,15 @@ struct file_cache
     struct rep_type
     {
         shared_db_handle dbh;
-        std::string table_name;
-        pfs::filesystem::path root_dir; // Root directory for incoming files.
+        std::string out_table_name;
+        std::string in_table_name;
     };
 
     /**
      * @throw chat::error (@c errc::filesystem_error) on filesystem error.
      * @throw chat::error (@c errc::storage_error) on storage error.
      */
-    static CHAT__EXPORT rep_type make (pfs::filesystem::path const & root_dir
-        , shared_db_handle dbh);
+    static CHAT__EXPORT rep_type make (shared_db_handle dbh);
 };
 
 }}} // namespace chat::backend::sqlite3

@@ -69,7 +69,7 @@ struct content_credentials
 
 struct attachment_credentials
 {
-    file::id         fileid;
+    file::id         file_id;
     std::string      name;   // file name
     file::filesize_t size;
 };
@@ -125,7 +125,7 @@ public:
     /**
      * Returns file credentials of the component specified by @a index.
      * If no attachment specified for component by @a index, result will
-     * contain zeroed values for @c name, @c size and @c sha256.
+     * contain zeroed values for @c name, @c size.
      */
     CHAT__EXPORT attachment_credentials attachment (std::size_t index) const;
 

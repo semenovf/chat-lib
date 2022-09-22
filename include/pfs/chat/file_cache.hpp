@@ -7,6 +7,7 @@
 //      2022.07.23 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
+#include "contact.hpp"
 #include "file.hpp"
 #include "pfs/filesystem.hpp"
 #include "pfs/universal_id.hpp"
@@ -39,37 +40,47 @@ public:
     CHAT__EXPORT operator bool () const noexcept;
 
     /**
-     * Stores the outcome file credentials if they don't exist in the cache,
-     * or loads them otherwise.
-     */
-    CHAT__EXPORT file::file_credentials ensure_outcome (pfs::filesystem::path const & path);
-
-    /**
-     * Get file credentials by identifier @a file_id.
+     * Stores the outgoing file credentials.
      *
-     * @return File credentials on success or invalid credentials if file not
-     *         found by specified identifier.
+     * @return Stored file credentials.
      */
-    inline file::file_credentials outcome_file (file::id file_id)
-    {
-        return load(file_id);
-    }
+    CHAT__EXPORT file::file_credentials store_outgoing_file (
+        pfs::filesystem::path const & path);
 
     /**
-     * Reserve income file credentials.
+     * Stores the incoming file credentials.
      */
-    // TODO
-//     CHAT__EXPORT void reserve (contact::id author_id, file::id file_id
-//         , std::string const & name, file::filsize_t size);
+    CHAT__EXPORT void store_incoming_file (contact::id author_id
+        , file::id file_id
+        , pfs::filesystem::path const & path);
 
     /**
-     * Remove broken credentials (when there is no file in file system)
+     * Loads outgoing file credentials by specified unique identifier @a file_id.
      *
-     * @return Number of broken credentials.
+     * @return Not @c nullopt if file credentials found and loaded successfully
+     *         or @c nullopt otherwise.
+     */
+    CHAT__EXPORT file::optional_file_credentials outgoing_file (file::id file_id) const;
+
+    /**
+     * Loads incoming file credentials by specified unique identifier @a file_id.
+     *
+     * @param file_id Unique incoming file identifier.
+     * @param author_id Pointer to contact identifier to store the file author.
+     *
+     * @return Not @c nullopt if file credentials found and loaded successfully
+     *         or @c nullopt otherwise.
+     */
+    CHAT__EXPORT file::optional_file_credentials incoming_file (file::id file_id
+        , contact::id * author_id_ptr = nullptr) const;
+
+    /**
+     * Removes broken outgoing and incoming file credentials (when there is no
+     * file in file system)
      *
      * @throws error @c errc::storage_error on storage error.
      */
-    CHAT__EXPORT std::size_t remove_broken ();
+    CHAT__EXPORT void remove_broken ();
 
     /**
      * Clear all file credentials.
@@ -86,9 +97,17 @@ public:
     CHAT__EXPORT void wipe () noexcept;
 
 private:
-    file::file_credentials load (file::id fileid);
-    file::file_credentials load (pfs::filesystem::path const & abspath);
-    void remove (file::id fileid);
+    /**
+     * Removes outgoing file credentials from cache by specified unique identifier
+     * @a file_id.
+     */
+    void remove_outgoing_file (file::id file_id);
+
+    /**
+     * Removes incoming file credentials from cache by specified unique identifier
+     * @a file_id.
+     */
+    void remove_incoming_file (file::id file_id);
 
 public:
     /**

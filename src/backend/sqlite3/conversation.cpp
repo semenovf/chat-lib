@@ -164,8 +164,6 @@ static void prefetch (BACKEND::rep_type const * rep
         , field, order
         , limit, offset));
 
-    PFS__ASSERT(!!stmt, "");
-
     auto res = stmt.exec();
 
     for (; res.has_more(); res.next()) {
@@ -180,9 +178,21 @@ static void prefetch (BACKEND::rep_type const * rep
 }
 
 template <>
+conversation<BACKEND>::conversation () = default;
+
+template <>
+conversation<BACKEND>::conversation (conversation && other) = default;
+
+template <>
+conversation<BACKEND> & conversation<BACKEND>::operator = (conversation && other) = default;
+
+template <>
 conversation<BACKEND>::conversation (rep_type && rep)
     : _rep(std::move(rep))
 {}
+
+template <>
+conversation<BACKEND>::~conversation () = default;
 
 template <>
 conversation<BACKEND>::operator bool () const noexcept
@@ -216,7 +226,6 @@ conversation<BACKEND>::unread_messages_count () const
 {
     std::size_t count = 0;
     auto stmt = _rep.dbh->prepare(fmt::format(UNREAD_MESSAGES_COUNT, _rep.table_name));
-    PFS__ASSERT(!!stmt, "");
 
     stmt.bind(":author_id", _rep.author_id);
 
@@ -249,8 +258,6 @@ static void mark_message_status (
     , std::string const & status_str)
 {
     auto stmt = dbh->prepare(fmt::format(sql, table_name));
-
-    PFS__ASSERT(!!stmt, "");
 
     stmt.bind(":time", time);
     stmt.bind(":message_id", message_id);
@@ -301,6 +308,7 @@ conversation<BACKEND>::editor_type
 conversation<BACKEND>::create ()
 {
     auto ed = editor_type::make(& this->_rep, message::id{});
+    ed.cache_outcome_file = cache_outcome_file;
     return ed;
 }
 
@@ -317,8 +325,6 @@ conversation<BACKEND>::editor_type
 conversation<BACKEND>::open (message::id message_id)
 {
     auto stmt = _rep.dbh->prepare(fmt::format(SELECT_OUTGOING_CONTENT, _rep.table_name));
-
-    PFS__ASSERT(!!stmt, "");
 
     stmt.bind(":message_id", message_id);
     stmt.bind(":author_id", _rep.author_id);
@@ -337,7 +343,9 @@ conversation<BACKEND>::open (message::id message_id)
         if (content_data)
             content = message::content{*content_data};
 
-        return editor_type::make(& this->_rep, message_id, std::move(content));
+        auto ed = editor_type::make(& this->_rep, message_id, std::move(content));
+        ed.cache_outcome_file = cache_outcome_file;
+        return ed;
     }
 
     return editor_type{};
@@ -390,8 +398,6 @@ conversation<BACKEND>::message (message::id message_id) const
     try {
         auto stmt = _rep.dbh->prepare(fmt::format(SELECT_MESSAGE, _rep.table_name));
 
-        PFS__ASSERT(!!stmt, "");
-
         stmt.bind(":message_id", message_id);
 
         auto res = stmt.exec();
@@ -424,8 +430,6 @@ pfs::optional<message::message_credentials>
 conversation<BACKEND>::last_message () const
 {
     auto stmt = _rep.dbh->prepare(fmt::format(SELECT_LAST_MESSAGE, _rep.table_name));
-
-    PFS__ASSERT(!!stmt, "");
 
     auto res = stmt.exec();
 
@@ -492,8 +496,6 @@ conversation<BACKEND>::save_incoming (message::id message_id
         if (need_update) {
             auto stmt = _rep.dbh->prepare(fmt::format(UPDATE_INCOMING_MESSAGE, _rep.table_name));
 
-            PFS__ASSERT(!!stmt, "");
-
             stmt.bind(":time", creation_time);
             stmt.bind(":content", content);
             stmt.bind(":message_id", message_id);
@@ -504,8 +506,6 @@ conversation<BACKEND>::save_incoming (message::id message_id
         }
     } else {
         auto stmt = _rep.dbh->prepare(fmt::format(INSERT_INCOMING_MESSAGE, _rep.table_name));
-
-        PFS__ASSERT(!!stmt, "");
 
         stmt.bind(":message_id", message_id);
         stmt.bind(":author_id", author_id);
@@ -555,8 +555,6 @@ conversation<BACKEND>::for_each (std::function<void(message::message_credentials
 
     auto stmt = _rep.dbh->prepare(
         fmt::format(SELECT_ALL_MESSAGES, _rep.table_name, field, order));
-
-    PFS__ASSERT(!!stmt, "");
 
     auto res = stmt.exec();
 

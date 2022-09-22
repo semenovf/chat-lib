@@ -9,14 +9,15 @@
 #pragma once
 #include "exports.hpp"
 #include "pfs/filesystem.hpp"
-#include "pfs/sha256.hpp"
+#include "pfs/optional.hpp"
 #include "pfs/universal_id.hpp"
+#include "pfs/time_point.hpp"
 #include <memory>
 
 namespace chat {
 namespace file {
 
-using id = ::pfs::universal_id;
+using id = pfs::universal_id;
 using filesize_t = std::int32_t;
 
 class id_generator
@@ -33,7 +34,7 @@ public:
 struct file_credentials
 {
     // Unique ID associated with file name
-    id fileid;
+    id file_id;
 
     // Absolute path.
     // For outgoing file it is absolute path in local filesystem.
@@ -48,24 +49,15 @@ struct file_credentials
 
     // File size
     filesize_t size;
+
+    // File last modification time in UTC.
+    pfs::utc_time_point modtime;
 };
 
-inline bool is_valid (file_credentials const & fc)
-{
-    return fc.fileid != id{};
-}
+using optional_file_credentials = pfs::optional<file::file_credentials>;
 
 /**
- * Obtains file size with checking the upper limit.
- *
- * @return File size or @c filesize_t{-1} if the file size exceeded the limit.
- *
- * @throw chat::error (@c errc::filesystem_error) on filesystem error while.
- */
-filesize_t file_size_check_limit (pfs::filesystem::path const & path);
-
-/**
- * Makes file credentials. May take some time to calculate SHA256 digest.
+ * Makes file credentials.
  */
 file::file_credentials make_credentials (pfs::filesystem::path const & path);
 

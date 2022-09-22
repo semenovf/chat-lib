@@ -12,6 +12,7 @@
 #include "exports.hpp"
 #include "message.hpp"
 #include <pfs/filesystem.hpp>
+#include <functional>
 #include <string>
 
 namespace chat {
@@ -31,15 +32,26 @@ private:
     rep_type _rep;
 
 private:
-    editor () = default;
+    /**
+     * Stores attachment/file credentials for outgoing file.
+     *
+     * @return Stored attachment/file credentials.
+     *
+     * @throw chat::error{errc::filesystem_error} on filesystem error.
+     * @throw chat::error{errc::attachment_failure} if specific attachment error occurred.
+     */
+    mutable std::function<file::file_credentials (pfs::filesystem::path const &)> cache_outcome_file;
+
+private:
+    CHAT__EXPORT editor ();
     CHAT__EXPORT editor (rep_type && rep);
     editor (editor const & other) = delete;
     editor & operator = (editor const & other) = delete;
 
 public:
-    editor (editor && other) = default;
+    CHAT__EXPORT editor (editor && other);
     editor & operator = (editor && other) = delete;
-    ~editor () = default;
+    CHAT__EXPORT ~editor ();
 
 public:
     /**
@@ -71,7 +83,7 @@ public:
      *
      * @throw chat::error @c errc::attachment_failure.
      */
-    CHAT__EXPORT void attach (file::file_credentials const & fc);
+    CHAT__EXPORT void attach (pfs::filesystem::path const & path);
 
     /**
      * Clear message content.

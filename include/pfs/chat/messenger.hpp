@@ -157,19 +157,26 @@ public:
 private:
     std::unique_ptr<contact_manager_type>  _contact_manager;
     std::unique_ptr<message_store_type>    _message_store;
-    std::shared_ptr<file_cache_type>       _file_cache;
+    std::unique_ptr<file_cache_type>       _file_cache;
     contact::id_generator _contact_id_generator;
     message::id_generator _message_id_generator;
     file::id_generator    _file_id_generator;
 
 public: // Callbacks
     /**
-     * Called to dispatch data (pass to delivery manager)
+     * Called to dispatch data (pass to delivery manager).
      *
      * @param message_address Message address.
      */
-    mutable std::function<bool (contact::id /*addressee_id*/
+    mutable std::function<void (contact::id /*addressee_id*/
         , std::string const & /*data*/)> dispatch_data;
+
+    /**
+     * Called when file/attachment request received.
+     */
+    mutable std::function<void (contact::id /*addressee_id*/
+        , file::id /*file_id*/
+        , pfs::filesystem::path const & /*path*/)> dispatch_file;
 
     /**
      * Called by receiver when message received.
@@ -227,13 +234,16 @@ public: // Callbacks
         , std::vector<contact::id> /*added*/
         , std::vector<contact::id> /*removed*/)> group_members_updated;
 
+    /**
+     * Requested file/resource not found, corrupted or permission denied.
+     */
     mutable std::function<void (contact::id /*requester*/
-        , file::file_credentials)> file_requested;
+        , file::id /*file_id*/)> file_error;
 
 public:
-    messenger (std::unique_ptr<contact_manager_type> && contact_manager
-        , std::unique_ptr<message_store_type> && message_store
-        , std::unique_ptr<file_cache_type> && file_cache)
+    messenger (std::unique_ptr<contact_manager_type> contact_manager
+        , std::unique_ptr<message_store_type> message_store
+        , std::unique_ptr<file_cache_type> file_cache)
         : _contact_manager(std::move(contact_manager))
         , _message_store(std::move(message_store))
         , _file_cache(std::move(file_cache))
@@ -395,7 +405,6 @@ public:
 
     /**
      * Gets members of the specified group. Returns empty vector on error.
-     *
      */
     std::vector<contact::contact> members (contact::id group_id
         , std::error_code & ec) const noexcept
@@ -619,6 +628,7 @@ public:
     void remove (contact::id id)
     {
         _contact_manager->remove(id);
+        wipe_conversation(id);
 
         if (contact_removed)
             contact_removed(id);
@@ -673,20 +683,38 @@ public:
         if (!is_valid(c))
             return conversation_type{};
 
-        return _message_store->conversation(conversation_id);
+        auto convers = _message_store->conversation(conversation_id);
+
+        convers.cache_outcome_file = [this] (pfs::filesystem::path const & path) {
+            return _file_cache->store_outgoing_file(path);
+        };
+
+        return convers;
     }
 
     /**
-     * Load credentials for outcome file from cache.
-     *
-     * @details If the file is not found in the cache, it will be stored.
-     *
-     * @throw chat::error{errc::filesystem_error} on filesystem error.
-     * @throw chat::error{errc::attachment_failure} if specific attachment error occurred.
+     * Clears conversation messages and attachments
      */
-    file::file_credentials ensure_outcome_file (pfs::filesystem::path const & path)
+    void clear_conversation (contact::id conversation_id)
     {
-        return _file_cache->ensure_outcome(path);
+        auto convers = _message_store->conversation(conversation_id);
+
+        if (convers) {
+            convers.clear();
+            // TODO Implement clear file cache with removing incoming files.
+            //_file_cache->clear(conversation_id);
+        }
+    }
+
+    void wipe_conversation (contact::id conversation_id)
+    {
+        auto convers = _message_store->conversation(conversation_id);
+
+        if (convers) {
+            convers.wipe();
+            // TODO Implement removing file cache with removing download directory.
+            //_file_cache->wipe(conversation_id);
+        }
     }
 
     /**
@@ -706,6 +734,7 @@ public:
         return result;
     }
 
+    // FIXME DEPRECATED
     template <typename F>
     bool transaction (F && op) noexcept
     {
@@ -739,7 +768,7 @@ public:
 
         typename serializer_type::output_packet_type out {};
         out << m;
-        dispatch_packet(addressee, out.data());
+        dispatch_multicast(addressee, out.data());
     }
 
     /**
@@ -748,7 +777,7 @@ public:
      */
     inline void dispatch_message (contact::id conversation_id, message::id message_id)
     {
-        dispatch(this->conversation(conversation_id), message_id);
+        dispatch_message(this->conversation(conversation_id), message_id);
     }
 
     /**
@@ -793,7 +822,7 @@ public:
 
         typename serializer_type::output_packet_type out {};
         out << m;
-        dispatch_packet(conv_contact, out.data());
+        dispatch_data(conv_contact.contact_id, out.data());
     }
 
     /**
@@ -903,6 +932,10 @@ public:
         });
     }
 
+    /**
+     * Dispatch file request. Must be called by messenger implementer to
+     * initiate attachment/file downloading.
+     */
     void dispatch_file_request (contact::id addressee_id, file::id file_id)
     {
         // Skip own contact
@@ -912,6 +945,20 @@ public:
         typename serializer_type::output_packet_type out {};
         out << protocol::file_request{file_id};
 
+        dispatch_data(addressee_id, out.data());
+    }
+
+    void dispatch_file_error (contact::id addressee_id, file::id file_id)
+    {
+        // Skip own contact
+        if (addressee_id == my_contact().contact_id)
+            return;
+
+        protocol::file_error m;
+        m.file_id = file_id;
+
+        typename serializer_type::output_packet_type out {};
+        out << m;
         dispatch_data(addressee_id, out.data());
     }
 
@@ -1031,11 +1078,39 @@ public:
                 break;
             }
 
+            case protocol::packet_enum::file_error: {
+                protocol::file_error m;
+                in >> m;
+                process_file_error(addresser_id, m);
+                break;
+            }
+
             default:
                 // Bad message received
                 throw error{errc::bad_packet_type};
                 break;
         }
+    }
+
+    /**
+     * Cache incoming attachment/file in file cache.
+     *
+     * @details Must be called by messenger implementer when attachment/file
+     *          received completely.
+     */
+    void commit_incoming_file (contact::id author_id, file::id file_id
+        , pfs::filesystem::path const & path)
+    {
+        _file_cache->store_incoming_file(author_id, file_id, path);
+    }
+
+    /**
+     * Checks if the incoming file is downloaded.
+     */
+    bool incoming_file_ready (file::id file_id) const
+    {
+        auto fc = _file_cache->incoming_file(file_id);
+        return !!fc && pfs::filesystem::exists(fc->path);
     }
 
     void wipe ()
@@ -1045,7 +1120,8 @@ public:
     }
 
 private:
-    void dispatch_packet (contact::contact const & addressee, std::string const & data)
+    // Can be considered that `dispatch_data` is analog to `dispatch_unicast`.
+    void dispatch_multicast (contact::contact const & addressee, std::string const & data)
     {
         if (dispatch_data) {
             switch (addressee.type) {
@@ -1136,7 +1212,7 @@ private:
 
         typename serializer_type::output_packet_type out {};
         out << m;
-        dispatch_packet(addressee, out.data());
+        dispatch_multicast(addressee, out.data());
     }
 
     /**
@@ -1188,21 +1264,27 @@ private:
     }
 
     /**
-     * Process file file_request.
-     *
-     * @throw chat::error{errc::file_not_found} if specified by identifier
-     *        from @a m file not found.
+     * Process file request.
      */
     void process_file_request (contact::id addresser_id
         , protocol::file_request const & m)
     {
-        auto fc = _file_cache->outcome_file(m.file_id);
+        auto fc = _file_cache->outgoing_file(m.file_id);
 
-        if (!is_valid(fc))
-            throw error {errc::file_not_found, to_string(m.file_id)};
+        if (fc) {
+            if (dispatch_file)
+                dispatch_file(addresser_id, fc->file_id, fc->path);
+        } else {
+            // File not found in cache by specified ID.
+            dispatch_file_error(addresser_id, m.file_id);
+        }
+    }
 
-        if (file_requested)
-            file_requested(addresser_id, fc);
+    void process_file_error (contact::id addresser_id
+        , protocol::file_error const & m)
+    {
+        if (file_error)
+            file_error(addresser_id, m.file_id);
     }
 };
 

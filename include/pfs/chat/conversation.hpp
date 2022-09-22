@@ -14,6 +14,7 @@
 #include "flags.hpp"
 #include "message.hpp"
 #include "pfs/optional.hpp"
+#include <functional>
 
 namespace chat {
 
@@ -28,15 +29,9 @@ enum class conversation_sort_flag: int
     , descending_order = 1 << 9
 };
 
-template <typename B>
-class message_store;
-
 template <typename Backend>
 class conversation final
 {
-    template <typename B>
-    friend class message_store;
-
     using rep_type = typename Backend::rep_type;
 
 public:
@@ -45,16 +40,29 @@ public:
 private:
     rep_type _rep;
 
+public:
+    /**
+     * Stores attachment/file credentials for outgoing file.
+     *
+     * @details This callback passed to editor and used by editor only.
+     *
+     * @return Stored attachment/file credentials.
+     *
+     * @throw chat::error{errc::filesystem_error} on filesystem error.
+     * @throw chat::error{errc::attachment_failure} if specific attachment error occurred.
+     */
+    mutable std::function<file::file_credentials (pfs::filesystem::path const &)> cache_outcome_file;
+
 private:
     CHAT__EXPORT conversation (rep_type && rep);
     conversation (conversation const & other) = delete;
     conversation & operator = (conversation const & other) = delete;
 
 public:
-    conversation () = default;
-    conversation (conversation && other) = default;
-    conversation & operator = (conversation && other) = default;
-    ~conversation () = default;
+    CHAT__EXPORT conversation ();
+    CHAT__EXPORT conversation (conversation && other);
+    CHAT__EXPORT conversation & operator = (conversation && other);
+    CHAT__EXPORT ~conversation ();
 
 public:
     /**

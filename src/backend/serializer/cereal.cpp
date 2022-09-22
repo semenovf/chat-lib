@@ -247,6 +247,30 @@ serializer::output_packet::operator << <protocol::file_request> (
     return *this;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// file_error serializer/deserializer
+////////////////////////////////////////////////////////////////////////////////
+template <>
+serializer::input_packet &
+serializer::input_packet::operator >> <protocol::file_error> (
+    protocol::file_error & target)
+{
+    // Note: packet type must be read before
+    _ar >> target.file_id;
+
+    return *this;
+}
+
+template <>
+serializer::output_packet &
+serializer::output_packet::operator << <protocol::file_error> (
+    protocol::file_error const & payload)
+{
+    _ar << protocol::packet_enum::file_error
+        << payload.file_id;
+    return *this;
+}
+
 }} // namespace backend::cereal
 
 } // namespace chat

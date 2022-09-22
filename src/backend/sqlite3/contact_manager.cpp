@@ -304,9 +304,6 @@ contact_manager<BACKEND>::remove (contact::id id)
     auto stmt1 = _rep.dbh->prepare(fmt::format(REMOVE_MEMBERSHIPS, _rep.members_table_name));
     auto stmt2 = _rep.dbh->prepare(fmt::format(REMOVE_GROUP, _rep.members_table_name));
 
-    PFS__ASSERT(!!stmt1, "");
-    PFS__ASSERT(!!stmt2, "");
-
     stmt1.bind(":member_id", id);
     stmt2.bind(":group_id", id);
 

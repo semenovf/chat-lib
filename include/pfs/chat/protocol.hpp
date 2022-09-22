@@ -22,6 +22,7 @@ enum class packet_enum: std::int8_t {
     , delivery_notification = 4
     , read_notification     = 5
     , file_request          = 6
+    , file_error            = 7
 };
 
 struct contact_credentials
@@ -60,6 +61,11 @@ struct read_notification
 };
 
 struct file_request
+{
+    file::id file_id;
+};
+
+struct file_error
 {
     file::id file_id;
 };

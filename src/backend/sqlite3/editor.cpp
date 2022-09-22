@@ -59,9 +59,18 @@ editor::make (conversation::rep_type * convers
 using BACKEND = backend::sqlite3::editor;
 
 template <>
+editor<BACKEND>::editor () = default;
+
+template <>
+editor<BACKEND>::editor (editor && other) = default;
+
+template <>
 editor<BACKEND>::editor (rep_type && rep)
     : _rep(std::move(rep))
 {}
+
+template <>
+editor<BACKEND>::~editor () = default;
 
 template <>
 void
@@ -79,8 +88,9 @@ editor<BACKEND>::add_html (std::string const & text)
 
 template <>
 void
-editor<BACKEND>::attach (file::file_credentials const & fc)
+editor<BACKEND>::attach (pfs::filesystem::path const & path)
 {
+    auto fc = cache_outcome_file(path);
     _rep.content.attach(fc);
 }
 
@@ -117,7 +127,6 @@ editor<BACKEND>::save ()
         if (_rep.message_id != message::id{}) {
             auto stmt = _rep.convers->dbh->prepare(fmt::format(DELETE_MESSAGE
                 , _rep.convers->table_name));
-            PFS__ASSERT(!!stmt, "");
             stmt.bind(":message_id", _rep.message_id);
             stmt.exec();
             (*_rep.convers->invalidate_cache)(_rep.convers);
@@ -133,8 +142,6 @@ editor<BACKEND>::save ()
             auto stmt = _rep.convers->dbh->prepare(fmt::format(INSERT_MESSAGE
                 , _rep.convers->table_name));
 
-            PFS__ASSERT(!!stmt, "");
-
             stmt.bind(":message_id"       , _rep.message_id);
             stmt.bind(":author_id"        , _rep.convers->author_id);
             stmt.bind(":creation_time"    , creation_time);
@@ -148,8 +155,6 @@ editor<BACKEND>::save ()
             // Modify content
             auto stmt = _rep.convers->dbh->prepare(fmt::format(MODIFY_CONTENT
                 , _rep.convers->table_name));
-
-            PFS__ASSERT(!!stmt, "");
 
             auto now = pfs::current_utc_time_point();
 

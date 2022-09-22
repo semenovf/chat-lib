@@ -100,8 +100,6 @@ void contact_list::prefetch (rep_type const * rep, int offset, int limit, int so
           fmt::format(SELECT_ROWS_RANGE, rep->table_name
         , order_by, limit, offset));
 
-    PFS__ASSERT(!!stmt, "");
-
     auto res = stmt.exec();
 
     for (; res.has_more(); res.next()) {
@@ -142,7 +140,6 @@ contact_list<BACKEND>::count (conversation_enum type) const
 {
     std::size_t count = 0;
     auto stmt = _rep.dbh->prepare(fmt::format(COUNT_CONTACTS_BY_TYPE, _rep.table_name));
-    PFS__ASSERT(!!stmt, "");
 
     stmt.bind(":type", to_storage(type));
 
@@ -170,8 +167,6 @@ contact_list<BACKEND>::add (contact::contact const & c)
 {
     try {
         auto stmt = _rep.dbh->prepare(fmt::format(INSERT_CONTACT, _rep.table_name));
-
-        PFS__ASSERT(!!stmt, "");
 
         stmt.bind(":id"         , to_storage(c.contact_id));
         stmt.bind(":creator_id" , to_storage(c.creator_id));
@@ -208,8 +203,6 @@ contact_list<BACKEND>::update (contact::contact const & c)
     try {
         auto stmt = _rep.dbh->prepare(fmt::format(UPDATE_CONTACT, _rep.table_name));
 
-        PFS__ASSERT(!!stmt, "");
-
         stmt.bind(":alias" , to_storage(c.alias));
         stmt.bind(":avatar", to_storage(c.avatar));
         stmt.bind(":description", to_storage(c.description));
@@ -240,8 +233,6 @@ contact_list<BACKEND>::remove (contact::id id)
 {
     try {
         auto stmt = _rep.dbh->prepare(fmt::format(REMOVE_CONTACT, _rep.table_name));
-
-        PFS__ASSERT(!!stmt, "");
 
         stmt.bind(":id", id);
 
@@ -274,8 +265,6 @@ contact_list<BACKEND>::get (contact::id id) const
 
     try {
         auto stmt = _rep.dbh->prepare(fmt::format(SELECT_CONTACT, _rep.table_name));
-
-        PFS__ASSERT(!!stmt, "");
 
         stmt.bind(":id", id);
 
@@ -328,8 +317,6 @@ contact_list<BACKEND>::for_each (std::function<void(contact::contact const &)> f
     try {
         auto stmt = _rep.dbh->prepare(fmt::format(SELECT_ALL_CONTACTS, _rep.table_name));
 
-        PFS__ASSERT(!!stmt, "");
-
         auto res = stmt.exec();
 
         for (; res.has_more(); res.next()) {
@@ -348,8 +335,6 @@ contact_list<BACKEND>::for_each_until (std::function<bool(contact::contact const
 {
     try {
         auto stmt = _rep.dbh->prepare(fmt::format(SELECT_ALL_CONTACTS, _rep.table_name));
-
-        PFS__ASSERT(!!stmt, "");
 
         auto res = stmt.exec();
 
