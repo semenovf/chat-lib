@@ -169,14 +169,16 @@ public: // Callbacks
      * @param message_address Message address.
      */
     mutable std::function<void (contact::id /*addressee_id*/
-        , std::string const & /*data*/)> dispatch_data;
+        , std::string const & /*data*/)> dispatch_data
+    = [] (contact::id, std::string const &) {};
 
     /**
      * Called when file/attachment request received.
      */
     mutable std::function<void (contact::id /*addressee_id*/
         , file::id /*file_id*/
-        , pfs::filesystem::path const & /*path*/)> dispatch_file;
+        , pfs::filesystem::path const & /*path*/)> dispatch_file
+    = [] (contact::id, file::id, pfs::filesystem::path const &) {};
 
     /**
      * Called by receiver when message received.
@@ -187,7 +189,8 @@ public: // Callbacks
      */
     mutable std::function<void (contact::id /*author_id*/
         , contact::id /*conversation_id*/
-        , message::id /*message_id*/)> message_received;
+        , message::id /*message_id*/)> message_received
+    = [] (contact::id, contact::id, message::id) {};
 
     /**
      * Called by author when message delivered to addressee (receiver).
@@ -198,7 +201,8 @@ public: // Callbacks
      */
     mutable std::function<void (contact::id /*conversation_id*/
         , message::id /*message_id*/
-        , pfs::utc_time_point /*delivered_time*/)> message_delivered;
+        , pfs::utc_time_point /*delivered_time*/)> message_delivered
+    = [] (contact::id, message::id, pfs::utc_time_point) {};
 
     /**
      * Called by author when received read message notification or opponent when
@@ -210,35 +214,41 @@ public: // Callbacks
      */
     mutable std::function<void (contact::id /*conversation_id*/
         , message::id /*message_id*/
-        , pfs::utc_time_point /*read_time*/)> message_read;
+        , pfs::utc_time_point /*read_time*/)> message_read
+    = [] (contact::id, message::id, pfs::utc_time_point) {};
 
     /**
      * Called after adding contact.
      */
-    mutable std::function<void (contact::id)> contact_added;
+    mutable std::function<void (contact::id)> contact_added
+    = [] (contact::id) {};
 
     /**
      * Called after updating contact.
      */
-    mutable std::function<void (contact::id)> contact_updated;
+    mutable std::function<void (contact::id)> contact_updated
+    = [] (contact::id) {};
 
     /**
      * Called after contact removed.
      */
-    mutable std::function<void (contact::id)> contact_removed;
+    mutable std::function<void (contact::id)> contact_removed
+    = [] (contact::id) {};
 
     /**
      * Called after updating group members.
      */
     mutable std::function<void (contact::id /*group_id*/
         , std::vector<contact::id> /*added*/
-        , std::vector<contact::id> /*removed*/)> group_members_updated;
+        , std::vector<contact::id> /*removed*/)> group_members_updated
+    = [] (contact::id, std::vector<contact::id>, std::vector<contact::id>) {};
 
     /**
      * Requested file/resource not found, corrupted or permission denied.
      */
     mutable std::function<void (contact::id /*requester*/
-        , file::id /*file_id*/)> file_error;
+        , file::id /*file_id*/)> file_error
+    = [] (contact::id, file::id) {};
 
 public:
     messenger (std::unique_ptr<contact_manager_type> contact_manager
@@ -560,9 +570,7 @@ public:
             c.contact_id = _contact_id_generator.next();
 
         if (_contact_manager->add(c)) {
-            if (contact_added)
-                contact_added(c.contact_id);
-
+            contact_added(c.contact_id);
             return c.contact_id;
         }
 
@@ -583,9 +591,7 @@ public:
         if (!_contact_manager->update(c))
             return false;
 
-        if (contact_updated)
-            contact_updated(c.contact_id);
-
+        contact_updated(c.contact_id);
         return true;
     }
 
@@ -629,9 +635,7 @@ public:
     {
         _contact_manager->remove(id);
         wipe_conversation(id);
-
-        if (contact_removed)
-            contact_removed(id);
+        contact_removed(id);
     }
 
     /**
@@ -1040,11 +1044,9 @@ public:
 
                     auto diffs = gref.update(gm.members);
 
-                    if (group_members_updated) {
-                        group_members_updated(gm.group_id
-                            , std::move(diffs.added)
-                            , std::move(diffs.removed));
-                    }
+                    group_members_updated(gm.group_id
+                        , std::move(diffs.added)
+                        , std::move(diffs.removed));
                 }
 
                 break;
@@ -1123,32 +1125,30 @@ private:
     // Can be considered that `dispatch_data` is analog to `dispatch_unicast`.
     void dispatch_multicast (contact::contact const & addressee, std::string const & data)
     {
-        if (dispatch_data) {
-            switch (addressee.type) {
-                case conversation_enum::person:
-                    dispatch_data(addressee.contact_id, data);
-                    break;
+        switch (addressee.type) {
+            case conversation_enum::person:
+                dispatch_data(addressee.contact_id, data);
+                break;
 
-                case conversation_enum::group: {
-                    auto group_ref = _contact_manager->gref(addressee.contact_id);
-                    auto member_ids = group_ref.member_ids();
+            case conversation_enum::group: {
+                auto group_ref = _contact_manager->gref(addressee.contact_id);
+                auto member_ids = group_ref.member_ids();
 
-                    for (auto const & member_id: member_ids) {
-                        if (member_id != my_contact().contact_id)
-                            dispatch_data(member_id, data);
-                    }
-
-                    break;
+                for (auto const & member_id: member_ids) {
+                    if (member_id != my_contact().contact_id)
+                        dispatch_data(member_id, data);
                 }
 
-                case conversation_enum::channel:
-                    // TODO Unsupported yet
-                    break;
-
-                default:
-                    throw error{errc::bad_conversation_type};
-                    break;
+                break;
             }
+
+            case conversation_enum::channel:
+                // TODO Unsupported yet
+                break;
+
+            default:
+                throw error{errc::bad_conversation_type};
+                break;
         }
     }
 
@@ -1182,8 +1182,7 @@ private:
             , m.message_id, received_time);
 
         // Notify message received
-        if (message_received)
-            message_received(m.author_id, m.conversation_id, m.message_id);
+        message_received(m.author_id, m.conversation_id, m.message_id);
     }
 
     /**
@@ -1231,18 +1230,14 @@ private:
         }
 
         conv.mark_delivered(m.message_id, m.delivered_time);
-
-        if (message_delivered)
-            message_delivered(m.conversation_id, m.message_id, m.delivered_time);
+        message_delivered(m.conversation_id, m.message_id, m.delivered_time);
     }
 
     inline void process_read_notification(conversation_type & conv
         , message::id message_id, pfs::utc_time_point read_time)
     {
         conv.mark_read(message_id, read_time);
-
-        if (message_read)
-            message_read(conv.id(), message_id, read_time);
+        message_read(conv.id(), message_id, read_time);
     }
 
     /**
@@ -1272,8 +1267,7 @@ private:
         auto fc = _file_cache->outgoing_file(m.file_id);
 
         if (fc) {
-            if (dispatch_file)
-                dispatch_file(addresser_id, fc->file_id, fc->path);
+            dispatch_file(addresser_id, fc->file_id, fc->path);
         } else {
             // File not found in cache by specified ID.
             dispatch_file_error(addresser_id, m.file_id);
@@ -1283,8 +1277,7 @@ private:
     void process_file_error (contact::id addresser_id
         , protocol::file_error const & m)
     {
-        if (file_error)
-            file_error(addresser_id, m.file_id);
+        file_error(addresser_id, m.file_id);
     }
 };
 
