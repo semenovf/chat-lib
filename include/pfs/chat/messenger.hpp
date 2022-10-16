@@ -1106,13 +1106,16 @@ public:
         _file_cache->store_incoming_file(author_id, file_id, path);
     }
 
-    /**
-     * Checks if the incoming file is downloaded.
-     */
-    bool incoming_file_ready (file::id file_id) const
+    pfs::filesystem::path incoming_file (file::id file_id) const
     {
         auto fc = _file_cache->incoming_file(file_id);
-        return !!fc && pfs::filesystem::exists(fc->path);
+        return !!fc ? fc->path : pfs::filesystem::path{};
+    }
+
+    pfs::filesystem::path outgoing_file (file::id file_id) const
+    {
+        auto fc = _file_cache->outgoing_file(file_id);
+        return !!fc ? fc->path : pfs::filesystem::path{};
     }
 
     void wipe ()

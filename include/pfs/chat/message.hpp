@@ -38,16 +38,18 @@ enum class mime_enum
 
     // Special MIME type for attachments (files) described by
     // `attachment_credentials`.
-    , attachment
+    , application__octet_stream
 
     // Concrete types of attachments.
     // [RFC 2046](https://www.iana.org/assignments/media-types/audio/basic)
     , audio__ogg
 
+    , audio__wav
+
     , video__mp4
 };
 
-mime_enum to_mime (int value);
+// mime_enum to_mime (int value);
 
 class id_generator
 {
@@ -178,5 +180,8 @@ struct message_credentials
 
     pfs::optional<content> contents;
 };
+
+CHAT__EXPORT
+mime_enum read_mime (pfs::filesystem::path const & path);
 
 }} // namespace chat::message

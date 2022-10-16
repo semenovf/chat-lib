@@ -62,7 +62,7 @@ content_credentials content::at (std::size_t index) const
     assert(elem);
 
     auto x = jeyson::get_or<int>(elem[MIME_KEY], static_cast<int>(mime_enum::invalid));
-    auto mime = to_mime(static_cast<int>(x));
+    auto mime = static_cast<mime_enum>(x);
 
     switch (mime) {
         case mime_enum::text__plain:
@@ -71,8 +71,9 @@ content_credentials content::at (std::size_t index) const
             return content_credentials{mime, text};
         }
 
-        case mime_enum::attachment:
+        case mime_enum::application__octet_stream:
         case mime_enum::audio__ogg:
+        case mime_enum::audio__wav:
         case mime_enum::video__mp4: {
             auto text = jeyson::get_or<std::string>(elem[TEXT_KEY], std::string{});
             return content_credentials{mime, text};
@@ -92,11 +93,12 @@ attachment_credentials content::attachment (std::size_t index) const
         assert(elem);
 
         auto x = jeyson::get_or<int>(elem[MIME_KEY], static_cast<int>(mime_enum::invalid));
-        auto mime = to_mime(static_cast<int>(x));
+        auto mime = static_cast<mime_enum>(x);
 
         switch (mime) {
-            case mime_enum::attachment:
+            case mime_enum::application__octet_stream:
             case mime_enum::audio__ogg:
+            case mime_enum::audio__wav:
             case mime_enum::video__mp4: {
                 auto file_id = jeyson::get_or<std::string>(elem[ID_KEY], std::string{});
                 auto name    = jeyson::get_or<std::string>(elem[TEXT_KEY], std::string{});
@@ -137,8 +139,10 @@ void content::attach (file::file_credentials const & fc)
 {
     using pfs::to_string;
 
+    auto mime = read_mime(fc.path);
+
     json elem;
-    elem[MIME_KEY]   = static_cast<int>(mime_enum::attachment);
+    elem[MIME_KEY]   = static_cast<int>(mime);
     elem[ID_KEY]     = to_string(fc.file_id);
     elem[TEXT_KEY]   = fc.name;
     elem[SIZE_KEY]   = fc.size;

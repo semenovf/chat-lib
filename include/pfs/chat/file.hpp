@@ -59,6 +59,7 @@ using optional_file_credentials = pfs::optional<file::file_credentials>;
 /**
  * Makes file credentials.
  */
+CHAT__EXPORT
 file::file_credentials make_credentials (pfs::filesystem::path const & path);
 
 }} // namespace chat::file

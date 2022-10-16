@@ -65,20 +65,6 @@ public:
     CHAT__EXPORT void add_html (std::string const & text);
 
     /**
-     * Add audio to message content.
-     *
-     * TODO Implement
-     */
-    //CHAT__EXPORT void add_audio (pfs::filesystem::path const & path);
-
-    /**
-     * Add video to message content.
-     *
-     * TODO Implement
-     */
-    //CHAT__EXPORT void add_video (pfs::filesystem::path const & path);
-
-    /**
      * Add attachment to message content.
      *
      * @throw chat::error @c errc::attachment_failure.
