@@ -264,7 +264,7 @@ contact_manager<BACKEND>::add (contact::group const & g)
             , g.creator_id
             , chat::conversation_enum::group};
 
-        if (_rep.contacts->add(c) > 0) {
+        if (_rep.contacts->add(c)) {
             auto gr = this->gref(g.contact_id);
 
             if (!gr)

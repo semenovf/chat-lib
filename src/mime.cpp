@@ -12,7 +12,8 @@
 #include <algorithm>
 
 #if _MSC_VER
-#   include "windows.hpp"
+#   include <sys/types.h>
+#   include <fcntl.h>
 #else
 #   include <sys/types.h>
 #   include <fcntl.h>

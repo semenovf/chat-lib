@@ -144,7 +144,7 @@ private:
     contact_manager & operator = (contact_manager const & other) = delete;
     contact_manager & operator = (contact_manager && other) = delete;
 
-    bool update (contact::contact const & c);
+    CHAT__EXPORT bool update (contact::contact const & c);
 
 public:
     contact_manager (contact_manager && other) = default;

@@ -59,10 +59,13 @@ editor::make (conversation::rep_type * convers
 using BACKEND = backend::sqlite3::editor;
 
 template <>
-editor<BACKEND>::editor () = default;
+editor<BACKEND>::editor ()
+{}
 
 template <>
-editor<BACKEND>::editor (editor && other) = default;
+editor<BACKEND>::editor (editor && other)
+    : _rep(std::move(other._rep))
+{}
 
 template <>
 editor<BACKEND>::editor (rep_type && rep)
@@ -70,7 +73,8 @@ editor<BACKEND>::editor (rep_type && rep)
 {}
 
 template <>
-editor<BACKEND>::~editor () = default;
+editor<BACKEND>::~editor () 
+{}
 
 template <>
 void

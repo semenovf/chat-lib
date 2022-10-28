@@ -84,6 +84,18 @@ serializer::output_packet::operator << <protocol::contact_credentials> (
 template <>
 CHAT__EXPORT
 serializer::input_packet &
+serializer::input_packet::operator >> <protocol::group_members> (
+    protocol::group_members & target);
+
+template <>
+CHAT__EXPORT
+serializer::output_packet &
+serializer::output_packet::operator << <protocol::group_members> (
+    protocol::group_members const & payload);
+
+template <>
+CHAT__EXPORT
+serializer::input_packet &
 serializer::input_packet::operator >> <protocol::regular_message> (
     protocol::regular_message & target);
 
@@ -116,6 +128,30 @@ CHAT__EXPORT
 serializer::output_packet &
 serializer::output_packet::operator << <protocol::read_notification> (
     protocol::read_notification const & payload);
+
+template <>
+CHAT__EXPORT
+serializer::input_packet &
+serializer::input_packet::operator >> <protocol::file_request> (
+    protocol::file_request & target);
+
+template <>
+CHAT__EXPORT
+serializer::output_packet &
+serializer::output_packet::operator << <protocol::file_request> (
+    protocol::file_request const & payload);
+
+template <>
+CHAT__EXPORT
+serializer::input_packet &
+serializer::input_packet::operator >> <protocol::file_error> (
+    protocol::file_error & target);
+
+template <>
+CHAT__EXPORT
+serializer::output_packet &
+serializer::output_packet::operator << <protocol::file_error> (
+    protocol::file_error const & payload);
 
 // template <>
 // CHAT__EXPORT

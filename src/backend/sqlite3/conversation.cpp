@@ -178,13 +178,20 @@ static void prefetch (BACKEND::rep_type const * rep
 }
 
 template <>
-conversation<BACKEND>::conversation () = default;
+conversation<BACKEND>::conversation ()
+{}
 
 template <>
-conversation<BACKEND>::conversation (conversation && other) = default;
+conversation<BACKEND>::conversation (conversation && other)
+    : _rep(std::move(other._rep))
+{}
 
 template <>
-conversation<BACKEND> & conversation<BACKEND>::operator = (conversation && other) = default;
+conversation<BACKEND> & conversation<BACKEND>::operator = (conversation && other)
+{
+    _rep = std::move(other._rep);
+    return *this;
+}
 
 template <>
 conversation<BACKEND>::conversation (rep_type && rep)
@@ -192,7 +199,8 @@ conversation<BACKEND>::conversation (rep_type && rep)
 {}
 
 template <>
-conversation<BACKEND>::~conversation () = default;
+conversation<BACKEND>::~conversation ()
+{}
 
 template <>
 conversation<BACKEND>::operator bool () const noexcept
