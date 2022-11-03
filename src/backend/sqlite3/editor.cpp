@@ -65,6 +65,7 @@ editor<BACKEND>::editor ()
 template <>
 editor<BACKEND>::editor (editor && other)
     : _rep(std::move(other._rep))
+    , cache_outcome_file(std::move(other.cache_outcome_file))
 {}
 
 template <>
@@ -73,7 +74,7 @@ editor<BACKEND>::editor (rep_type && rep)
 {}
 
 template <>
-editor<BACKEND>::~editor () 
+editor<BACKEND>::~editor ()
 {}
 
 template <>

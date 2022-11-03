@@ -143,7 +143,7 @@ public:
         if (!dbh)
             return nullptr;
 
-        auto fileCache = Messenger::file_cache_type::make_unique(fileCacheRoot, dbh);
+        auto fileCache = Messenger::file_cache_type::make_unique(dbh);
 
         if (!*fileCache)
             return nullptr;
@@ -183,11 +183,9 @@ TEST_CASE("messenger") {
     std::string last_data_sent;
 
     auto send_message = [& last_data_sent] (chat::contact::id addressee
-        , chat::message::id message_id
         , std::string const & data) {
 
-        fmt::print(fmt::format("Send message {} to {}\n"
-            , message_id, addressee));
+        fmt::print(fmt::format("Send message {}\n", addressee));
 
         last_data_sent = data;
         return true;
@@ -206,29 +204,29 @@ TEST_CASE("messenger") {
     REQUIRE(*messenger1);
     REQUIRE(*messenger2);
 
-    auto received_callback = [] (chat::contact::id author_id
+    auto received_callback = [] (chat::message::id author_id
+        , chat::contact::id conversation_id
         , chat::message::id message_id) {
 
-        fmt::print("Message received from #{}: #{}\n"
-            , to_string(author_id)
-            , to_string(message_id));
+        fmt::print("Message received from {}: {} for conversation {}\n"
+            , author_id, message_id, conversation_id);
     };
 
-    auto delivered_callback = [] (chat::contact::id addressee
+    auto delivered_callback = [] (chat::contact::id conversation_id
         , chat::message::id message_id
         , pfs::utc_time_point /*delivered_time*/) {
 
-        fmt::print("Message delivered for #{}: #{}\n"
-            , to_string(addressee)
+        fmt::print("Message delivered for conversation {}: {}\n"
+            , to_string(conversation_id)
             , to_string(message_id));
     };
 
-    auto read_callback = [] (chat::contact::id addressee
+    auto read_callback = [] (chat::contact::id conversation_id
         , chat::message::id message_id
         , pfs::utc_time_point /*read_time*/) {
 
-        fmt::print("Message read for #{}: #{}\n"
-            , to_string(addressee)
+        fmt::print("Message read for conversation {}: {}\n"
+            , to_string(conversation_id)
             , to_string(message_id));
     };
 
@@ -267,9 +265,6 @@ TEST_CASE("messenger") {
     ofs1.close();
     ofs2.close();
 
-    std::string f1_sha256 {"d6ec6898de87ddac6e5b3611708a7aa1c2d298293349cc1a6c299a1db7149d38"};
-    std::string f2_sha256 {"074c1bf1a31e68394b72b9a97f2ec777ec4385d9af592618bf32aabaa3b15372"};
-
     std::size_t f1_size {26};
     std::size_t f2_size {66};
 
@@ -307,10 +302,10 @@ TEST_CASE("messenger") {
 ////////////////////////////////////////////////////////////////////////////////
 // Step 5.1 Add group contact
 ////////////////////////////////////////////////////////////////////////////////
-    chat::contact::group group1 {groupId1, groupAlias1};
-    REQUIRE_NE(messenger1->add(group1, contactId1), chat::contact::id{});
-    REQUIRE(messenger1->add_member(groupId1, contactId2));
-    REQUIRE(messenger1->add_member(groupId1, contactId3));
+    chat::contact::group group1 {groupId1, groupAlias1, "", "", contactId1};
+    REQUIRE_NE(messenger1->add(group1), chat::contact::id{});
+    messenger1->add_member(groupId1, contactId2);
+    messenger1->add_member(groupId1, contactId3);
 
     REQUIRE(messenger1->is_member_of(groupId1, contactId1));
     REQUIRE(messenger1->is_member_of(groupId1, contactId2));
@@ -323,7 +318,8 @@ TEST_CASE("messenger") {
 
     REQUIRE_EQ(members.size(), 3);
 
-    auto bad_members = messenger1->members(unknownContactId);
+    std::error_code ec;
+    auto bad_members = messenger1->members(unknownContactId, ec);
     REQUIRE(bad_members.empty());
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -367,8 +363,8 @@ TEST_CASE("messenger") {
 
         REQUIRE_EQ(editor.content().at(0).mime, chat::message::mime_enum::text__plain);
         REQUIRE_EQ(editor.content().at(1).mime, chat::message::mime_enum::text__html);
-        REQUIRE_EQ(editor.content().at(2).mime, chat::message::mime_enum::attachment);
-        REQUIRE_EQ(editor.content().at(3).mime, chat::message::mime_enum::attachment);
+        REQUIRE_EQ(editor.content().at(2).mime, chat::message::mime_enum::application__octet_stream);
+        REQUIRE_EQ(editor.content().at(3).mime, chat::message::mime_enum::application__octet_stream);
 
         REQUIRE_EQ(editor.content().at(0).text, TEXT);
         REQUIRE_EQ(editor.content().at(1).text, HTML);
@@ -379,11 +375,9 @@ TEST_CASE("messenger") {
 
         REQUIRE_EQ(editor.content().attachment(2).name, fs::utf8_encode(f1.filename()));
         REQUIRE_EQ(editor.content().attachment(2).size, f1_size);
-        REQUIRE_EQ(editor.content().attachment(2).sha256, f1_sha256);
 
         REQUIRE_EQ(editor.content().attachment(3).name, fs::utf8_encode(f2.filename()));
         REQUIRE_EQ(editor.content().attachment(3).size, f2_size);
-        REQUIRE_EQ(editor.content().attachment(3).sha256, f2_sha256);
     }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -398,7 +392,7 @@ TEST_CASE("messenger") {
         REQUIRE(m);
         REQUIRE_EQ(m->message_id, last_message_id);
 
-        messenger1->dispatch_message(contactId2, *m);
+        messenger1->dispatch_message(conversation, m->message_id);
     }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -431,6 +425,6 @@ TEST_CASE("messenger") {
 ////////////////////////////////////////////////////////////////////////////////
     {
         // `last_data_sent` is the serialized data sent by `messenger1`
-        messenger2->process_received_data(contactId1, last_data_sent);
+        messenger2->process_incoming_data(contactId1, last_data_sent);
     }
 }

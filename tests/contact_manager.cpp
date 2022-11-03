@@ -192,10 +192,9 @@ TEST_CASE("contacts") {
 
     // Contact was not updated - contact not found
     {
-        contact_t c;
+        person_t c;
         c.contact_id = pfs::generate_uuid();
         c.alias = "Noname";
-        c.type = chat::conversation_enum::person;
 
         auto success = contact_manager.update(c);
         REQUIRE_FALSE(success);
@@ -236,8 +235,9 @@ TEST_CASE("groups") {
         group_t g;
         g.alias = "Group 0";
         g.contact_id = pfs::generate_uuid();
+        g.creator_id = my_uuid;
 
-        REQUIRE(contact_manager.add(g, my_uuid));
+        REQUIRE(contact_manager.add(g));
 
         // No new group added as it already exist
         REQUIRE_FALSE(contact_manager.gref(g.contact_id).add_member(my_uuid));
@@ -252,8 +252,9 @@ TEST_CASE("groups") {
         group_t g;
         g.alias = "Group 1";
         g.contact_id = pfs::generate_uuid();
+        g.creator_id = my_uuid;
 
-        REQUIRE(contact_manager.add(g, my_uuid));
+        REQUIRE(contact_manager.add(g));
 
         g.alias = sample_alias;
 
@@ -289,8 +290,9 @@ TEST_CASE("groups") {
         group_t g;
         g.alias = "Group 3";
         g.contact_id = pfs::generate_uuid();
+        g.creator_id = my_uuid;
 
-        REQUIRE(contact_manager.add(g, my_uuid));
+        REQUIRE(contact_manager.add(g));
 
         REQUIRE_EQ(contact_manager.groups_count(), 3);
 
@@ -311,8 +313,8 @@ TEST_CASE("groups") {
         group_t c3;
         c3.contact_id = pfs::generate_uuid();
         c3.alias = "Contact 3 for " + g.alias;
-
-        REQUIRE(contact_manager.add(c3, my_uuid));
+        c3.creator_id = my_uuid;
+        REQUIRE(contact_manager.add(c3));
 
         REQUIRE(contact_manager.gref(g.contact_id).add_member(c1.contact_id));
         REQUIRE(contact_manager.gref(g.contact_id).add_member(c2.contact_id));

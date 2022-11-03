@@ -76,6 +76,16 @@ TEST_CASE("outgoing messages") {
     auto addressee_id = chat::contact::id_generator{}.next();
     auto conversation = message_store.conversation(addressee_id);
 
+    conversation.cache_outcome_file = [] (pfs::filesystem::path const & path) {
+        return chat::file::file_credentials {
+              chat::file::id_generator{}.next()
+            , path
+            , path.filename()
+            , static_cast<chat::file::filesize_t>(pfs::filesystem::file_size(path))
+            , pfs::to_utc_time_point(pfs::filesystem::last_write_time(path))
+        };
+    };
+
     REQUIRE(conversation);
 
     for (int i = 0; i < 5; i++) {
@@ -83,9 +93,11 @@ TEST_CASE("outgoing messages") {
 
         ed.add_text("Hello");
         ed.add_html("<html><body><h1>World</h1></body></html>");
+
         REQUIRE_NOTHROW(ed.attach(pfs::filesystem::path{"data/attachment1.bin"}));
         REQUIRE_NOTHROW(ed.attach(pfs::filesystem::path{"data/attachment2.bin"}));
         REQUIRE_NOTHROW(ed.attach(pfs::filesystem::path{"data/attachment3.bin"}));
+
         ed.save();
     }
 
@@ -106,7 +118,7 @@ TEST_CASE("outgoing messages") {
         if (ed.content().count() > 0) {
             REQUIRE_EQ(ed.content().at(0).mime, chat::message::mime_enum::text__plain);
             REQUIRE_EQ(ed.content().at(1).mime, chat::message::mime_enum::text__html);
-            REQUIRE_EQ(ed.content().at(2).mime, chat::message::mime_enum::attachment);
+            REQUIRE_EQ(ed.content().at(2).mime, chat::message::mime_enum::application__octet_stream);
 
             REQUIRE_EQ(ed.content().at(0).text, std::string{"Hello"});
             REQUIRE_EQ(ed.content().at(1).text, std::string{"<html><body><h1>World</h1></body></html>"});
@@ -127,8 +139,6 @@ TEST_CASE("outgoing messages") {
             REQUIRE(pfs::string_view{ed.content().attachment(2).name}.ends_with("attachment1.bin"));
 #endif
             REQUIRE_EQ(ed.content().attachment(2).size, 4);
-            REQUIRE_EQ(ed.content().attachment(2).sha256
-                , std::string{"e12e115acf4552b2568b55e93cbd39394c4ef81c82447fafc997882a02d23677"});
 
             // No attachment at specified position
             REQUIRE_EQ(ed.content().attachment(0).name, std::string{});

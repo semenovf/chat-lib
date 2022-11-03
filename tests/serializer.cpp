@@ -26,7 +26,7 @@ TEST_CASE("serializer") {
     chat::protocol::regular_message m;
     m.message_id    = "01FV1KFY7WCBKDQZ5B4T5ZJMSA"_uuid;
     m.author_id     = "01FV1KFY7WWS3WSBV4BFYF7ZC9"_uuid;
-    m.creation_time = time_point;
+    m.mod_time      = time_point;
     m.content       = TEST_CONTENT;
 
     serializer::output_packet_type out;

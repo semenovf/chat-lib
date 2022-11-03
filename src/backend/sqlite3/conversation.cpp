@@ -184,12 +184,14 @@ conversation<BACKEND>::conversation ()
 template <>
 conversation<BACKEND>::conversation (conversation && other)
     : _rep(std::move(other._rep))
+    , cache_outcome_file(std::move(other.cache_outcome_file))
 {}
 
 template <>
 conversation<BACKEND> & conversation<BACKEND>::operator = (conversation && other)
 {
     _rep = std::move(other._rep);
+    cache_outcome_file = std::move(other.cache_outcome_file);
     return *this;
 }
 
