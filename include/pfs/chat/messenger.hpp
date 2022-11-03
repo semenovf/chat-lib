@@ -16,6 +16,7 @@
 #include "message_store.hpp"
 #include "protocol.hpp"
 #include "serializer.hpp"
+#include "callback_traits/function.hpp"
 #include "pfs/assert.hpp"
 #include "pfs/fmt.hpp"
 #include "pfs/i18n.hpp"
@@ -139,8 +140,9 @@ namespace chat {
 template <typename ContactManagerBackend
     , typename MessageStoreBackend
     , typename FileCacheBackend
-    , typename SerializerBackend>
-class messenger
+    , typename SerializerBackend
+    , typename CallbackTraits = function_callbacks>
+class messenger: public CallbackTraits
 {
 public:
     using contact_type = contact::contact;
@@ -161,94 +163,6 @@ private:
     contact::id_generator _contact_id_generator;
     message::id_generator _message_id_generator;
     file::id_generator    _file_id_generator;
-
-public: // Callbacks
-    /**
-     * Called to dispatch data (pass to delivery manager).
-     *
-     * @param message_address Message address.
-     */
-    mutable std::function<void (contact::id /*addressee_id*/
-        , std::string const & /*data*/)> dispatch_data
-    = [] (contact::id, std::string const &) {};
-
-    /**
-     * Called when file/attachment request received.
-     */
-    mutable std::function<void (contact::id /*addressee_id*/
-        , file::id /*file_id*/
-        , pfs::filesystem::path const & /*path*/)> dispatch_file
-    = [] (contact::id, file::id, pfs::filesystem::path const &) {};
-
-    /**
-     * Called by receiver when message received.
-     *
-     * @param author_id Author/sender identifier.
-     * @param conversation_id Conversation identifier.
-     * @param message_id Message identifier.
-     */
-    mutable std::function<void (contact::id /*author_id*/
-        , contact::id /*conversation_id*/
-        , message::id /*message_id*/)> message_received
-    = [] (contact::id, contact::id, message::id) {};
-
-    /**
-     * Called by author when message delivered to addressee (receiver).
-     *
-     * @param conversation_id Conversation identifier.
-     * @param message_id Message identifier.
-     * @param delivered_time Delivered time in UTC.
-     */
-    mutable std::function<void (contact::id /*conversation_id*/
-        , message::id /*message_id*/
-        , pfs::utc_time_point /*delivered_time*/)> message_delivered
-    = [] (contact::id, message::id, pfs::utc_time_point) {};
-
-    /**
-     * Called by author when received read message notification or opponent when
-     * read received message from author.
-     *
-     * @param conversation_id Conversation identifier.
-     * @param message_id Message identifier.
-     * @param delivered_time Read time in UTC.
-     */
-    mutable std::function<void (contact::id /*conversation_id*/
-        , message::id /*message_id*/
-        , pfs::utc_time_point /*read_time*/)> message_read
-    = [] (contact::id, message::id, pfs::utc_time_point) {};
-
-    /**
-     * Called after adding contact.
-     */
-    mutable std::function<void (contact::id)> contact_added
-    = [] (contact::id) {};
-
-    /**
-     * Called after updating contact.
-     */
-    mutable std::function<void (contact::id)> contact_updated
-    = [] (contact::id) {};
-
-    /**
-     * Called after contact removed.
-     */
-    mutable std::function<void (contact::id)> contact_removed
-    = [] (contact::id) {};
-
-    /**
-     * Called after updating group members.
-     */
-    mutable std::function<void (contact::id /*group_id*/
-        , std::vector<contact::id> /*added*/
-        , std::vector<contact::id> /*removed*/)> group_members_updated
-    = [] (contact::id, std::vector<contact::id>, std::vector<contact::id>) {};
-
-    /**
-     * Requested file/resource not found, corrupted or permission denied.
-     */
-    mutable std::function<void (contact::id /*requester*/
-        , file::id /*file_id*/)> file_error
-    = [] (contact::id, file::id) {};
 
 public:
     messenger (std::unique_ptr<contact_manager_type> contact_manager
@@ -570,7 +484,7 @@ public:
             c.contact_id = _contact_id_generator.next();
 
         if (_contact_manager->add(c)) {
-            contact_added(c.contact_id);
+            this->contact_added(c.contact_id);
             return c.contact_id;
         }
 
@@ -591,7 +505,7 @@ public:
         if (!_contact_manager->update(c))
             return false;
 
-        contact_updated(c.contact_id);
+        this->contact_updated(c.contact_id);
         return true;
     }
 
@@ -635,7 +549,7 @@ public:
     {
         _contact_manager->remove(id);
         wipe_conversation(id);
-        contact_removed(id);
+        this->contact_removed(id);
     }
 
     /**
@@ -826,7 +740,7 @@ public:
 
         typename serializer_type::output_packet_type out {};
         out << m;
-        dispatch_data(conv_contact.contact_id, out.data());
+        this->dispatch_data(conv_contact.contact_id, out.data());
     }
 
     /**
@@ -847,7 +761,7 @@ public:
 
         typename serializer_type::output_packet_type out {};
         out << c;
-        dispatch_data(addressee_id, out.data());
+        this->dispatch_data(addressee_id, out.data());
     }
 
     /**
@@ -881,7 +795,7 @@ public:
         {
             typename serializer_type::output_packet_type out {};
             out << c;
-            dispatch_data(addressee_id, out.data());
+            this->dispatch_data(addressee_id, out.data());
         }
 
         // Send group members
@@ -897,7 +811,7 @@ public:
         {
             typename serializer_type::output_packet_type out {};
             out << gm;
-            dispatch_data(addressee_id, out.data());
+            this->dispatch_data(addressee_id, out.data());
         }
     }
 
@@ -917,7 +831,7 @@ public:
         typename serializer_type::output_packet_type out {};
         out << gm;
 
-        dispatch_data(addressee_id, out.data());
+        this->dispatch_data(addressee_id, out.data());
     }
 
     /**
@@ -949,7 +863,7 @@ public:
         typename serializer_type::output_packet_type out {};
         out << protocol::file_request{file_id};
 
-        dispatch_data(addressee_id, out.data());
+        this->dispatch_data(addressee_id, out.data());
     }
 
     void dispatch_file_error (contact::id addressee_id, file::id file_id)
@@ -963,7 +877,7 @@ public:
 
         typename serializer_type::output_packet_type out {};
         out << m;
-        dispatch_data(addressee_id, out.data());
+        this->dispatch_data(addressee_id, out.data());
     }
 
     /**
@@ -1044,7 +958,7 @@ public:
 
                     auto diffs = gref.update(gm.members);
 
-                    group_members_updated(gm.group_id
+                    this->group_members_updated(gm.group_id
                         , std::move(diffs.added)
                         , std::move(diffs.removed));
                 }
@@ -1130,7 +1044,7 @@ private:
     {
         switch (addressee.type) {
             case conversation_enum::person:
-                dispatch_data(addressee.contact_id, data);
+                this->dispatch_data(addressee.contact_id, data);
                 break;
 
             case conversation_enum::group: {
@@ -1139,7 +1053,7 @@ private:
 
                 for (auto const & member_id: member_ids) {
                     if (member_id != my_contact().contact_id)
-                        dispatch_data(member_id, data);
+                        this->dispatch_data(member_id, data);
                 }
 
                 break;
@@ -1185,7 +1099,7 @@ private:
             , m.message_id, received_time);
 
         // Notify message received
-        message_received(m.author_id, m.conversation_id, m.message_id);
+        this->message_received(m.author_id, m.conversation_id, m.message_id);
     }
 
     /**
@@ -1233,14 +1147,14 @@ private:
         }
 
         conv.mark_delivered(m.message_id, m.delivered_time);
-        message_delivered(m.conversation_id, m.message_id, m.delivered_time);
+        this->message_delivered(m.conversation_id, m.message_id, m.delivered_time);
     }
 
     inline void process_read_notification(conversation_type & conv
         , message::id message_id, pfs::utc_time_point read_time)
     {
         conv.mark_read(message_id, read_time);
-        message_read(conv.id(), message_id, read_time);
+        this->message_read(conv.id(), message_id, read_time);
     }
 
     /**
@@ -1270,7 +1184,7 @@ private:
         auto fc = _file_cache->outgoing_file(m.file_id);
 
         if (fc) {
-            dispatch_file(addresser_id, fc->file_id, fc->path);
+            this->dispatch_file(addresser_id, fc->file_id, fc->path);
         } else {
             // File not found in cache by specified ID.
             dispatch_file_error(addresser_id, m.file_id);
@@ -1280,7 +1194,7 @@ private:
     void process_file_error (contact::id addresser_id
         , protocol::file_error const & m)
     {
-        file_error(addresser_id, m.file_id);
+        this->file_error(addresser_id, m.file_id);
     }
 };
 
