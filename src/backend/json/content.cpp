@@ -74,7 +74,13 @@ content_credentials content::at (std::size_t index) const
         case mime_enum::application__octet_stream:
         case mime_enum::audio__ogg:
         case mime_enum::audio__wav:
-        case mime_enum::video__mp4: {
+        case mime_enum::video__mp4:
+        case mime_enum::image__bmp:
+        case mime_enum::image__gif:
+        case mime_enum::image__ico:
+        case mime_enum::image__jpeg:
+        case mime_enum::image__png:
+        case mime_enum::image__tiff: {
             auto text = jeyson::get_or<std::string>(elem[TEXT_KEY], std::string{});
             return content_credentials{mime, text};
         }
@@ -99,7 +105,13 @@ attachment_credentials content::attachment (std::size_t index) const
             case mime_enum::application__octet_stream:
             case mime_enum::audio__ogg:
             case mime_enum::audio__wav:
-            case mime_enum::video__mp4: {
+            case mime_enum::video__mp4:
+            case mime_enum::image__bmp:
+            case mime_enum::image__gif:
+            case mime_enum::image__ico:
+            case mime_enum::image__jpeg:
+            case mime_enum::image__png:
+            case mime_enum::image__tiff: {
                 auto file_id = jeyson::get_or<std::string>(elem[ID_KEY], std::string{});
                 auto name    = jeyson::get_or<std::string>(elem[TEXT_KEY], std::string{});
                 auto size    = jeyson::get_or<file::filesize_t>(elem[SIZE_KEY], 0);

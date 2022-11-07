@@ -47,9 +47,15 @@ enum class mime_enum
     , audio__wav
 
     , video__mp4
-};
 
-// mime_enum to_mime (int value);
+    , image__bmp
+    , image__gif
+    , image__ico  // vnd.microsoft.icon
+    , image__jpeg
+    , image__jpg = image__jpeg
+    , image__png
+    , image__tiff
+};
 
 class id_generator
 {

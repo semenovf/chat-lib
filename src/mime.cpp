@@ -26,18 +26,12 @@ namespace message {
 namespace fs = pfs::filesystem;
 using string_view = pfs::string_view;
 
-// static char const MIME_BMP [] = { 66, 77 };
 // static char const MIME_DOC [] = { 208, 207, 17, 224, 161, 177, 26, 225 };
 // static char const MIME_EXE_DLL [] = { 77, 90 };
-// static char const MIME_GIF [] = { 71, 73, 70, 56 };
-// static char const MIME_ICO [] = { 0, 0, 1, 0 };
-// static char const MIME_JPG [] = { 255, 216, 255 };
 // static char const MIME_MP3 [] = { 255, 251, 48 };
 // static char const MIME_PDF [] = { 37, 80, 68, 70, 45, 49, 46 };
-// static char const MIME_PNG [] = { 137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82 };
 // static char const MIME_RAR [] = { 82, 97, 114, 33, 26, 7, 0 };
 // static char const MIME_SWF [] = { 70, 87, 83 };
-// static char const MIME_TIFF [] = { 73, 73, 42, 0 };
 // static char const MIME_TORRENT [] = { 100, 56, 58, 97, 110, 110, 111, 117, 110, 99, 101 };
 // static char const MIME_TTF [] = { 0, 1, 0, 0, 0 };
 // static char const MIME_WMV_WMA [] = { 48, 38, 178, 117, 142, 102, 207, 17, 166, 217, 0, 170, 0, 98, 206, 108 };
@@ -51,9 +45,15 @@ class mime_mapping
         std::string header;
     };
 
-    std::array<item, 2> _d = {
-          item { mime_enum::audio__ogg, std::string{ 79, 103, 103, 83, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0 }}
-        , item { mime_enum::audio__wav, std::string{ 82, 73, 70, 70 }}
+    std::array<item, 8> _d = {
+          item { mime_enum::audio__ogg , std::string{ 79, 103, 103, 83, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0 }}
+        , item { mime_enum::audio__wav , std::string{ 82, 73, 70, 70 }}
+        , item { mime_enum::image__bmp , std::string{ 66, 77 }}
+        , item { mime_enum::image__gif , std::string{ 71, 73, 70, 56 }}
+        , item { mime_enum::image__ico , std::string{ 0, 0, 1, 0 }}
+        , item { mime_enum::image__jpg , std::string{ static_cast<char>(255), static_cast<char>(216), static_cast<char>(255) }}
+        , item { mime_enum::image__png , std::string{ static_cast<char>(137), 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82 }}
+        , item { mime_enum::image__tiff, std::string{ 73, 73, 42, 0 }}
     };
 
     std::size_t _maxlen = 0;
