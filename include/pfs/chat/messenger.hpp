@@ -895,7 +895,7 @@ public:
      */
     void process_incoming_data (contact::id addresser_id, std::string const & data)
     {
-        typename serializer_type::input_packet_type in {data};
+        typename serializer_type::input_packet_type in {data.data(), data.size()};
         protocol::packet_enum packet_type;
         in >> packet_type;
 

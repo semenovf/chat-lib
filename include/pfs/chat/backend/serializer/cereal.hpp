@@ -5,6 +5,7 @@
 //
 // Changelog:
 //      2022.03.17 Initial version.
+//      2022.11.11 `input_packet` reimplemented.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 #include "pfs/chat/exports.hpp"
@@ -23,20 +24,32 @@ struct serializer
 
     class input_packet
     {
-        std::istringstream _buf;
+        struct buffer : public std::streambuf
+        {
+            buffer (char const * s, std::size_t n)
+            {
+                auto * p = const_cast<char *>(s);
+                setg(p, p, p + n);
+            }
+        };
+
+    private:
+        buffer _buf;
+        std::istream _archiver_backend;
         input_archive_type _ar;
 
     public:
-        input_packet (std::string const & data)
-            : _buf(data)
-            , _ar(_buf)
+        input_packet (std::string & data)
+            : _buf(data.data(), data.size())
+            , _archiver_backend(& _buf)
+            , _ar(_archiver_backend)
         {}
 
-        input_packet (char const * data, std::streamsize size)
-            : _ar(_buf)
-        {
-            _buf.rdbuf()->pubsetbuf(const_cast<char *>(data), size);
-        }
+        input_packet (char const * data, std::size_t size)
+            : _buf(data, size)
+            , _archiver_backend(& _buf)
+            , _ar(_archiver_backend)
+        {}
 
         template <typename T>
         CHAT__EXPORT input_packet & operator >> (T & target);
