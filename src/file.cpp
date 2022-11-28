@@ -31,7 +31,7 @@ static pfs::utc_time_point file_modtime_utc (fs::path const & path)
     if (ec)
         throw error {errc::filesystem_error, fs::utf8_encode(path), ec.message()};
 
-    return pfs::to_utc_time_point(last_write_time);
+    return pfs::utc_time_point_cast(pfs::local_time_point{last_write_time.time_since_epoch()});
 }
 
 /**

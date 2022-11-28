@@ -33,7 +33,8 @@ TEST_CASE("serializer") {
     out << m;
 
     chat::protocol::regular_message m1;
-    serializer::input_packet_type in {out.data()};
+    auto s = out.data();
+    serializer::input_packet_type in {s};
     chat::protocol::packet_enum packet_type;
     in >> packet_type >> m1;
 

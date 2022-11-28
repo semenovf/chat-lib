@@ -35,7 +35,7 @@ void save (cereal::PortableBinaryOutputArchive & ar, pfs::utc_time_point const &
 {
     // Milliseconds is equivalent to integer type of at least 45 bits,
     // so nearest standard integer type is std::int64_t
-    std::int64_t ticks = to_millis(t).count();
+    std::int64_t ticks = t.to_millis().count();
     ar << ticks;
 }
 
@@ -43,8 +43,8 @@ void load (cereal::PortableBinaryInputArchive & ar, pfs::utc_time_point & t)
 {
     std::int64_t ticks;
     ar >> ticks;
-    t = pfs::utc_time_point{pfs::from_millis(std::chrono::milliseconds{
-        static_cast<std::chrono::milliseconds::rep>(ticks)})};
+    t = pfs::utc_time_point{std::chrono::milliseconds{
+        static_cast<std::chrono::milliseconds::rep>(ticks)}};
 }
 
 void save (cereal::PortableBinaryOutputArchive & ar, chat::message::content const & content)

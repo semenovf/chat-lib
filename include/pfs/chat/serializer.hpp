@@ -11,7 +11,7 @@
 namespace chat {
 
 template <typename Backend>
-class serializer final
+class serializer
 {
 public:
     using input_packet_type  = typename Backend::input_packet_type;

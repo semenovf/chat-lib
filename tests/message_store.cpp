@@ -82,7 +82,7 @@ TEST_CASE("outgoing messages") {
             , path
             , path.filename()
             , static_cast<chat::file::filesize_t>(pfs::filesystem::file_size(path))
-            , pfs::to_utc_time_point(pfs::filesystem::last_write_time(path))
+            , utc_time_point_cast(pfs::local_time_point{pfs::filesystem::last_write_time(path).time_since_epoch()})
         };
     };
 
