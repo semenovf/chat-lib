@@ -6,11 +6,11 @@
 // Changelog:
 //      2022.03.10 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
-#include "conversation_enum.hpp"
+#include "conversation_enum_traits.hpp"
 #include "pfs/assert.hpp"
+#include "pfs/i18n.hpp"
 #include "pfs/chat/contact_manager.hpp"
 #include "pfs/chat/backend/sqlite3/contact_manager.hpp"
-#include "pfs/i18n.hpp"
 
 namespace chat {
 

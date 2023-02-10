@@ -7,7 +7,7 @@
 //      2021.11.21 Initial version.
 //      2022.02.17 Refactored totally.
 ////////////////////////////////////////////////////////////////////////////////
-#include "conversation_enum.hpp"
+#include "conversation_enum_traits.hpp"
 #include "pfs/assert.hpp"
 #include "pfs/chat/contact_list.hpp"
 #include "pfs/chat/error.hpp"

@@ -11,6 +11,7 @@
 #include "pfs/chat/conversation.hpp"
 #include "pfs/chat/error.hpp"
 #include "pfs/chat/backend/sqlite3/conversation.hpp"
+#include "pfs/debby/backend/sqlite3/time_point_traits.hpp"
 #include <array>
 
 namespace chat {
