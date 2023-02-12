@@ -13,7 +13,7 @@
 cmake_minimum_required (VERSION 3.11)
 project(chat LANGUAGES C CXX)
 
-option(CHAT__BUILD_SHARED "Enable build shared library" ON)
+option(CHAT__BUILD_SHARED "Enable build shared library" OFF)
 option(CHAT__BUILD_STATIC "Enable build static library" ON)
 
 set(CHAT__CONTACT_MANAGER_BACKEND "sqlite3" CACHE STRING "Enable `sqlite3` contact manager backend")
@@ -72,32 +72,12 @@ if (NOT TARGET pfs::common)
         ${PORTABLE_TARGET__CURRENT_PROJECT_DIR}/3rdparty/pfs/common/library.cmake)
 endif()
 
-if (CHAT__BUILD_SHARED)
-    if (NOT TARGET pfs::debby)
-        set(DEBBY__BUILD_SHARED ON CACHE INTERNAL "")
-    endif()
-
-    if (NOT TARGET pfs::jeyson)
-        set(JEYSON__BUILD_SHARED ON CACHE INTERNAL "")
-    endif()
-endif()
-
-if (CHAT__BUILD_STATIC)
-    if (NOT TARGET pfs::debby::static)
-        set(DEBBY__BUILD_STATIC ON CACHE INTERNAL "")
-    endif()
-
-    if (NOT TARGET pfs::jeyson::static)
-        set(JEYSON__BUILD_STATIC ON CACHE INTERNAL "")
-    endif()
-endif()
-
-if (NOT TARGET pfs::jeyson OR NOT TARGET pfs::jeyson::static)
+if (NOT TARGET pfs::jeyson AND NOT TARGET pfs::jeyson::static)
     portable_target(INCLUDE_PROJECT
         ${PORTABLE_TARGET__CURRENT_PROJECT_DIR}/3rdparty/pfs/jeyson/library.cmake)
 endif()
 
-if (NOT TARGET pfs::debby OR NOT TARGET pfs::debby::static)
+if (NOT TARGET pfs::debby AND NOT TARGET pfs::debby::static)
     portable_target(INCLUDE_PROJECT
         ${PORTABLE_TARGET__CURRENT_PROJECT_DIR}/3rdparty/pfs/debby/library.cmake)
 endif()
@@ -122,11 +102,37 @@ endif()
 if (CHAT__BUILD_SHARED)
     portable_target(SOURCES ${PROJECT_NAME} ${_chat__sources})
     portable_target(INCLUDE_DIRS ${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_LIST_DIR}/include)
-    portable_target(LINK ${PROJECT_NAME} PUBLIC pfs::jeyson pfs::debby pfs::common)
+
+    portable_target(LINK ${PROJECT_NAME} PUBLIC pfs::common)
+
+    if (TARGET pfs::debby)
+        portable_target(LINK ${PROJECT_NAME} PUBLIC pfs::debby)
+    elseif (TARGET pfs::debby::static)
+        portable_target(LINK ${PROJECT_NAME} PUBLIC pfs::debby::static)
+    endif()
+
+    if (TARGET pfs::jeyson)
+        portable_target(LINK ${PROJECT_NAME} PUBLIC pfs::jeyson)
+    elseif(TARGET pfs::jeyson::static)
+        portable_target(LINK ${PROJECT_NAME} PUBLIC pfs::jeyson::static)
+    endif()
 endif()
 
 if (CHAT__BUILD_STATIC)
     portable_target(SOURCES ${STATIC_PROJECT_NAME} ${_chat__sources})
     portable_target(INCLUDE_DIRS ${STATIC_PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_LIST_DIR}/include)
-    portable_target(LINK ${STATIC_PROJECT_NAME} PUBLIC pfs::jeyson::static pfs::debby::static pfs::common)
+    portable_target(LINK ${STATIC_PROJECT_NAME} PUBLIC pfs::common)
+
+    if (TARGET pfs::debby::static)
+        portable_target(LINK ${STATIC_PROJECT_NAME} PUBLIC pfs::debby::static)
+    elseif (TARGET pfs::debby)
+        portable_target(LINK ${STATIC_PROJECT_NAME} PUBLIC pfs::debby)
+    endif()
+
+    if (TARGET pfs::jeyson::static)
+        portable_target(LINK ${STATIC_PROJECT_NAME} PUBLIC pfs::jeyson::static)
+    elseif (TARGET pfs::jeyson)
+        portable_target(LINK ${STATIC_PROJECT_NAME} PUBLIC pfs::jeyson)
+    endif()
+
 endif()
