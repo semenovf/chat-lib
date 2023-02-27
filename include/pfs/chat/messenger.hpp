@@ -1032,10 +1032,29 @@ public:
         return !!fc ? fc->path : pfs::filesystem::path{};
     }
 
-    void wipe ()
+    /**
+     * Erases all person contacts, groups and channels.
+     */
+    void wipe_contacts ()
     {
         _contact_manager->wipe();
+    }
+
+    /**
+     * Erases all messages.
+     */
+    void wipe_messages ()
+    {
         _message_store->wipe();
+    }
+
+    /**
+     * Erases all person contacts, groups, channels and all messages.
+     */
+    void wipe_all ()
+    {
+        wipe_contacts();
+        wipe_messages();
     }
 
 private:
