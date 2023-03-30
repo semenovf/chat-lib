@@ -14,6 +14,7 @@
 #include "flags.hpp"
 #include "message.hpp"
 #include "pfs/optional.hpp"
+#include "pfs/time_point.hpp"
 #include <functional>
 
 namespace chat {
@@ -51,7 +52,12 @@ public:
      * @throw chat::error{errc::filesystem_error} on filesystem error.
      * @throw chat::error{errc::attachment_failure} if specific attachment error occurred.
      */
-    mutable std::function<file::file_credentials (pfs::filesystem::path const &)> cache_outcome_file;
+    mutable std::function<file::file_credentials (pfs::filesystem::path const &)> cache_outcome_local_file;
+
+    mutable std::function<file::file_credentials (std::string const & /*uri*/
+        , std::string const & /*display_name*/
+        , std::int64_t /*size*/
+        , pfs::utc_time /*modtime*/)> cache_outcome_custom_file;
 
 private:
     CHAT__EXPORT conversation (rep_type && rep);

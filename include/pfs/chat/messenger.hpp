@@ -603,8 +603,15 @@ public:
 
         auto convers = _message_store->conversation(conversation_id);
 
-        convers.cache_outcome_file = [this] (pfs::filesystem::path const & path) {
+        convers.cache_outcome_local_file = [this] (pfs::filesystem::path const & path) {
             return _file_cache->store_outgoing_file(path);
+        };
+
+        convers.cache_outcome_custom_file = [this] (std::string const & uri
+                , std::string const & display_name
+                , std::int64_t size
+                , pfs::utc_time modtime) {
+            return _file_cache->store_outgoing_file(uri, display_name, size, modtime);
         };
 
         return convers;
@@ -1020,16 +1027,16 @@ public:
         _file_cache->store_incoming_file(author_id, file_id, path);
     }
 
-    pfs::filesystem::path incoming_file (file::id file_id) const
+    std::string incoming_file (file::id file_id) const
     {
         auto fc = _file_cache->incoming_file(file_id);
-        return !!fc ? fc->path : pfs::filesystem::path{};
+        return !!fc ? fc->abspath : std::string{};
     }
 
-    pfs::filesystem::path outgoing_file (file::id file_id) const
+    std::string outgoing_file (file::id file_id) const
     {
         auto fc = _file_cache->outgoing_file(file_id);
-        return !!fc ? fc->path : pfs::filesystem::path{};
+        return !!fc ? fc->abspath : std::string{};
     }
 
     /**
@@ -1203,7 +1210,7 @@ private:
         auto fc = _file_cache->outgoing_file(m.file_id);
 
         if (fc) {
-            this->dispatch_file(addresser_id, fc->file_id, fc->path);
+            this->dispatch_file(addresser_id, fc->file_id, fc->abspath);
         } else {
             // File not found in cache by specified ID.
             dispatch_file_error(addresser_id, m.file_id);

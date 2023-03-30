@@ -34,6 +34,14 @@ static pfs::utc_time_point file_modtime_utc (fs::path const & path)
     return pfs::utc_time_point_cast(pfs::local_time_point{last_write_time.time_since_epoch()});
 }
 
+static filesize_t file_size_check_limit (std::int64_t filesize)
+{
+    if (filesize < 0 || filesize > (std::numeric_limits<filesize_t>::max)())
+        return filesize_t{-1};
+
+    return static_cast<filesize_t>(filesize);
+}
+
 /**
  * Obtains file size with checking the upper limit.
  *
@@ -81,10 +89,37 @@ file::file_credentials make_credentials (fs::path const & path)
     file_credentials res;
 
     res.file_id = id_generator{}.next();
-    res.path    = abspath;
+    res.abspath = utf8_path;
     res.name    = fs::utf8_encode(path.filename());
     res.size    = filesize;
     res.modtime = file_modtime_utc(path);
+
+    return res;
+}
+
+file::file_credentials make_credentials (std::string const & uri
+    , std::string const & display_name
+    , std::int64_t size
+    , pfs::utc_time_point modtime)
+{
+    auto filesize = file_size_check_limit(size);
+
+    if (filesize < 0) {
+        throw error {
+              errc::attachment_failure
+            , uri
+            , tr::_("maximum file size limit exceeded"
+                ", use another way to transfer file or data")
+        };
+    }
+
+    file_credentials res;
+
+    res.file_id = id_generator{}.next();
+    res.abspath = uri;
+    res.name    = display_name;
+    res.size    = filesize;
+    res.modtime = modtime;
 
     return res;
 }

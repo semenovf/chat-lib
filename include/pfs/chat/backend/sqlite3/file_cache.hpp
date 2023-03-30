@@ -10,7 +10,6 @@
 #pragma once
 #include "db_traits.hpp"
 #include "pfs/chat/exports.hpp"
-#include "pfs/filesystem.hpp"
 
 namespace chat {
 namespace backend {

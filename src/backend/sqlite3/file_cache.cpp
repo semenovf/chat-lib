@@ -61,7 +61,7 @@ file_cache::rep_type file_cache::make (shared_db_handle dbh)
           fmt::format(CREATE_OUT_TABLE
             , rep.out_table_name
             , affinity_traits<file::id>::name()
-            , affinity_traits<decltype(file::file_credentials::path)>::name()
+            , affinity_traits<decltype(file::file_credentials::abspath)>::name()
             , affinity_traits<decltype(file::file_credentials::name)>::name()
             , affinity_traits<decltype(file::file_credentials::size)>::name()
             , affinity_traits<decltype(file::file_credentials::modtime)>::name())
@@ -69,7 +69,7 @@ file_cache::rep_type file_cache::make (shared_db_handle dbh)
             , rep.in_table_name
             , affinity_traits<file::id>::name()
             , affinity_traits<contact::id>::name()
-            , affinity_traits<decltype(file::file_credentials::path)>::name())
+            , affinity_traits<decltype(file::file_credentials::abspath)>::name())
         , fmt::format(CREATE_OUTGOING_INDEX_BY_ID , rep.out_table_name)
         , fmt::format(CREATE_INCOMING_INDEX_BY_ID , rep.in_table_name)
     };
@@ -114,6 +114,32 @@ static std::string const INSERT_OUTGOING_FILE {
 
 template<>
 file::file_credentials
+file_cache<BACKEND>::store_outgoing_file (std::string const & uri
+    , std::string const & display_name
+    , std::int64_t size
+    , pfs::utc_time_point modtime)
+{
+    auto fc = file::make_credentials(uri, display_name, size, modtime);
+
+    auto stmt = _rep.dbh->prepare(fmt::format(INSERT_OUTGOING_FILE, _rep.out_table_name));
+
+    stmt.bind(":file_id", fc.file_id);
+    stmt.bind(":path"   , fc.abspath);
+    stmt.bind(":name"   , fc.name);
+    stmt.bind(":size"   , fc.size);
+    stmt.bind(":modtime", fc.modtime);
+
+    auto res = stmt.exec();
+    auto n = stmt.rows_affected();
+
+    if (n <= 0)
+        throw error {errc::storage_error, tr::_("Expected to cache file credentials")};
+
+    return fc;
+}
+
+template<>
+file::file_credentials
 file_cache<BACKEND>::store_outgoing_file (fs::path const & path)
 {
     auto abspath = path.is_absolute()
@@ -125,7 +151,7 @@ file_cache<BACKEND>::store_outgoing_file (fs::path const & path)
     auto stmt = _rep.dbh->prepare(fmt::format(INSERT_OUTGOING_FILE, _rep.out_table_name));
 
     stmt.bind(":file_id", fc.file_id);
-    stmt.bind(":path"   , fc.path);
+    stmt.bind(":path"   , fc.abspath);
     stmt.bind(":name"   , fc.name);
     stmt.bind(":size"   , fc.size);
     stmt.bind(":modtime", fc.modtime);
@@ -194,7 +220,7 @@ file_cache<BACKEND>::outgoing_file (file::id file_id) const
         file::file_credentials fc;
 
         res["id"]      >> fc.file_id;
-        res["path"]    >> fc.path;
+        res["path"]    >> fc.abspath;
         res["name"]    >> fc.name;
         res["size"]    >> fc.size;
         res["modtime"] >> fc.modtime;
@@ -224,7 +250,7 @@ file_cache<BACKEND>::incoming_file (file::id file_id, contact::id * author_id_pt
         file::file_credentials fc;
 
         res["id"]   >> fc.file_id;
-        res["path"] >> fc.path;
+        res["path"] >> fc.abspath;
 
         if (author_id_ptr)
             res["author_id"] >> *author_id_ptr;

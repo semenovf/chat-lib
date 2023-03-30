@@ -37,10 +37,12 @@ struct file_credentials
     id file_id;
 
     // Absolute path.
-    // For outgoing file it is absolute path in local filesystem.
+    // For outgoing file it is absolute path in local filesystem or URI.
     // For incoming file it is absolute path including file cache base directory.
     // It is assumed that `path` is also unique as `file_id`.
-    pfs::filesystem::path path;
+    //
+    //pfs::filesystem::path path;
+    std::string abspath;
 
     // File name for attachments, audio and video files
     // For outgoing file it is same as `path.filename()`.
@@ -57,9 +59,18 @@ struct file_credentials
 using optional_file_credentials = pfs::optional<file::file_credentials>;
 
 /**
- * Makes file credentials.
+ * Makes file credentials from local file.
  */
 CHAT__EXPORT
 file::file_credentials make_credentials (pfs::filesystem::path const & path);
+
+/**
+ * Makes file credentials from URI (useful on Android).
+ */
+CHAT__EXPORT
+file::file_credentials make_credentials (std::string const & uri
+    , std::string const & display_name
+    , std::int64_t size
+    , pfs::utc_time_point modtime);
 
 }} // namespace chat::file

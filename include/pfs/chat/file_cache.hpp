@@ -44,6 +44,16 @@ public:
      *
      * @return Stored file credentials.
      */
+    CHAT__EXPORT file::file_credentials store_outgoing_file (std::string const & uri
+        , std::string const & display_name
+        , std::int64_t size
+        , pfs::utc_time modtime);
+
+    /**
+     * Stores the outgoing file credentials.
+     *
+     * @return Stored file credentials.
+     */
     CHAT__EXPORT file::file_credentials store_outgoing_file (
         pfs::filesystem::path const & path);
 

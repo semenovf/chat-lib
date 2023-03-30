@@ -27,8 +27,8 @@ public:
      */
     mutable std::function<void (contact::id /*addressee_id*/
         , file::id /*file_id*/
-        , pfs::filesystem::path const & /*path*/)> dispatch_file
-    = [] (contact::id, file::id, pfs::filesystem::path const &) {};
+        , std::string const & /*path*/)> dispatch_file
+    = [] (contact::id, file::id, std::string const &) {};
 
     /**
      * Called by receiver when message received.

@@ -8,13 +8,10 @@
 ////////////////////////////////////////////////////////////////////////////////
 #include "pfs/chat/error.hpp"
 #include "pfs/chat/message.hpp"
-#include "pfs/filesystem.hpp"
 #include <cassert>
 
 namespace chat {
 namespace message {
-
-namespace fs = pfs::filesystem;
 
 namespace {
     char const * MIME_KEY   = "mime";
@@ -151,7 +148,12 @@ void content::attach (file::file_credentials const & fc)
 {
     using pfs::to_string;
 
-    auto mime = read_mime(fc.path);
+    auto mime = mime_enum::application__octet_stream;
+
+    // TODO Need more suitable check if file is not a local.
+    if (!pfs::starts_with(fc.abspath, "content:/")) {
+        auto mime = read_mime(fc.abspath);
+    }
 
     json elem;
     elem[MIME_KEY]   = static_cast<int>(mime);

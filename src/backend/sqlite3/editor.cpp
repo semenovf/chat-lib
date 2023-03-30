@@ -65,7 +65,8 @@ editor<BACKEND>::editor ()
 template <>
 editor<BACKEND>::editor (editor && other)
     : _rep(std::move(other._rep))
-    , cache_outcome_file(std::move(other.cache_outcome_file))
+    , cache_outcome_local_file(std::move(other.cache_outcome_local_file))
+    , cache_outcome_custom_file(std::move(other.cache_outcome_custom_file))
 {}
 
 template <>
@@ -95,9 +96,19 @@ template <>
 void
 editor<BACKEND>::attach (pfs::filesystem::path const & path)
 {
-    auto fc = cache_outcome_file(path);
+    auto fc = cache_outcome_local_file(path);
     _rep.content.attach(fc);
 }
+
+template <>
+void
+editor<BACKEND>::attach (std::string const & uri, std::string const & display_name
+        , std::int64_t size, pfs::utc_time modtime)
+{
+    auto fc = cache_outcome_custom_file(uri, display_name, size, modtime);
+    _rep.content.attach(fc);
+}
+
 
 template <>
 void
