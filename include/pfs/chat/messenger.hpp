@@ -666,11 +666,11 @@ public:
     }
 
     // FIXME DEPRECATED
-//     template <typename F>
-//     bool transaction (F && op) noexcept
-//     {
-//         return _contact_manager->transaction(std::forward<F>(op));
-//     }
+    template <typename F>
+    bool transaction (F && op) noexcept
+    {
+        return _contact_manager->transaction(std::forward<F>(op));
+    }
 
     /**
      * Dispatch message (original or edited) for person or group.
