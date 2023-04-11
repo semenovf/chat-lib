@@ -35,12 +35,12 @@ private:
 private:
     contact_list () = default;
     contact_list (rep_type && rep);
-    contact_list (contact_list const & other) = delete;
-    contact_list & operator = (contact_list const & other) = delete;
-    contact_list & operator = (contact_list && other) = delete;
 
 public:
+    contact_list (contact_list const & other) = delete;
     contact_list (contact_list && other) = default;
+    contact_list & operator = (contact_list const & other) = delete;
+    contact_list & operator = (contact_list && other) = delete;
     ~contact_list () = default;
 
 public:

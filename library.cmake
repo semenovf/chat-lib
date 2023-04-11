@@ -46,6 +46,7 @@ list(APPEND _chat__sources
 if (CHAT__CONTACT_MANAGER_BACKEND STREQUAL "sqlite3")
     set(DEBBY__ENABLE_SQLITE3 ON CACHE INTERNAL "")
     list(APPEND _chat__sources
+        ${CMAKE_CURRENT_LIST_DIR}/src/backend/sqlite3/activity_manager.cpp
         ${CMAKE_CURRENT_LIST_DIR}/src/backend/sqlite3/db_traits.cpp
         ${CMAKE_CURRENT_LIST_DIR}/src/backend/sqlite3/contact_list.cpp
         ${CMAKE_CURRENT_LIST_DIR}/src/backend/sqlite3/contact_manager.cpp

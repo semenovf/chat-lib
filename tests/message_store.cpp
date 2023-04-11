@@ -76,7 +76,7 @@ TEST_CASE("outgoing messages") {
     auto addressee_id = chat::contact::id_generator{}.next();
     auto conversation = message_store.conversation(addressee_id);
 
-    conversation.cache_outcome_file = [] (pfs::filesystem::path const & path) {
+    conversation.cache_outcome_local_file = [] (pfs::filesystem::path const & path) {
         return chat::file::file_credentials {
               chat::file::id_generator{}.next()
             , path
@@ -123,21 +123,11 @@ TEST_CASE("outgoing messages") {
             REQUIRE_EQ(ed.content().at(0).text, std::string{"Hello"});
             REQUIRE_EQ(ed.content().at(1).text, std::string{"<html><body><h1>World</h1></body></html>"});
 
-#if _MSC_VER
-            REQUIRE(ends_with(pfs::string_view{ed.content().at(2).text}, "attachment1.bin"));
-            REQUIRE(ends_with(pfs::string_view{ed.content().at(3).text}, "attachment2.bin"));
-            REQUIRE(ends_with(pfs::string_view{ed.content().at(4).text}, "attachment3.bin"));
-#else
-            REQUIRE(ends_with(pfs::string_view{ed.content().at(2).text}, "attachment1.bin"));
-            REQUIRE(ends_with(pfs::string_view{ed.content().at(3).text}, "attachment2.bin"));
-            REQUIRE(ends_with(pfs::string_view{ed.content().at(4).text}, "attachment3.bin"));
-#endif
+            REQUIRE(pfs::ends_with(pfs::string_view{ed.content().at(2).text}, "attachment1.bin"));
+            REQUIRE(pfs::ends_with(pfs::string_view{ed.content().at(3).text}, "attachment2.bin"));
+            REQUIRE(pfs::ends_with(pfs::string_view{ed.content().at(4).text}, "attachment3.bin"));
+            REQUIRE(pfs::ends_with(pfs::string_view{ed.content().attachment(2).name}, "attachment1.bin"));
 
-#if _MSC_VER
-            REQUIRE(pfs::string_view{ed.content().attachment(2).name}.ends_with("attachment1.bin"));
-#else
-            REQUIRE(pfs::string_view{ed.content().attachment(2).name}.ends_with("attachment1.bin"));
-#endif
             REQUIRE_EQ(ed.content().attachment(2).size, 4);
 
             // No attachment at specified position

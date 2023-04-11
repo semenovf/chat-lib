@@ -12,16 +12,19 @@
 #include "error.hpp"
 #include "member_difference.hpp"
 #include "pfs/memory.hpp"
+#include "pfs/optional.hpp"
+#include "pfs/time_point.hpp"
 #include <functional>
 #include <memory>
+#include <tuple>
 #include <utility>
 
 namespace chat {
 
 enum class contact_novelty
 {
-      added
-    , updated
+      added   = 0
+    , updated = 1
 };
 
 template <typename Backend>

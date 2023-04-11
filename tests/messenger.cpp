@@ -12,9 +12,11 @@
 #include "pfs/fmt.hpp"
 #include "pfs/memory.hpp"
 #include "pfs/chat/messenger.hpp"
+#include "pfs/chat/activity_manager.hpp"
 #include "pfs/chat/contact_manager.hpp"
 #include "pfs/chat/message_store.hpp"
 #include "pfs/chat/serializer.hpp"
+#include "pfs/chat/backend/sqlite3/activity_manager.hpp"
 #include "pfs/chat/backend/sqlite3/contact_manager.hpp"
 #include "pfs/chat/backend/sqlite3/message_store.hpp"
 #include "pfs/chat/backend/sqlite3/file_cache.hpp"
@@ -40,6 +42,7 @@ auto on_failure = [] (std::string const & errstr) {
 using Messenger = chat::messenger<
       chat::backend::sqlite3::contact_manager
     , chat::backend::sqlite3::message_store
+    , chat::backend::sqlite3::activity_manager
     , chat::backend::sqlite3::file_cache
     , chat::backend::cereal::serializer>;
 
@@ -118,6 +121,37 @@ public:
         return messageStore;
     }
 
+    // Mandatory activity manager builder
+    std::unique_ptr<Messenger::activity_manager_type> make_activity_manager () const
+    {
+        auto activityManagerPath = rootPath;
+
+        if (!fs::exists(activityManagerPath)) {
+            std::error_code ec;
+
+            if (!fs::create_directory(activityManagerPath, ec)) {
+                on_failure(fmt::format("Create directory failure: {}: {}"
+                    , pfs::filesystem::utf8_encode(activityManagerPath)
+                    , ec.message()));
+                return nullptr;
+            }
+        }
+
+        activityManagerPath /= PFS__LITERAL_PATH("activities.db");
+
+        auto dbh = chat::backend::sqlite3::make_handle(activityManagerPath, true);
+
+        if (!dbh)
+            return nullptr;
+
+        auto activityManager = Messenger::activity_manager_type::make_unique(dbh);
+
+        if (!*activityManager)
+            return nullptr;
+
+        return activityManager;
+    }
+
     // Mandatory file cache builder
     std::unique_ptr<Messenger::file_cache_type> make_file_cache () const
     {
@@ -194,11 +228,13 @@ TEST_CASE("messenger") {
     auto messenger1 = std::make_shared<Messenger>(
           messengerBuilder1.make_contact_manager()
         , messengerBuilder1.make_message_store()
+        , messengerBuilder1.make_activity_manager()
         , messengerBuilder1.make_file_cache());
 
     auto messenger2 = std::make_shared<Messenger>(
           messengerBuilder2.make_contact_manager()
         , messengerBuilder2.make_message_store()
+        , messengerBuilder2.make_activity_manager()
         , messengerBuilder2.make_file_cache());
 
     REQUIRE(*messenger1);
@@ -245,8 +281,8 @@ TEST_CASE("messenger") {
 ////////////////////////////////////////////////////////////////////////////////
 // Wipe before tests for clear
 ////////////////////////////////////////////////////////////////////////////////
-    messenger1->wipe();
-    messenger2->wipe();
+    messenger1->wipe_all();
+    messenger2->wipe_all();
 
 ////////////////////////////////////////////////////////////////////////////////
 // Create files for testing attachments

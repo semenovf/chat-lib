@@ -20,15 +20,14 @@ namespace chat {
 
 using namespace debby::backend::sqlite3;
 
-namespace {
-    std::string const DEFAULT_CONTACTS_TABLE_NAME  { "chat_contacts" };
-    std::string const DEFAULT_MEMBERS_TABLE_NAME   { "chat_members" };
-    std::string const DEFAULT_FOLLOWERS_TABLE_NAME { "chat_channels" };
-} // namespace
+namespace backend {
+namespace sqlite3 {
 
-namespace {
+static std::string const DEFAULT_CONTACTS_TABLE_NAME  { "chat_contacts" };
+static std::string const DEFAULT_MEMBERS_TABLE_NAME   { "chat_members" };
+static std::string const DEFAULT_FOLLOWERS_TABLE_NAME { "chat_channels" };
 
-std::string const CREATE_CONTACTS_TABLE {
+static std::string const CREATE_CONTACTS_TABLE {
     "CREATE TABLE IF NOT EXISTS `{}` ("
         "`id` {} NOT NULL UNIQUE"
         ", `creator_id` {} NOT NULL"
@@ -39,39 +38,34 @@ std::string const CREATE_CONTACTS_TABLE {
         ", PRIMARY KEY(`id`)) WITHOUT ROWID"
 };
 
-std::string const CREATE_MEMBERS_TABLE {
+static std::string const CREATE_MEMBERS_TABLE {
     "CREATE TABLE IF NOT EXISTS `{}` ("
         "`group_id` {} NOT NULL"
         ", `member_id` {} NOT NULL)"
 };
 
-std::string const CREATE_FOLLOWERS_TABLE {
+static std::string const CREATE_FOLLOWERS_TABLE {
     "CREATE TABLE IF NOT EXISTS `{}` ("
         "`channel_id` {} NOT NULL"
         ", `follower_id` {} NOT NULL)"
 };
 
-std::string const CREATE_CONTACTS_INDEX {
+static std::string const CREATE_CONTACTS_INDEX {
     "CREATE UNIQUE INDEX IF NOT EXISTS `{0}_index` ON `{0}` (`id`)"
 };
 
-std::string const CREATE_MEMBERS_INDEX {
+static std::string const CREATE_MEMBERS_INDEX {
     "CREATE INDEX IF NOT EXISTS `{0}_index` ON `{0}` (`group_id`)"
 };
 
 // Preventing duplicate pairs of group_id:member_id
-std::string const CREATE_MEMBERS_UNIQUE_INDEX {
+static std::string const CREATE_MEMBERS_UNIQUE_INDEX {
     "CREATE UNIQUE INDEX IF NOT EXISTS `{0}_unique_index` ON `{0}` (`group_id`, `member_id`)"
 };
 
-std::string const CREATE_FOLLOWERS_INDEX {
+static std::string const CREATE_FOLLOWERS_INDEX {
     "CREATE INDEX IF NOT EXISTS `{0}_index` ON `{0}` (`channel_id`)"
 };
-
-} // namespace
-
-namespace backend {
-namespace sqlite3 {
 
 contact_manager::rep_type
 contact_manager::make (contact::person const & me, shared_db_handle dbh)

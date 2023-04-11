@@ -403,8 +403,10 @@ conversation<BACKEND>::message (message::id message_id) const
     // Check cache
     if (!_rep.cache.dirty) {
         auto it = _rep.cache.map.find(message_id);
+
         if (it != _rep.cache.map.end()) {
-            assert(it->second >= 0 && it->second < _rep.cache.data.size());
+            PFS__TERMINATE(it->second >= 0 && it->second < _rep.cache.data.size()
+                , "Unexpected condition");
             return _rep.cache.data[it->second];
         }
     }

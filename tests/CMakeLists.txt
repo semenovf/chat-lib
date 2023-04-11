@@ -9,7 +9,14 @@
 ################################################################################
 project(chat-TESTS CXX C)
 
+if (TARGET pfs::chat)
+    set(_chat_lib pfs::chat)
+elseif (TARGET pfs::chat::static)
+    set(_chat_lib pfs::chat::static)
+endif()
+
 set(TESTS
+    activity_manager
     contact_manager
     file_cache
     message_store
@@ -20,7 +27,7 @@ foreach (t ${TESTS})
     portable_target(ADD_TEST ${t}
         ENABLE_COVERAGE ${CHAT__ENABLE_COVERAGE}
         SOURCES ${t}.cpp ${${t}_SOURCES}
-        LINK pfs::chat)
+        LINK ${_chat_lib})
 endforeach()
 
 file(GENERATE OUTPUT data/attachment1.bin CONTENT "ABCD")

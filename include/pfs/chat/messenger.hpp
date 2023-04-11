@@ -7,6 +7,7 @@
 //      2021.11.17 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
+#include "activity_manager.hpp"
 #include "contact.hpp"
 #include "contact_manager.hpp"
 #include "error.hpp"
@@ -45,12 +46,12 @@ namespace chat {
 //  |       |           M E S S E N G E R              |         |
 //  |       |                                          |         |
 //  |       --------------------------------------------         |
-//  |                                           ^                |
-//  |                                           |                |
-//  |                                           v                |
-//  |                                -----------------------     |
-//  |                                |   Delivery manager  |     |
-//  |                                -----------------------     |
+//  |               ^                           ^                |
+//  |               |                           |                |
+//  |               v                           v                |
+//  |       ------------------       -----------------------     |
+//  |       |Activity manager|<------|   Delivery manager  |     |
+//  |       ------------------       -----------------------     |
 //  |                                        ^    |              |
 //  |________________________________________|____|______________|
 //                                           |    |
@@ -139,6 +140,7 @@ namespace chat {
 
 template <typename ContactManagerBackend
     , typename MessageStoreBackend
+    , typename ActivityManagerBackend
     , typename FileCacheBackend
     , typename SerializerBackend
     , typename CallbackTraits = function_callbacks>
@@ -150,6 +152,7 @@ public:
     using group_type   = contact::group;
     using contact_manager_type  = contact_manager<ContactManagerBackend>;
     using message_store_type    = message_store<MessageStoreBackend>;
+    using activity_manager_type = activity_manager<ActivityManagerBackend>;
     using file_cache_type       = file_cache<FileCacheBackend>;
     using serializer_type       = serializer<SerializerBackend>;
 //     using icon_library_type    = typename ...;
@@ -159,6 +162,7 @@ public:
 private:
     std::unique_ptr<contact_manager_type>  _contact_manager;
     std::unique_ptr<message_store_type>    _message_store;
+    std::unique_ptr<activity_manager_type> _activity_manager;
     std::unique_ptr<file_cache_type>       _file_cache;
     contact::id_generator _contact_id_generator;
     message::id_generator _message_id_generator;
@@ -167,9 +171,11 @@ private:
 public:
     messenger (std::unique_ptr<contact_manager_type> contact_manager
         , std::unique_ptr<message_store_type> message_store
+        , std::unique_ptr<activity_manager_type> activity_manager
         , std::unique_ptr<file_cache_type> file_cache)
         : _contact_manager(std::move(contact_manager))
         , _message_store(std::move(message_store))
+        , _activity_manager(std::move(activity_manager))
         , _file_cache(std::move(file_cache))
     {}
 
@@ -660,11 +666,11 @@ public:
     }
 
     // FIXME DEPRECATED
-    template <typename F>
-    bool transaction (F && op) noexcept
-    {
-        return _contact_manager->transaction(std::forward<F>(op));
-    }
+//     template <typename F>
+//     bool transaction (F && op) noexcept
+//     {
+//         return _contact_manager->transaction(std::forward<F>(op));
+//     }
 
     /**
      * Dispatch message (original or edited) for person or group.
@@ -1062,6 +1068,16 @@ public:
     {
         wipe_contacts();
         wipe_messages();
+    }
+
+    activity_manager_type const & get_activity_manager () const noexcept
+    {
+        return *_activity_manager;
+    }
+
+    activity_manager_type & get_activity_manager () noexcept
+    {
+        return *_activity_manager;
     }
 
 private:
