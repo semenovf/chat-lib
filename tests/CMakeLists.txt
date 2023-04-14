@@ -21,6 +21,7 @@ set(TESTS
     file_cache
     message_store
     messenger
+    mime
     serializer)
 
 foreach (t ${TESTS})

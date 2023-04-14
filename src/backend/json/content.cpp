@@ -152,7 +152,13 @@ void content::attach (file::file_credentials const & fc)
 
     // TODO Need more suitable check if file is not a local.
     if (!pfs::starts_with(fc.abspath, "content:/")) {
-        auto mime = read_mime(fc.abspath);
+        mime = read_mime(fc.abspath);
+
+        // Try to recognize MIME by extension
+        if (mime == mime_enum::application__octet_stream)
+            mime = mime_by_extension(fc.name);
+    } else {
+        mime = mime_by_extension(fc.name);
     }
 
     json elem;

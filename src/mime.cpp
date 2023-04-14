@@ -10,6 +10,8 @@
 #include "pfs/string_view.hpp"
 #include "pfs/chat/message.hpp"
 #include <algorithm>
+#include <cctype>
+#include <map>
 
 #if _MSC_VER
 #   include <sys/types.h>
@@ -122,6 +124,47 @@ mime_enum read_mime (pfs::filesystem::path const & path)
         return mime_enum::application__octet_stream;
 
     return __mime_mapping.get_mime(string_view{buffer.data(), static_cast<std::size_t>(n)});
+}
+
+mime_enum mime_by_extension (std::string const & filename)
+{
+    static std::map<std::string, mime_enum> __well_known_extensions {
+          { "txt" , mime_enum::text__plain }
+        , { "log" , mime_enum::text__plain }
+        , { "html", mime_enum::text__html  }
+        , { "htm" , mime_enum::text__html  }
+        , { "ogg" , mime_enum::audio__ogg  } // Ogg Vorbis Audio File
+        , { "wav" , mime_enum::audio__wav  } // WAVE Audio File
+        , { "mp4" , mime_enum::video__mp4  } // MPEG-4 Video
+        , { "bmp" , mime_enum::image__bmp  } // Bitmap Image
+        , { "gif" , mime_enum::image__gif  } // Graphical Interchange Format File
+        , { "ico" , mime_enum::image__ico  }
+        , { "jpeg", mime_enum::image__jpeg }
+        , { "jpg" , mime_enum::image__jpeg }
+        , { "png" , mime_enum::image__png  }
+        , { "tiff", mime_enum::image__tiff }
+        , { "tif" , mime_enum::image__tiff }
+    };
+
+    if (filename.empty())
+        return mime_enum::invalid;
+
+    auto index = filename.rfind(".");
+
+    if (index != std::string::npos) {
+        auto ext = filename.substr(index + 1);
+
+        std::transform(ext.begin(), ext.end(), ext.begin(), [] (char ch) {
+            return (ch <= 'Z' && ch >= 'A') ? ch - ('Z' - 'z') : ch;
+        });
+
+        auto pos = __well_known_extensions.find(ext);
+
+        if (pos != __well_known_extensions.end())
+            return pos->second;
+    }
+
+    return mime_enum::application__octet_stream;
 }
 
 }} // namespace chat::message

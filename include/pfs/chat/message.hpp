@@ -190,4 +190,7 @@ struct message_credentials
 CHAT__EXPORT
 mime_enum read_mime (pfs::filesystem::path const & path);
 
+CHAT__EXPORT
+mime_enum mime_by_extension (std::string const & filename);
+
 }} // namespace chat::message
