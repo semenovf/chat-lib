@@ -388,4 +388,43 @@ activity_manager<BACKEND>::for_each_activity (
     }
 }
 
+template <>
+void
+activity_manager<BACKEND>::for_each_activity_brief (
+    std::function<void(contact::id, pfs::optional<pfs::utc_time> const & online_utc_time
+        , pfs::optional<pfs::utc_time> const & offline_utc_time)> f, error * perr)
+{
+    static std::string const SELECT_ACTIVITY_BRIEF = {
+        "SELECT contact_id, online_utc_time, offline_utc_time FROM `{}`"
+    };
+
+    try {
+        auto stmt = _rep.dbh->prepare(fmt::format(SELECT_ACTIVITY_BRIEF
+            , _rep.brief_table_name));
+
+        auto res = stmt.exec();
+
+        while (res.has_more()) {
+            contact::id id;
+            pfs::optional<pfs::utc_time> online_utc_time;
+            pfs::optional<pfs::utc_time> offline_utc_time;
+
+            res["contact_id"] >> id;
+            res["online_utc_time"] >> online_utc_time;
+            res["offline_utc_time"] >> offline_utc_time;
+
+            f(id, online_utc_time, offline_utc_time);
+
+            res.next();
+        }
+    } catch (debby::error ex) {
+        error err {errc::storage_error, ex.what()};
+
+        if (perr)
+            *perr = std::move(err);
+        else
+            throw err;
+    }
+}
+
 } // namespace chat

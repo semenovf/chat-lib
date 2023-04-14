@@ -109,6 +109,14 @@ public:
           std::function<void(contact::id, contact_activity ca, pfs::utc_time const &)> f
         , error * perr = nullptr);
 
+    /**
+     * Iterate all activity brief log entries.
+     */
+    CHAT__EXPORT void for_each_activity_brief (
+          std::function<void(contact::id, pfs::optional<pfs::utc_time> const &/*online*/
+            , pfs::optional<pfs::utc_time> const &/*offline*/)> f
+        , error * perr = nullptr);
+
 public:
     template <typename ...Args>
     static activity_manager make (Args &&... args)
