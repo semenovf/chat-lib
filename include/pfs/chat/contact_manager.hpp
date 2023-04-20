@@ -9,8 +9,11 @@
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 #include "contact.hpp"
+#include "contact_list.hpp"
 #include "error.hpp"
+#include "flags.hpp"
 #include "member_difference.hpp"
+#include "backend/in_memory/contact_list.hpp"
 #include "pfs/memory.hpp"
 #include "pfs/optional.hpp"
 #include "pfs/time_point.hpp"
@@ -27,14 +30,22 @@ enum class contact_novelty
     , updated = 1
 };
 
+enum class contact_sort_flag: int
+{
+      by_nothing = 0
+    , no_order = 0
+    , by_alias = 1 << 0
+
+    , ascending_order  = 1 << 8
+    , descending_order = 1 << 9
+};
+
 template <typename Backend>
 class contact_manager final
 {
     using rep_type = typename Backend::rep_type;
 
 public:
-    using contact_list_type = typename Backend::contact_list_type;
-
     class group_ref
     {
         friend class contact_manager;
@@ -147,11 +158,30 @@ private:
     contact_manager & operator = (contact_manager const & other) = delete;
     contact_manager & operator = (contact_manager && other) = delete;
 
-    CHAT__EXPORT bool update (contact::contact const & c);
-
 public:
     contact_manager (contact_manager && other) = default;
     ~contact_manager () = default;
+
+private:
+    /**
+     * Adds contact.
+     *
+     * @return @c true if contact successfully added or @c false if contact
+     *         already exists with @c contact_id.
+     *
+     * @throw chat::error (@c errc::storage_error) on storage error.
+     */
+    bool add (contact::contact const & c);
+
+    /**
+     * Update contact.
+     *
+     * @return @c true if contact successfully updated or @c false if contact
+     *         not found with @c contact_id.
+     *
+     * @throw chat::error (@c errc::storage_error) on storage error.
+     */
+    bool update (contact::contact const & c);
 
 public:
     /**
@@ -203,6 +233,26 @@ public:
     }
 
     /**
+     * Get contact by @a id.
+     *
+     * @return Contact specified by @a id or invalid contact (see is_valid()) if
+     *         contact not found by @a id.
+     *
+     * @throw chat::error{errc::storage_error} on storage error.
+     */
+    CHAT__EXPORT contact::contact get (contact::id id) const;
+
+    /**
+     * Get contact by @a offset.
+     *
+     * @return Contact specified by @a id or invalid contact (see is_valid()) if
+     *         contact not found by @a id.
+     *
+     * @throw chat::error{errc::storage_error} on storage error.
+     */
+    CHAT__EXPORT contact::contact at (int offset) const;
+
+    /**
      * Add person contact.
      *
      * @return @c true if contact successfully added or @c false if contact
@@ -232,19 +282,7 @@ public:
      *
      * @throw chat::error{errc::storage_error} on storage error.
      */
-    bool update (contact::person const & p)
-    {
-        contact::contact c {
-              p.contact_id
-            , p.alias
-            , p.avatar
-            , p.description
-            , p.contact_id
-            , conversation_enum::person
-        };
-
-        return update(c);
-    }
+    CHAT__EXPORT bool update (contact::person const & p);
 
     /**
      * Updates group contact.
@@ -254,17 +292,7 @@ public:
      *
      * @throw chat::error{errc::storage_error} on storage error.
      */
-    bool update (contact::group const & g)
-    {
-        contact::contact c {
-              g.contact_id
-            , g.alias
-            , g.avatar
-            , g.description
-            , g.creator_id
-            , conversation_enum::group };
-        return update(c);
-    }
+    CHAT__EXPORT bool update (contact::group const & g);
 
     /**
      * Conversation group reference if @a group_id is identifier of exist
@@ -286,26 +314,6 @@ public:
     CHAT__EXPORT void remove (contact::id id);
 
     /**
-     * Get contact by @a id.
-     *
-     * @return Contact specified by @a id or invalid contact (see is_valid()) if
-     *         contact not found by @a id.
-     *
-     * @throw chat::error{errc::storage_error} on storage error.
-     */
-    CHAT__EXPORT contact::contact get (contact::id id) const;
-
-    /**
-     * Get contact by @a offset.
-     *
-     * @return Contact specified by @a offset or invalid contact
-     *         (see is_valid()) if contact not found by @a offset.
-     *
-     * @throw chat::error{errc::storage_error} on storage error.
-     */
-    CHAT__EXPORT contact::contact get (int offset) const;
-
-    /**
      * Wipes (erase all contacts, groups and channels) contact database.
      *
      * @throw chat::error{errc::storage_error} on storage error.
@@ -317,7 +325,8 @@ public:
      *
      * @throw chat::error{errc::storage_error} on storage error.
      */
-    CHAT__EXPORT void for_each (std::function<void(contact::contact const &)> f);
+    CHAT__EXPORT void for_each (std::function<void(contact::contact const &)> f) const;
+    CHAT__EXPORT void for_each (std::function<void(contact::contact &&)> f) const;
 
     /**
      * Fetch all contacts and process them by @a f until @f does not
@@ -325,13 +334,18 @@ public:
      *
      * @throw chat::error{errc::storage_error} on storage error.
      */
-    CHAT__EXPORT void for_each_until (std::function<bool(contact::contact const &)> f);
+    CHAT__EXPORT void for_each_until (std::function<bool(contact::contact const &)> f) const;
+    CHAT__EXPORT void for_each_until (std::function<bool(contact::contact &&)> f) const;
 
     /**
      * Execute transaction (batch execution). Useful for storages that support
      * tranactions
      */
     CHAT__EXPORT bool transaction (std::function<bool()> op) noexcept;
+
+    template <typename U = backend::in_memory::contact_list>
+    CHAT__EXPORT contact_list<U> contacts (std::function<bool(contact::contact const &)> f
+        = [] (contact::contact const &) { return true; }) const;
 
 public:
     template <typename ...Args>

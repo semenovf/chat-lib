@@ -1,22 +1,31 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright (c) 2021 Vladislav Trifochkin
+// Copyright (c) 2021-2023 Vladislav Trifochkin
 //
 // This file is part of `chat-lib`.
 //
 // Changelog:
 //      2021.11.21 Initial version.
+//      2023.04.19 Added `contact_list` test case.
 ////////////////////////////////////////////////////////////////////////////////
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"
 #include "pfs/filesystem.hpp"
 #include "pfs/fmt.hpp"
 #include "pfs/iterator.hpp"
+#include "pfs/memory.hpp"
 #include "pfs/universal_id.hpp"
+#include "pfs/string_view.hpp"
 #include "pfs/time_point.hpp"
+#include "pfs/unicode/char.hpp"
 #include "pfs/chat/contact.hpp"
 #include "pfs/chat/contact_manager.hpp"
 #include "pfs/chat/backend/sqlite3/contact_manager.hpp"
 #include <type_traits>
+#include <algorithm>
+
+#if PFS__ICU_ENABLED
+#   include <unicode/uchar.h>
+#endif
 
 char const * NAMES[] = {
       "Laurene"  , "Fred"   , "Rosita"  , "Valdemar", "Shaylyn"
@@ -39,13 +48,17 @@ char const * NAMES[] = {
     , "Karisa"   , "Trey"   , "Lorry"   , "Danielle", "Delly"
     , "Codie"    , "Timmy"  , "Velma"   , "Glynda"  , "Amara"
     , "Garey"    , "Mirabel", "Eliot"   , "Mata"    , "Flemming"
+
+#if PFS__ICU_ENABLED
+    // For Uncode ignore case test (using ICU)
+    , "Анна"    , "анна"    , "аННа"    , "АННА"    , "АННа"
+#endif
 };
 
 using contact_t = chat::contact::contact;
 using person_t = chat::contact::person;
 using group_t = chat::contact::group;
 using contact_manager_t = chat::contact_manager<chat::backend::sqlite3::contact_manager>;
-using contact_list_t = contact_manager_t::contact_list_type;
 
 struct forward_iterator : public pfs::iterator_facade<
           pfs::forward_iterator_tag
@@ -68,10 +81,6 @@ struct forward_iterator : public pfs::iterator_facade<
     bool equals (forward_iterator const & rhs) const { return _p == rhs._p;}
 };
 
-auto on_failure = [] (std::string const & errstr) {
-    fmt::print(stderr, "ERROR: {}\n", errstr);
-};
-
 auto contact_db_path = pfs::filesystem::temp_directory_path() / "contact.db";
 auto my_uuid = pfs::generate_uuid();
 auto my_alias = std::string{"My Alias"};
@@ -85,12 +94,13 @@ REGISTER_EXCEPTION_TRANSLATOR (chat::error & ex)
 
 TEST_CASE("constructors") {
     // Contact list public constructors/assign operators
-    REQUIRE_FALSE(std::is_default_constructible<contact_list_t>::value);
-    REQUIRE_FALSE(std::is_copy_constructible<contact_list_t>::value);
-    REQUIRE_FALSE(std::is_copy_assignable<contact_list_t>::value);
-    REQUIRE(std::is_move_constructible<contact_list_t>::value);
-    REQUIRE_FALSE(std::is_move_assignable<contact_list_t>::value);
-    REQUIRE(std::is_destructible<contact_list_t>::value);
+    using in_memory_contact_list_t = chat::contact_list<chat::backend::in_memory::contact_list>;
+    REQUIRE_FALSE(std::is_default_constructible<in_memory_contact_list_t>::value);
+    REQUIRE_FALSE(std::is_copy_constructible<in_memory_contact_list_t>::value);
+    REQUIRE_FALSE(std::is_copy_assignable<in_memory_contact_list_t>::value);
+    REQUIRE(std::is_move_constructible<in_memory_contact_list_t>::value);
+    REQUIRE_FALSE(std::is_move_assignable<in_memory_contact_list_t>::value);
+    REQUIRE(std::is_destructible<in_memory_contact_list_t>::value);
 
     // Contact manager public constructors/assign operators
     REQUIRE_FALSE(std::is_default_constructible<contact_manager_t>::value);
@@ -120,18 +130,8 @@ TEST_CASE("initialization") {
         contact_manager.wipe();
 
     REQUIRE_EQ(contact_manager.count(), 0);
-}
 
-TEST_CASE("contacts") {
-    auto dbh = chat::backend::sqlite3::make_handle(contact_db_path, true);
-
-    REQUIRE(dbh);
-
-    auto contact_manager = contact_manager_t::make(
-        chat::contact::person{my_uuid, my_alias}, dbh);
-
-    REQUIRE(contact_manager);
-
+    // Populate new data
     auto batch_add = [& contact_manager] {
         forward_iterator first{NAMES};
         forward_iterator last{NAMES + sizeof(NAMES)/sizeof(NAMES[0])};
@@ -145,6 +145,88 @@ TEST_CASE("contacts") {
     };
 
     REQUIRE(contact_manager.transaction(batch_add));
+}
+
+// Reside this tests before any modifications of database
+TEST_CASE("contact_list") {
+    auto dbh = chat::backend::sqlite3::make_handle(contact_db_path, true);
+
+    REQUIRE(dbh);
+
+    auto contact_manager = contact_manager_t::make(
+        chat::contact::person{my_uuid, my_alias}, dbh);
+
+    REQUIRE(contact_manager);
+
+    {
+        auto contact_list = contact_manager.contacts([] (contact_t const & c)->bool {
+            auto predicate = [] (pfs::unicode::char_t a, pfs::unicode::char_t b)->bool {
+                return a == b;
+            };
+            pfs::string_view needle {"ile"};
+            return std::search(c.alias.begin(), c.alias.end(), needle.begin()
+                , needle.end(), predicate) != c.alias.end();
+        });
+
+        // Kile and Mile
+        REQUIRE_EQ(contact_list.count(), 2);
+        CHECK((contact_list.at(0).alias == "Kile" || contact_list.at(0).alias == "Mile"));
+        CHECK((contact_list.at(1).alias == "Kile" || contact_list.at(1).alias == "Mile"));
+
+        //contact_list.for_each([] (contact_t const & c) {
+        //    fmt::print("{} | {:10} | {}\n", c.contact_id, c.alias, to_string(c.type));
+        //});
+    }
+
+    {
+        // Search with ignore case using standard C or ICU features
+
+        auto contact_list = contact_manager.contacts([] (contact_t const & c)->bool {
+            auto predicate = [] (pfs::unicode::char_t a, pfs::unicode::char_t b)->bool {
+                return pfs::unicode::to_lower(a) == pfs::unicode::to_lower(b);
+            };
+
+            pfs::string_view needle {"en"};
+            return std::search(c.alias.begin(), c.alias.end(), needle.begin()
+                , needle.end(), predicate) != c.alias.end();
+        });
+
+        // Gwenore, Alden, Gene, Jaquenetta, Enrika, Ken, Laurene
+        CHECK_EQ(contact_list.count(), 7);
+
+        contact_list.for_each([] (contact_t const & c) {
+            fmt::print("{} | {:10} | {}\n", c.contact_id, c.alias, to_string(c.type));
+        });
+    }
+
+#if PFS__ICU_ENABLED
+        auto contact_list = contact_manager.contacts([] (contact_t const & c)->bool {
+            auto predicate = [] (pfs::unicode::char_t a, pfs::unicode::char_t b)->bool {
+                return pfs::unicode::to_lower(a) == pfs::unicode::to_lower(b);
+            };
+
+            pfs::string_view needle {"АнНа"};
+            return std::search(c.alias.begin(), c.alias.end(), needle.begin()
+                , needle.end(), predicate) != c.alias.end();
+        });
+
+        CHECK_EQ(contact_list.count(), 5);
+
+        contact_list.for_each([] (contact_t const & c) {
+            fmt::print("{} | {:10} | {}\n", c.contact_id, c.alias, to_string(c.type));
+        });
+#endif
+}
+
+TEST_CASE("contacts") {
+    auto dbh = chat::backend::sqlite3::make_handle(contact_db_path, true);
+
+    REQUIRE(dbh);
+
+    auto contact_manager = contact_manager_t::make(
+        chat::contact::person{my_uuid, my_alias}, dbh);
+
+    REQUIRE(contact_manager);
 
     {
         auto count = contact_manager.count();
@@ -153,11 +235,11 @@ TEST_CASE("contacts") {
 
     std::vector<person_t> all_contacts;
 
-    contact_manager.for_each([& all_contacts] (contact_t const & c) {
-//         fmt::print("{} | {:10} | {}\n"
-//             , to_string(c.id)
-//             , c.alias
-//             , to_string(c.type));
+    // Get in-memory contacts
+    auto contacts = contact_manager.contacts<>();
+
+    contacts.for_each([& all_contacts] (contact_t const & c) {
+        //fmt::print("{} | {:10} | {}\n", c.contact_id, c.alias, to_string(c.type));
         all_contacts.push_back(person_t {c.contact_id, c.alias, c.avatar, c.description});
     });
 
@@ -209,7 +291,7 @@ TEST_CASE("contacts") {
 
     // Get contact by offset
     {
-        auto c = contact_manager.get(1);
+        auto c = contact_manager.at(1);
         REQUIRE_EQ(c.alias, all_contacts[1].alias);
         REQUIRE_EQ(c.type, chat::conversation_enum::person);
     }
@@ -337,5 +419,5 @@ TEST_CASE("groups") {
         REQUIRE_EQ(contact_manager.gref(g.contact_id).count(), 3);
     }
 
-     // TODO Check remove methods
+    // TODO Check remove methods
 }

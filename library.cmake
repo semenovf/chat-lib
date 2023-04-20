@@ -41,6 +41,7 @@ list(APPEND _chat__sources
     ${CMAKE_CURRENT_LIST_DIR}/src/file.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/member_difference.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/mime.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/src/backend/in_memory/contact_list.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/backend/json/content.cpp)
 
 if (CHAT__CONTACT_MANAGER_BACKEND STREQUAL "sqlite3")
@@ -135,5 +136,4 @@ if (CHAT__BUILD_STATIC)
     elseif (TARGET pfs::jeyson)
         portable_target(LINK ${STATIC_PROJECT_NAME} PUBLIC pfs::jeyson)
     endif()
-
 endif()

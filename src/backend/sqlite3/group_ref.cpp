@@ -6,7 +6,8 @@
 // Changelog:
 //      2022.03.10 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
-#include "conversation_enum_traits.hpp"
+// FIXME REMOVE
+// #include "conversation_enum_traits.hpp"
 #include "pfs/assert.hpp"
 #include "pfs/i18n.hpp"
 #include "pfs/chat/contact_manager.hpp"
@@ -60,7 +61,8 @@ contact_manager<BACKEND>::group_ref::add_member (contact::id member_id)
     auto & rep = _pmanager->_rep;
 
     if (member_id != rep.me.contact_id) {
-        auto c = rep.contacts->get(member_id);
+        //auto c = rep.contacts->get(member_id);
+        auto c = _pmanager->get(member_id);
 
         if (c.contact_id == contact::id{}) {
             error err {errc::contact_not_found

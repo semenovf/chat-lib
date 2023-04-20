@@ -18,6 +18,8 @@ endif()
 set(TESTS
     activity_manager
     contact_manager
+    contact_list_search
+    sqlite3_contact_list
     file_cache
     message_store
     messenger
@@ -30,6 +32,13 @@ foreach (t ${TESTS})
         SOURCES ${t}.cpp ${${t}_SOURCES}
         LINK ${_chat_lib})
 endforeach()
+
+if (NOT TARGET pfs::lorem)
+    portable_target(INCLUDE_PROJECT
+        ${CMAKE_SOURCE_DIR}/3rdparty/pfs/lorem/library.cmake)
+endif()
+
+portable_target(LINK contact_list_search pfs::lorem)
 
 file(GENERATE OUTPUT data/attachment1.bin CONTENT "ABCD")
 file(GENERATE OUTPUT data/attachment2.bin CONTENT "EFGH")

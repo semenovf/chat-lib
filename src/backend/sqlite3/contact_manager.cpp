@@ -7,14 +7,12 @@
 //      2021.11.21 Initial version.
 //      2022.02.16 Refactored totally.
 ////////////////////////////////////////////////////////////////////////////////
-#include "conversation_enum_traits.hpp"
-#include "pfs/assert.hpp"
 #include "pfs/chat/contact_manager.hpp"
 #include "pfs/chat/error.hpp"
+#include "pfs/chat/backend/in_memory/contact_list.hpp"
 #include "pfs/chat/backend/sqlite3/contact_manager.hpp"
 #include "pfs/debby/backend/sqlite3/uuid_traits.hpp"
 #include <array>
-#include <cassert>
 
 namespace chat {
 
@@ -107,9 +105,6 @@ contact_manager::make (contact::person const & me, shared_db_handle dbh)
         for (auto const & sql: sqls)
             rep.dbh->query(sql);
 
-        rep.contacts = std::make_shared<contact_list_type>(
-            contact_list_type::make(dbh, rep.contacts_table_name));
-
         rep.dbh->commit();
     } catch (debby::error ex) {
         rep.dbh->rollback();
@@ -125,6 +120,17 @@ contact_manager::make (contact::person const & me, shared_db_handle dbh)
 }} // namespace backend::sqlite3
 
 using BACKEND = backend::sqlite3::contact_manager;
+
+static void fill_contact (backend::sqlite3::db_traits::result_type & result
+    , contact::contact & c)
+{
+    result["id"]          >> c.contact_id;
+    result["creator_id"]  >> c.creator_id;
+    result["alias"]       >> c.alias;
+    result["avatar"]      >> c.avatar;
+    result["description"] >> c.description;
+    result["type"]        >> c.type;
+}
 
 template <>
 contact_manager<BACKEND>::contact_manager (rep_type && rep)
@@ -159,14 +165,51 @@ template <>
 contact::contact
 contact_manager<BACKEND>::get (contact::id id) const
 {
-    return _rep.contacts->get(id);
+    static char const * SELECT_CONTACT = "SELECT `id`, `creator_id`, `alias`"
+        ", `avatar`, `description`, `type` FROM `{}` WHERE `id` = :id";
+
+    try {
+        auto stmt = _rep.dbh->prepare(fmt::format(SELECT_CONTACT, _rep.contacts_table_name));
+
+        stmt.bind(":id", id);
+
+        auto res = stmt.exec();
+
+        if (res.has_more()) {
+            contact::contact c;
+            fill_contact(res, c);
+            return c;
+        }
+
+        return contact::contact{};
+    } catch (debby::error ex) {
+        throw error {errc::storage_error, ex.what()};
+    }
 }
 
 template <>
 contact::contact
-contact_manager<BACKEND>::get (int offset) const
+contact_manager<BACKEND>::at (int offset) const
 {
-    return _rep.contacts->get(offset);
+    static char const * SELECT_CONTACT_AT = "SELECT `id`, `creator_id`"
+        ", `alias`, `avatar`, `description`, `type` FROM `{}` LIMIT 1 OFFSET {}";
+
+    try {
+        auto stmt = _rep.dbh->prepare(fmt::format(SELECT_CONTACT_AT
+            , _rep.contacts_table_name, offset));
+
+        auto res = stmt.exec();
+
+        if (res.has_more()) {
+            contact::contact c;
+            fill_contact(res, c);
+            return c;
+        }
+
+        return contact::contact{};
+    } catch (debby::error ex) {
+        throw error {errc::storage_error, ex.what()};
+    }
 }
 
 template <>
@@ -219,14 +262,60 @@ template <>
 std::size_t
 contact_manager<BACKEND>::count () const
 {
-    return _rep.contacts->count();
+    return _rep.dbh->rows_count(_rep.contacts_table_name);
 }
 
 template <>
 std::size_t
 contact_manager<BACKEND>::count (conversation_enum type) const
 {
-    return _rep.contacts->count(type);
+    static char const * COUNT_CONTACTS_BY_TYPE =
+        "SELECT COUNT(1) as count FROM {} WHERE `type` = :type";
+
+    //return _rep.contacts->count(type);
+    std::size_t count = 0;
+    auto stmt = _rep.dbh->prepare(fmt::format(COUNT_CONTACTS_BY_TYPE, _rep.contacts_table_name));
+
+    stmt.bind(":type", to_storage(type));
+
+    auto res = stmt.exec();
+
+    if (res.has_more()) {
+        count = res.get<std::size_t>(0);
+        res.next();
+    }
+
+    return count;
+}
+
+template <>
+bool
+contact_manager<BACKEND>::add (contact::contact const & c)
+{
+    static char const * INSERT_CONTACT =
+        "INSERT OR IGNORE INTO `{}` (`id`, `creator_id`, `alias`, `avatar`"
+        ", `description`, `type`)"
+        " VALUES (:id, :creator_id, :alias, :avatar, :description, :type)";
+
+    try {
+        auto stmt = _rep.dbh->prepare(fmt::format(INSERT_CONTACT, _rep.contacts_table_name));
+
+        stmt.bind(":id"         , to_storage(c.contact_id));
+        stmt.bind(":creator_id" , to_storage(c.creator_id));
+        stmt.bind(":alias"      , to_storage(c.alias));
+        stmt.bind(":avatar"     , to_storage(c.avatar));
+        stmt.bind(":description", to_storage(c.description));
+        stmt.bind(":type"       , to_storage(c.type));
+
+        auto res = stmt.exec();
+        auto n = stmt.rows_affected();
+
+        return n > 0;
+    } catch (debby::error ex) {
+        throw error {errc::storage_error, ex.what()};
+    }
+
+    return false;
 }
 
 template <>
@@ -242,7 +331,7 @@ contact_manager<BACKEND>::add (contact::person const & p)
         , chat::conversation_enum::person
     };
 
-    return _rep.contacts->add(c);
+    return this->add(c);
 }
 
 template <>
@@ -258,7 +347,7 @@ contact_manager<BACKEND>::add (contact::group const & g)
             , g.creator_id
             , chat::conversation_enum::group};
 
-        if (_rep.contacts->add(c)) {
+        if (this->add(c)) {
             auto gr = this->gref(g.contact_id);
 
             if (!gr)
@@ -277,38 +366,81 @@ template <>
 bool
 contact_manager<BACKEND>::update (contact::contact const & c)
 {
-    return _rep.contacts->update(c);
+    static char const * UPDATE_CONTACT = "UPDATE OR IGNORE `{}` SET"
+        " `alias` = :alias, `avatar` = :avatar, `description` = :description"
+        " WHERE `id` = :id AND `type` = :type";
+
+    try {
+        auto stmt = _rep.dbh->prepare(fmt::format(UPDATE_CONTACT, _rep.contacts_table_name));
+
+        stmt.bind(":alias" , to_storage(c.alias));
+        stmt.bind(":avatar", to_storage(c.avatar));
+        stmt.bind(":description", to_storage(c.description));
+        stmt.bind(":id", to_storage(c.contact_id));
+        stmt.bind(":type", to_storage(c.type));
+
+        auto res = stmt.exec();
+        auto n = stmt.rows_affected();
+
+        return n > 0;
+    } catch (debby::error ex) {
+        throw error {errc::storage_error, ex.what()};
+    }
 }
 
-namespace {
-std::string const REMOVE_MEMBERSHIPS {
-    "DELETE from `{}` WHERE `member_id` = :member_id"
-};
+template <>
+bool
+contact_manager<BACKEND>::update (contact::person const & p)
+{
+    contact::contact c {
+         p.contact_id
+        , p.alias
+        , p.avatar
+        , p.description
+        , p.contact_id
+        , conversation_enum::person
+    };
 
-std::string const REMOVE_GROUP {
-    "DELETE from `{}` WHERE `group_id` = :group_id"
-};
+    return this->update(c);
+}
 
-} // namespace
+template <>
+bool
+contact_manager<BACKEND>::update (contact::group const & g)
+{
+    contact::contact c {
+          g.contact_id
+        , g.alias
+        , g.avatar
+        , g.description
+        , g.creator_id
+        , conversation_enum::group
+    };
+
+    return this->update(c);
+}
 
 template <>
 void
 contact_manager<BACKEND>::remove (contact::id id)
 {
+    static char const * REMOVE_MEMBERSHIPS = "DELETE from `{}` WHERE `member_id` = :member_id";
+    static char const * REMOVE_GROUP = "DELETE from `{}` WHERE `group_id` = :group_id";
+    static char const * REMOVE_CONTACT = "DELETE from `{}` WHERE `id` = :id";
+
     auto stmt1 = _rep.dbh->prepare(fmt::format(REMOVE_MEMBERSHIPS, _rep.members_table_name));
     auto stmt2 = _rep.dbh->prepare(fmt::format(REMOVE_GROUP, _rep.members_table_name));
+    auto stmt3 = _rep.dbh->prepare(fmt::format(REMOVE_CONTACT, _rep.contacts_table_name));
 
     stmt1.bind(":member_id", id);
     stmt2.bind(":group_id", id);
+    stmt3.bind(":id", id);
 
     try {
         _rep.dbh->begin();
 
-        _rep.contacts->remove(id);
-
-        for (auto * stmt: {& stmt1, & stmt2}) {
+        for (auto * stmt: {& stmt1, & stmt2, & stmt3})
             auto res = stmt->exec();
-        }
 
         _rep.dbh->commit();
     } catch (debby::error ex) {
@@ -330,9 +462,8 @@ contact_manager<BACKEND>::wipe ()
     try {
         _rep.dbh->begin();
 
-        for (auto const & t: tables) {
+        for (auto const & t: tables)
             _rep.dbh->clear(t);
-        }
 
         _rep.dbh->commit();
     } catch (debby::error ex) {
@@ -341,18 +472,88 @@ contact_manager<BACKEND>::wipe ()
     }
 }
 
+static char const * SELECT_ALL_CONTACTS = "SELECT `id`, `creator_id`"
+    ", `alias`, `avatar`, `description`, `type` FROM `{}`";
+
+
 template <>
 void
-contact_manager<BACKEND>::for_each (std::function<void(contact::contact const &)> f)
+contact_manager<BACKEND>::for_each (std::function<void(contact::contact const &)> f) const
 {
-    _rep.contacts->for_each(f);
+    auto stmt = _rep.dbh->prepare(fmt::format(SELECT_ALL_CONTACTS, _rep.contacts_table_name));
+    auto res = stmt.exec();
+
+    for (; res.has_more(); res.next()) {
+        contact::contact c;
+        fill_contact(res, c);
+        f(c);
+    }
 }
 
 template <>
 void
-contact_manager<BACKEND>::for_each_until (std::function<bool(contact::contact const &)> f)
+contact_manager<BACKEND>::for_each (std::function<void(contact::contact &&)> f) const
 {
-    _rep.contacts->for_each_until(f);
+    auto stmt = _rep.dbh->prepare(fmt::format(SELECT_ALL_CONTACTS, _rep.contacts_table_name));
+    auto res = stmt.exec();
+
+    for (; res.has_more(); res.next()) {
+        contact::contact c;
+        fill_contact(res, c);
+        f(std::move(c));
+    }
+}
+
+template <>
+void
+contact_manager<BACKEND>::for_each_until (std::function<bool(contact::contact const &)> f) const
+{
+    auto stmt = _rep.dbh->prepare(fmt::format(SELECT_ALL_CONTACTS, _rep.contacts_table_name));
+    auto res = stmt.exec();
+
+    for (; res.has_more(); res.next()) {
+        contact::contact c;
+        fill_contact(res, c);
+
+        if (!f(c))
+            break;
+    }
+}
+
+template <>
+void
+contact_manager<BACKEND>::for_each_until (std::function<bool(contact::contact &&)> f) const
+{
+    auto stmt = _rep.dbh->prepare(fmt::format(SELECT_ALL_CONTACTS, _rep.contacts_table_name));
+    auto res = stmt.exec();
+
+    for (; res.has_more(); res.next()) {
+        contact::contact c;
+        fill_contact(res, c);
+
+        if (!f(std::move(c)))
+            break;
+    }
+}
+
+template <>
+template <>
+contact_list<backend::in_memory::contact_list>
+contact_manager<BACKEND>::contacts<backend::in_memory::contact_list> (
+    std::function<bool(contact::contact const &)> f) const
+{
+    backend::in_memory::contact_list::rep_type result;
+
+    std::function<void(contact::contact &&)> ff = [& result, & f] (contact::contact && c) {
+        if (f(c)) {
+            result.map.emplace(c.contact_id, result.data.size());
+            result.data.push_back(std::move(c));
+        }
+    };
+
+    this->for_each(std::move(ff));
+
+    return contact_list<backend::in_memory::contact_list>(std::move(result));
 }
 
 } // namespace chat

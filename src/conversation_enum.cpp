@@ -13,13 +13,11 @@ namespace chat {
 
 CHAT__EXPORT conversation_enum to_conversation_enum (int n)
 {
-    switch (n) {
-        case static_cast<int>(conversation_enum::person):
-            return conversation_enum::person;
-        case static_cast<int>(conversation_enum::group):
-            return conversation_enum::group;
-        case static_cast<int>(conversation_enum::channel):
-            return conversation_enum::channel;
+    switch (static_cast<conversation_enum>(n)) {
+        case conversation_enum::person:
+        case conversation_enum::group:
+        case conversation_enum::channel:
+            return static_cast<conversation_enum>(n);
         default:
             break;
     }
