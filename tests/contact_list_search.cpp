@@ -99,6 +99,8 @@ TEST_CASE("search") {
     REQUIRE(contact_manager);
 
     auto contact_list = contact_manager.contacts<>();
-    auto match = contact_list.search("нов");
+    //auto match = contact_list.search("нов");
+    auto match = contact_list.search("о"
+        , contact_list.alias_field | contact_list.desc_field | contact_list.ignore_case);
 }
 
