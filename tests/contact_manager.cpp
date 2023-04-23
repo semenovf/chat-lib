@@ -218,7 +218,9 @@ TEST_CASE("contact_list") {
 #endif
 }
 
-TEST_CASE("contacts") {
+template <typename ContactListBackend>
+void test_contacts ()
+{
     auto dbh = chat::backend::sqlite3::make_handle(contact_db_path, true);
 
     REQUIRE(dbh);
@@ -235,8 +237,7 @@ TEST_CASE("contacts") {
 
     std::vector<person_t> all_contacts;
 
-    // Get in-memory contacts
-    auto contacts = contact_manager.contacts<>();
+    auto contacts = contact_manager.contacts<ContactListBackend>();
 
     contacts.for_each([& all_contacts] (contact_t const & c) {
         //fmt::print("{} | {:10} | {}\n", c.contact_id, c.alias, to_string(c.type));
@@ -301,6 +302,11 @@ TEST_CASE("contacts") {
         auto c = contact_manager.get(pfs::generate_uuid());
         REQUIRE_FALSE(is_valid(c));
     }
+}
+
+TEST_CASE("contacts") {
+    test_contacts<chat::backend::in_memory::contact_list>();
+    test_contacts<chat::backend::sqlite3::contact_list>();
 }
 
 TEST_CASE("groups") {

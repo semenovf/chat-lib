@@ -146,7 +146,7 @@ private:
             std::string prefix {first.base(), pos.base()};
             std::string substr {pos.base(), pos.base() + pattern.size()};
 
-            auto res = utf8_input_iterator::distance_unsafe(prev_pos.base(), pos.base());
+            auto res = utf8_input_iterator::distance_unsafe(prev_pos, pos);
 
             cp_first += res.first;
             cu_first += res.second;
@@ -154,9 +154,7 @@ private:
             cp_last += res.first + p_cp_len;
             cu_last += res.second + p_cu_len;
 
-            std::advance(pos, p_cp_len);
-            // TODO Implement and replace `std::advance` call
-            //utf8_input_iterator::advance_unsafe(pos, p_cp_len);
+            utf8_input_iterator::advance_unsafe(pos, p_cp_len);
 
             std::string suffix {pos.base(), last.base()};
 

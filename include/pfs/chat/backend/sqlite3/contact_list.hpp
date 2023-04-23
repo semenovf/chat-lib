@@ -11,7 +11,6 @@
 #include "db_traits.hpp"
 #include "pfs/chat/contact.hpp"
 #include "pfs/chat/exports.hpp"
-#include <atomic>
 #include <map>
 #include <string>
 #include <vector>
@@ -24,11 +23,9 @@ struct contact_list
 {
     struct in_memory_cache
     {
-        static std::atomic<bool> dirty;
-
         int offset;
         int limit;
-        int sort_flags;
+        //int sort_flags;
         std::vector<contact::contact> data;
         std::map<contact::id, std::size_t> map;
     };
@@ -41,13 +38,9 @@ struct contact_list
     };
 
     /**
-     */
-    static CHAT__EXPORT void invalidate_cache (rep_type * rep);
-
-    /**
      * @throw @c chat::error(errc::storage_error) on storage failure.
      */
-    static CHAT__EXPORT void prefetch (rep_type const * rep, int offset, int limit, int sort_flags);
+    static CHAT__EXPORT void prefetch (rep_type const * rep, int offset, int limit/*, int sort_flags*/);
 
     /**
      */

@@ -10,6 +10,7 @@
 #include "pfs/chat/contact_manager.hpp"
 #include "pfs/chat/error.hpp"
 #include "pfs/chat/backend/in_memory/contact_list.hpp"
+#include "pfs/chat/backend/sqlite3/contact_list.hpp"
 #include "pfs/chat/backend/sqlite3/contact_manager.hpp"
 #include "pfs/debby/backend/sqlite3/uuid_traits.hpp"
 #include <array>
@@ -26,7 +27,7 @@ static std::string const DEFAULT_MEMBERS_TABLE_NAME   { "chat_members" };
 static std::string const DEFAULT_FOLLOWERS_TABLE_NAME { "chat_channels" };
 
 static std::string const CREATE_CONTACTS_TABLE {
-    "CREATE TABLE IF NOT EXISTS `{}` ("
+    "CREATE {} TABLE IF NOT EXISTS `{}` ("
         "`id` {} NOT NULL UNIQUE"
         ", `creator_id` {} NOT NULL"
         ", `alias` {} NOT NULL"
@@ -78,6 +79,7 @@ contact_manager::make (contact::person const & me, shared_db_handle dbh)
 
     std::array<std::string, 7> sqls = {
           fmt::format(CREATE_CONTACTS_TABLE
+            , ""
             , rep.contacts_table_name
             , affinity_traits<contact::id>::name()
             , affinity_traits<contact::id>::name()
@@ -288,15 +290,15 @@ contact_manager<BACKEND>::count (conversation_enum type) const
     return count;
 }
 
+static char const * INSERT_CONTACT =
+    "INSERT OR IGNORE INTO `{}` (`id`, `creator_id`, `alias`, `avatar`"
+    ", `description`, `type`)"
+    " VALUES (:id, :creator_id, :alias, :avatar, :description, :type)";
+
 template <>
 bool
 contact_manager<BACKEND>::add (contact::contact const & c)
 {
-    static char const * INSERT_CONTACT =
-        "INSERT OR IGNORE INTO `{}` (`id`, `creator_id`, `alias`, `avatar`"
-        ", `description`, `type`)"
-        " VALUES (:id, :creator_id, :alias, :avatar, :description, :type)";
-
     try {
         auto stmt = _rep.dbh->prepare(fmt::format(INSERT_CONTACT, _rep.contacts_table_name));
 
@@ -542,18 +544,71 @@ contact_list<backend::in_memory::contact_list>
 contact_manager<BACKEND>::contacts<backend::in_memory::contact_list> (
     std::function<bool(contact::contact const &)> f) const
 {
-    backend::in_memory::contact_list::rep_type result;
+    backend::in_memory::contact_list::rep_type contact_list_rep;
 
-    std::function<void(contact::contact &&)> ff = [& result, & f] (contact::contact && c) {
+    std::function<void(contact::contact &&)> ff = [& contact_list_rep, & f] (contact::contact && c) {
         if (f(c)) {
-            result.map.emplace(c.contact_id, result.data.size());
-            result.data.push_back(std::move(c));
+            contact_list_rep.map.emplace(c.contact_id, contact_list_rep.data.size());
+            contact_list_rep.data.push_back(std::move(c));
         }
     };
 
     this->for_each(std::move(ff));
 
-    return contact_list<backend::in_memory::contact_list>(std::move(result));
+    return contact_list<backend::in_memory::contact_list>(std::move(contact_list_rep));
+}
+
+template <>
+template <>
+contact_list<backend::sqlite3::contact_list>
+contact_manager<BACKEND>::contacts<backend::sqlite3::contact_list> (
+    std::function<bool(contact::contact const &)> f) const
+{
+
+    backend::sqlite3::contact_list::rep_type contact_list_rep;
+
+    try {
+        _rep.dbh->begin();
+
+        contact_list_rep.table_name = "contact_list_" + to_string(pfs::generate_uuid());
+
+        auto sql = fmt::format(backend::sqlite3::CREATE_CONTACTS_TABLE
+            , "TEMPORARY"
+            , contact_list_rep.table_name
+            , affinity_traits<contact::id>::name()
+            , affinity_traits<contact::id>::name()
+            , affinity_traits<decltype(contact::contact{}.alias)>::name()
+            , affinity_traits<decltype(contact::contact{}.avatar)>::name()
+            , affinity_traits<decltype(contact::contact{}.description)>::name()
+            , affinity_traits<decltype(contact::contact{}.type)>::name());
+
+        _rep.dbh->query(sql);
+
+        auto stmt = _rep.dbh->prepare(fmt::format(INSERT_CONTACT, contact_list_rep.table_name));
+
+        std::function<void(contact::contact &&)> ff = [& stmt, & f] (contact::contact && c) {
+            if (f(c)) {
+                stmt.bind(":id"         , to_storage(c.contact_id));
+                stmt.bind(":creator_id" , to_storage(c.creator_id));
+                stmt.bind(":alias"      , to_storage(c.alias));
+                stmt.bind(":avatar"     , to_storage(c.avatar));
+                stmt.bind(":description", to_storage(c.description));
+                stmt.bind(":type"       , to_storage(c.type));
+
+                stmt.exec();
+            }
+        };
+
+        this->for_each(std::move(ff));
+
+        _rep.dbh->commit();
+    } catch (debby::error ex) {
+        _rep.dbh->rollback();
+        throw error {errc::storage_error, ex.what()};
+    }
+
+    contact_list_rep.dbh = _rep.dbh;
+    return contact_list<backend::sqlite3::contact_list>(std::move(contact_list_rep));
 }
 
 } // namespace chat
