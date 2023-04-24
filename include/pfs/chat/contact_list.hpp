@@ -11,6 +11,7 @@
 #include "contact.hpp"
 #include "exports.hpp"
 #include "pfs/string_view.hpp"
+#include "pfs/unicode/search.hpp"
 #include "pfs/unicode/utf8_iterator.hpp"
 #include <algorithm>
 #include <functional>
@@ -24,6 +25,7 @@ template <typename Backend>
 class contact_list final
 {
     using rep_type = typename Backend::rep_type;
+    using utf8_input_iterator = pfs::unicode::utf8_input_iterator<std::string::const_iterator>;
 
 private:
     rep_type _rep;
@@ -92,109 +94,54 @@ public:
         , desc_field  = 1 << 2
     };
 
-private:
-    enum class field_enum { alias, desc };
+    //enum class field_enum { alias, desc };
 
     struct match_item
     {
-        int cindex;       // contact index in contact list (clist)
-        field_enum field; // field that matches search pattern
-        int cp_first;     // first position in code points of the matched subrange
-        int cp_last;      // last position in code points of the matched subrange (exclusive)
-        int cu_first;     // first position in code units of the matched subrange
-        int cu_last;      // last position in code units of the matched subrange (exclusive)
+        contact::id contact_id; // contact identifier
+        search_flag field;      // field that matches search pattern (alias_field or desc_field)
+        pfs::unicode::match_item m;
     };
 
-    struct match
+    struct search_result
     {
-        contact_list clist;
         std::vector<match_item> m;
     };
 
-    static void scan (std::string const & s, std::string const & pattern
-        , int search_flags, std::function<void(std::pair<int, int> const &, std::pair<int, int> const &)> && f)
+private:
+    static void search_all (std::string const & s, std::string const & pattern
+        , bool ignore_case, std::function<void(pfs::unicode::match_item const &)> && f)
     {
-        using utf8_input_iterator = pfs::unicode::utf8_input_iterator<std::string::const_iterator>;
+        auto first = utf8_input_iterator::begin(s.begin(), s.end());
+        auto s_first = utf8_input_iterator::begin(pattern.begin(), pattern.end());
 
-        auto p_first  = utf8_input_iterator::begin(pattern.begin(), pattern.end());
-        auto p_last   = p_first.end();
-        auto p_cp_len = std::distance(p_first, p_last);
-        auto p_cu_len = std::distance(p_first.base(), p_last.base());
-        auto first    = utf8_input_iterator::begin(s.begin(), s.end());
-        auto last     = first.end();
-
-        auto predicate = (search_flags & search_flag::ignore_case)
-            ? [] (pfs::unicode::char_t a, pfs::unicode::char_t b)->bool { return pfs::unicode::to_lower(a) == pfs::unicode::to_lower(b); }
-            : [] (pfs::unicode::char_t a, pfs::unicode::char_t b)->bool { return a == b; };
-
-        // first position in code points of the matched subrange
-        int cp_first = 0;
-
-        // last position in code points of the matched subrange (exclusive)
-        int cp_last = 0;
-
-        // first position in code units of the matched subrange
-        int cu_first = 0;
-
-        // last position in code units of the matched subrange (exclusive)
-        int cu_last = 0;
-
-        auto prev_pos = first;
-        auto pos = std::search(prev_pos, last, p_first, p_last, predicate);
-
-        while (pos != last) {
-            std::string prefix {first.base(), pos.base()};
-            std::string substr {pos.base(), pos.base() + pattern.size()};
-
-            auto res = utf8_input_iterator::distance_unsafe(prev_pos, pos);
-
-            cp_first += res.first;
-            cu_first += res.second;
-
-            cp_last += res.first + p_cp_len;
-            cu_last += res.second + p_cu_len;
-
-            utf8_input_iterator::advance_unsafe(pos, p_cp_len);
-
-            std::string suffix {pos.base(), last.base()};
-
-            LOGD("", "{}[{}]{}: {}-{},{}-{}"
-                , prefix, substr, suffix
-                , cp_first, cp_last, cu_first, cu_last);
-
-            f(std::make_pair(cp_first, cp_last), std::make_pair(cu_first, cu_last));
-
-            prev_pos = pos;
-            cp_first += p_cp_len;
-            cu_first += p_cu_len;
-
-            pos = std::search(prev_pos, last, p_first, p_last, predicate);
-        }
+        pfs::unicode::search_all(first, first.end(), s_first, s_first.end()
+            , ignore_case, std::move(f));
     }
 
 public:
     /**
      * Searches contact list for specified @a pattern.
      */
-    match search (std::string const & pattern, int search_flags = ignore_case | alias_field)
+    search_result search (std::string const & pattern, int search_flags = ignore_case | alias_field)
     {
-        match res;
+        search_result res;
 
         for_each([& res, & pattern, search_flags] (contact::contact const & c) {
-            if (search_flags & alias_field) {
-                scan(c.alias, pattern, search_flags, [] (
-                    std::pair<int, int> const & cp, std::pair<int, int> const & cu) {
+            contact::contact const * pc = & c;
 
-                    LOGD("", "{}-{},{}-{}", cp.first, cp.second, cu.first, cu.second);
-                });
+            if (search_flags & alias_field) {
+                search_all(c.alias, pattern, search_flags & ignore_case
+                    , [& res, pc] (pfs::unicode::match_item const & m) {
+                        res.m.emplace_back(match_item{pc->contact_id, alias_field, m});
+                    });
             }
 
             if (search_flags & desc_field) {
-                scan(c.description, pattern, search_flags, [] (
-                    std::pair<int, int> const & cp, std::pair<int, int> const & cu) {
-
-                    LOGD("", "{}-{},{}-{}", cp.first, cp.second, cu.first, cu.second);
-                });
+                search_all(c.description, pattern, search_flags & ignore_case
+                    , [& res, pc] (pfs::unicode::match_item const & m) {
+                        res.m.emplace_back(match_item{pc->contact_id, desc_field, m});
+                    });
             }
         });
 

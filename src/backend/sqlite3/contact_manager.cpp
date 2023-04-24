@@ -27,6 +27,9 @@ static std::string const DEFAULT_MEMBERS_TABLE_NAME   { "chat_members" };
 static std::string const DEFAULT_FOLLOWERS_TABLE_NAME { "chat_channels" };
 
 static std::string const CREATE_CONTACTS_TABLE {
+    //      ---- Optional TEMPORARY
+    //      |
+    //      v
     "CREATE {} TABLE IF NOT EXISTS `{}` ("
         "`id` {} NOT NULL UNIQUE"
         ", `creator_id` {} NOT NULL"

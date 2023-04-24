@@ -99,8 +99,31 @@ TEST_CASE("search") {
     REQUIRE(contact_manager);
 
     auto contact_list = contact_manager.contacts<>();
-    //auto match = contact_list.search("нов");
-    auto match = contact_list.search("о"
+    auto search_result = contact_list.search("нов"
         , contact_list.alias_field | contact_list.desc_field | contact_list.ignore_case);
+//     auto search_result = contact_list.search("о"
+//         , contact_list.alias_field | contact_list.desc_field | contact_list.ignore_case);
+
+    int counter = 0;
+
+    for (auto const & r: search_result.m) {
+        auto c = contact_list.get(r.contact_id);
+
+        counter++;
+
+        if (r.field == contact_list.alias_field) {
+            std::string prefix (c.alias.begin(), c.alias.begin() + r.m.cu_first);
+            std::string substr (c.alias.begin() + r.m.cu_first, c.alias.begin() + r.m.cu_last);
+            std::string suffix (c.alias.begin() + r.m.cu_last, c.alias.end());
+
+            LOGD(TAG, "{}. {}: {}[{}]{}", counter, r.contact_id, prefix, substr, suffix);
+        } else {
+            std::string prefix (c.description.begin(), c.description.begin() + r.m.cu_first);
+            std::string substr (c.description.begin() + r.m.cu_first, c.description.begin() + r.m.cu_last);
+            std::string suffix (c.description.begin() + r.m.cu_last, c.description.end());
+
+            LOGD(TAG, "{}. {}: {}[{}]{}", counter, r.contact_id, prefix, substr, suffix);
+        }
+    }
 }
 
