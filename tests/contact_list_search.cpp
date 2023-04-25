@@ -8,29 +8,15 @@
 ////////////////////////////////////////////////////////////////////////////////
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"
-// #include "pfs/filesystem.hpp"
 #include "pfs/log.hpp"
-// #include "pfs/iterator.hpp"
-// #include "pfs/memory.hpp"
-// #include "pfs/universal_id.hpp"
-// #include "pfs/string_view.hpp"
-// #include "pfs/time_point.hpp"
-// #include "pfs/unicode/char.hpp"
 #include "pfs/chat/contact.hpp"
 #include "pfs/chat/contact_manager.hpp"
 #include "pfs/chat/backend/in_memory/contact_list.hpp"
 #include "pfs/chat/backend/sqlite3/contact_manager.hpp"
 #include "pfs/lorem/person.hpp"
-// #include <type_traits>
-// #include <algorithm>
 
-// using contact_t = chat::contact::contact;
 using person_t = chat::contact::person;
-// using group_t = chat::contact::group;
 using contact_manager_t = chat::contact_manager<chat::backend::sqlite3::contact_manager>;
-
-// FIXME REMOVE
-// using contact_list_t = contact_manager_t::contact_list_type;
 
 auto contact_db_path = pfs::filesystem::temp_directory_path() / "contact_list_search_test.db";
 auto my_uuid = pfs::generate_uuid();
@@ -99,10 +85,8 @@ TEST_CASE("search") {
     REQUIRE(contact_manager);
 
     auto contact_list = contact_manager.contacts<>();
-    auto search_result = contact_list.search("нов"
+    auto search_result = contact_list.search_all("нов"
         , contact_list.alias_field | contact_list.desc_field | contact_list.ignore_case);
-//     auto search_result = contact_list.search("о"
-//         , contact_list.alias_field | contact_list.desc_field | contact_list.ignore_case);
 
     int counter = 0;
 

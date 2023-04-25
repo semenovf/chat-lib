@@ -15,6 +15,8 @@
 #include "message.hpp"
 #include "pfs/optional.hpp"
 #include "pfs/time_point.hpp"
+#include "pfs/unicode/search.hpp"
+#include "pfs/unicode/utf8_iterator.hpp"
 #include <functional>
 
 namespace chat {
@@ -34,6 +36,7 @@ template <typename Backend>
 class conversation final
 {
     using rep_type = typename Backend::rep_type;
+    using utf8_input_iterator = pfs::unicode::utf8_input_iterator<std::string::const_iterator>;
 
 public:
     using editor_type = editor<typename Backend::editor_type>;
@@ -225,6 +228,74 @@ public:
      */
     CHAT__EXPORT void wipe ();
 
+public:
+    ////////////////////////////////////////////////////////////////////////////
+    // Search specific types and methods.
+    ////////////////////////////////////////////////////////////////////////////
+    enum search_flag
+    {
+          ignore_case_flag     = 1 << 0
+        , text_content_flag    = 1 << 1
+        , attachment_name_flag = 1 << 2
+    };
+
+    struct match_item
+    {
+        message::id message_id;
+        pfs::unicode::match_item m;
+        int content_index; // index of content in message_credentials::contents
+    };
+
+    struct search_result
+    {
+        std::vector<match_item> m;
+    };
+
+public:
+    /**
+     * Searches conversion messages for specified @a pattern.
+     */
+    search_result search_all (std::string const & pattern
+        , int search_flags = ignore_case_flag | text_content_flag)
+    {
+        search_result res;
+
+        for_each([& res, & pattern, search_flags] (message::message_credentials const & mc) {
+            if (mc.contents) {
+                for (int i = 0, count = mc.contents->count(); i < count; i++) {
+                    auto cc = mc.contents->at(i);
+
+                    bool is_text_content = cc.mime == message::mime_enum::text__plain
+                        || cc.mime == message::mime_enum::text__html;
+
+                    bool content_search_requested = is_text_content
+                        ? (search_flags & text_content_flag)
+                        : (search_flags & attachment_name_flag);
+
+                    auto first = utf8_input_iterator::begin(cc.text.begin(), cc.text.end());
+                    auto s_first = utf8_input_iterator::begin(pattern.begin(), pattern.end());
+
+                    if (content_search_requested) {
+                        if (cc.mime == message::mime_enum::text__html) {
+                            pfs::unicode::search_all(first, first.end(), s_first, s_first.end()
+                                , search_flags & ignore_case_flag, '<', '>'
+                                , [& res, & mc, i] (pfs::unicode::match_item const & m) {
+                                    res.m.emplace_back(match_item{mc.message_id, m, i});
+                                });
+                        } else {
+                            pfs::unicode::search_all(first, first.end(), s_first, s_first.end()
+                                , search_flags & ignore_case_flag
+                                , [& res, & mc, i] (pfs::unicode::match_item const & m) {
+                                    res.m.emplace_back(match_item{mc.message_id, m, i});
+                                });
+                        }
+                    }
+                }
+            }
+        });
+
+        return res;
+    }
 public:
     template <typename ...Args>
     static conversation make (Args &&... args)

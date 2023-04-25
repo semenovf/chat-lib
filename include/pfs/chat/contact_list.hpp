@@ -94,11 +94,9 @@ public:
         , desc_field  = 1 << 2
     };
 
-    //enum class field_enum { alias, desc };
-
     struct match_item
     {
-        contact::id contact_id; // contact identifier
+        contact::id contact_id;
         search_flag field;      // field that matches search pattern (alias_field or desc_field)
         pfs::unicode::match_item m;
     };
@@ -123,7 +121,7 @@ public:
     /**
      * Searches contact list for specified @a pattern.
      */
-    search_result search (std::string const & pattern, int search_flags = ignore_case | alias_field)
+    search_result search_all (std::string const & pattern, int search_flags = ignore_case | alias_field)
     {
         search_result res;
 

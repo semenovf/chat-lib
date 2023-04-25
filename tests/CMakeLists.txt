@@ -19,6 +19,7 @@ set(TESTS
     activity_manager
     contact_manager
     contact_list_search
+    conversation_search
     file_cache
     message_store
     messenger
