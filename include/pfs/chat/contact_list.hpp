@@ -17,8 +17,6 @@
 #include <functional>
 #include <vector>
 
-#include "pfs/log.hpp"
-
 namespace chat {
 
 template <typename Backend>
@@ -38,7 +36,7 @@ public:
     contact_list (contact_list const & other) = delete;
     contact_list (contact_list && other) = default;
     contact_list & operator = (contact_list const & other) = delete;
-    contact_list & operator = (contact_list && other) = delete;
+    contact_list & operator = (contact_list && other) = default;
     ~contact_list () = default;
 
 public:

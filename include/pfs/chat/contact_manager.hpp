@@ -46,6 +46,59 @@ class contact_manager final
     using rep_type = typename Backend::rep_type;
 
 public:
+    class group_const_ref
+    {
+        friend class contact_manager;
+
+        contact_manager const * _pmanager{nullptr};
+        contact::id _id;
+
+    private:
+        group_const_ref () : _pmanager(nullptr) {}
+
+        group_const_ref (contact::id id, contact_manager const * pmanager)
+            : _pmanager(pmanager)
+            , _id(id)
+        {}
+
+    public:
+        /**
+         * Checks if group reference is valid.
+         */
+        operator bool () const
+        {
+            return _pmanager != nullptr;
+        }
+
+        /**
+         * Get members of the specified group.
+         *
+         * @throw chat::error{errc::storage_error} on storage error.
+         */
+        CHAT__EXPORT std::vector<contact::contact> members () const;
+
+        /**
+         * Get member contact identifiers.
+         *
+         * @throw chat::error{errc::storage_error} on storage error.
+         */
+        CHAT__EXPORT std::vector<contact::id> member_ids () const;
+
+        /**
+         * Checks if contact @a member_id is the member of group.
+         *
+         * @throw chat::error{errc::storage_error} on storage error.
+         */
+        CHAT__EXPORT bool is_member_of (contact::id member_id) const;
+
+        /**
+         * Count of members in group.
+         *
+         * @throw chat::error{errc::storage_error} on storage error.
+         */
+        CHAT__EXPORT std::size_t count () const;
+    };
+
     class group_ref
     {
         friend class contact_manager;
@@ -300,7 +353,24 @@ public:
      *
      * @throw chat::error{errc::storage_error} on storage error.
      */
+    CHAT__EXPORT group_const_ref gref (contact::id group_id) const;
     CHAT__EXPORT group_ref gref (contact::id group_id);
+
+    /**
+     * Count of contacts in specified group. Return @c 0 on error.
+     *
+     * @throw chat::error{errc::group_not_found} on storage error.
+     */
+    std::size_t members_count (contact::id group_id) const
+    {
+        auto group_ref = gref(group_id);
+
+        // Attempt to get members count of non-existent group
+        if (!group_ref)
+            throw error {errc::group_not_found};
+
+        return group_ref.count();
+    }
 
     /**
      * Removes contact.
@@ -326,7 +396,7 @@ public:
      * @throw chat::error{errc::storage_error} on storage error.
      */
     CHAT__EXPORT void for_each (std::function<void(contact::contact const &)> f) const;
-    CHAT__EXPORT void for_each (std::function<void(contact::contact &&)> f) const;
+    CHAT__EXPORT void for_each_movable (std::function<void(contact::contact &&)> f) const;
 
     /**
      * Fetch all contacts and process them by @a f until @f does not
@@ -335,7 +405,7 @@ public:
      * @throw chat::error{errc::storage_error} on storage error.
      */
     CHAT__EXPORT void for_each_until (std::function<bool(contact::contact const &)> f) const;
-    CHAT__EXPORT void for_each_until (std::function<bool(contact::contact &&)> f) const;
+    CHAT__EXPORT void for_each_until_movable (std::function<bool(contact::contact &&)> f) const;
 
     /**
      * Execute transaction (batch execution). Useful for storages that support

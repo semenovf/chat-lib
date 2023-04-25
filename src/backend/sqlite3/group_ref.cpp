@@ -15,18 +15,150 @@
 
 namespace chat {
 
-using BACKEND = backend::sqlite3::contact_manager;
+namespace backend {
+namespace sqlite3 {
 
-static std::string const INSERT_MEMBER {
-    "INSERT OR IGNORE INTO `{}` (`group_id`, `member_id`)"
-    " VALUES (:group_id, :member_id)"
-};
+bool is_member_of (contact_manager::rep_type const & rep
+    , contact::id group_id
+    , contact::id member_id)
+{
+    static char const * IS_MEMBER_OF = "SELECT COUNT(1) as count FROM `{}`"
+        " WHERE `group_id` = :group_id AND `member_id` = :member_id";
+
+    std::size_t count = 0;
+
+    try {
+        auto stmt = rep.dbh->prepare(fmt::format(IS_MEMBER_OF, rep.members_table_name));
+
+        stmt.bind(":group_id", group_id);
+        stmt.bind(":member_id", member_id);
+
+        auto res = stmt.exec();
+
+        if (res.has_more())
+            count = res.get<std::size_t>(0);
+    } catch (debby::error ex) {
+        throw error {errc::storage_error, ex.what()};
+    }
+
+    return count > 0;
+}
+
+std::size_t count (contact_manager::rep_type const & rep, contact::id group_id)
+{
+    static char const * MEMBER_COUNT =
+        "SELECT COUNT(1) as count FROM `{}` WHERE `group_id` = :group_id";
+
+    std::size_t count = 0;
+
+    try {
+        auto stmt = rep.dbh->prepare(fmt::format(MEMBER_COUNT, rep.members_table_name));
+
+        stmt.bind(":group_id", group_id);
+
+        auto res = stmt.exec();
+
+        if (res.has_more())
+            count = res.get<std::size_t>(0);
+    } catch (debby::error ex) {
+        throw error {errc::storage_error, ex.what()};
+    }
+
+    return count;
+}
+
+auto member_ids (contact_manager::rep_type const & rep
+    , contact::id group_id) -> std::vector<contact::id>
+{
+    static char const * SELECT_MEMBER_IDS = "SELECT `member_id` FROM `{}`"
+        " WHERE `group_id` = :group_id";
+
+    std::vector<contact::id> members;
+
+    try {
+        auto stmt = rep.dbh->prepare(fmt::format(SELECT_MEMBER_IDS
+            , rep.members_table_name));
+
+        stmt.bind(":group_id", group_id);
+
+        auto res = stmt.exec();
+
+        while (res.has_more()) {
+            contact::id member_id;
+            res["member_id"] >> member_id;
+            members.push_back(std::move(member_id));
+            res.next();
+        }
+    } catch (debby::error ex) {
+        throw error {errc::storage_error, ex.what()};
+    }
+
+    return members;
+}
+
+auto members (contact_manager::rep_type const & rep
+    , contact::id group_id
+    , contact::person const & me) -> std::vector<contact::contact>
+{
+    static char const * SELECT_MEMBERS = "SELECT B.`id`, B.`creator_id`"
+        ", B.`alias`, B.`avatar`, B.`description`, B.`type`"
+        " FROM `{}` A JOIN `{}` B"
+        " ON A.`group_id` = :group_id AND A.`member_id` = B.`id`";
+
+    std::vector<contact::contact> members;
+
+    // Add own contact
+    if (is_member_of(rep, group_id, me.contact_id)) {
+        contact::contact c;
+
+        c.contact_id  = me.contact_id;
+        c.creator_id  = me.contact_id;
+        c.alias       = me.alias;
+        c.avatar      = me.avatar;
+        c.description = me.description;
+        c.type        = conversation_enum::person;
+
+        members.push_back(std::move(c));
+    }
+
+    try {
+        auto stmt = rep.dbh->prepare(fmt::format(SELECT_MEMBERS
+            , rep.members_table_name, rep.contacts_table_name));
+
+        stmt.bind(":group_id", group_id);
+
+        auto res = stmt.exec();
+
+        while (res.has_more()) {
+            contact::contact c;
+
+            res["id"]          >> c.contact_id;
+            res["creator_id"]  >> c.creator_id;
+            res["alias"]       >> c.alias;
+            res["avatar"]      >> c.avatar;
+            res["description"] >> c.description;
+            res["type"]        >> c.type;
+
+            members.push_back(std::move(c));
+            res.next();
+        }
+    } catch (debby::error ex) {
+        throw error {errc::storage_error, ex.what()};
+    }
+
+    return members;
+}
+
+}} //namespace backend::sqlite3
+
+using BACKEND = backend::sqlite3::contact_manager;
 
 template <>
 bool
 contact_manager<BACKEND>::group_ref::add_member_unchecked (contact::id member_id)
 {
-    PFS__ASSERT(_pmanager, "");
+    static char const * INSERT_MEMBER = "INSERT OR IGNORE INTO `{}`"
+        " (`group_id`, `member_id`) VALUES (:group_id, :member_id)";
 
     auto & rep = _pmanager->_rep;
 
@@ -82,15 +214,12 @@ contact_manager<BACKEND>::group_ref::add_member (contact::id member_id)
     return add_member_unchecked(member_id);
 }
 
-static std::string const REMOVE_MEMBER {
-    "DELETE from `{}` WHERE `group_id` = :group_id AND `member_id` = :member_id"
-};
-
 template <>
 bool
 contact_manager<BACKEND>::group_ref::remove_member (contact::id member_id)
 {
-    PFS__ASSERT(_pmanager, "");
+    static char const * REMOVE_MEMBER = "DELETE from `{}` WHERE"
+        " `group_id` = :group_id AND `member_id` = :member_id";
 
     auto & rep = _pmanager->_rep;
 
@@ -111,15 +240,11 @@ contact_manager<BACKEND>::group_ref::remove_member (contact::id member_id)
     return false;
 }
 
-static std::string const REMOVE_ALL_MEMBERS {
-    "DELETE from `{}` WHERE `group_id` = :group_id"
-};
-
 template <>
 void
 contact_manager<BACKEND>::group_ref::remove_all_members ()
 {
-    PFS__ASSERT(_pmanager, "");
+    static char const * REMOVE_ALL_MEMBERS = "DELETE from `{}` WHERE `group_id` = :group_id";
 
     auto & rep = _pmanager->_rep;
 
@@ -133,157 +258,58 @@ contact_manager<BACKEND>::group_ref::remove_all_members ()
     }
 }
 
-static std::string const IS_MEMBER_OF {
-    "SELECT COUNT(1) as count FROM `{}`"
-    " WHERE `group_id` = :group_id AND `member_id` = :member_id"
-};
+template <>
+bool
+contact_manager<BACKEND>::group_const_ref::is_member_of (contact::id member_id) const
+{
+    return backend::sqlite3::is_member_of(_pmanager->_rep, _id, member_id);
+}
 
 template <>
 bool
 contact_manager<BACKEND>::group_ref::is_member_of (contact::id member_id) const
 {
-    PFS__ASSERT(_pmanager, "");
-
-    std::size_t count = 0;
-    auto & rep = _pmanager->_rep;
-
-    try {
-        auto stmt = rep.dbh->prepare(fmt::format(IS_MEMBER_OF, rep.members_table_name));
-
-        stmt.bind(":group_id", _id);
-        stmt.bind(":member_id", member_id);
-
-        auto res = stmt.exec();
-
-        if (res.has_more())
-            count = res.get<std::size_t>(0);
-    } catch (debby::error ex) {
-        throw error {errc::storage_error, ex.what()};
-    }
-
-    return count > 0;
+    return backend::sqlite3::is_member_of(_pmanager->_rep, _id, member_id);
 }
 
-static std::string const SELECT_MEMBERS {
-    "SELECT B.`id`, B.`creator_id`, B.`alias`, B.`avatar`, B.`description`, B.`type`"
-    " FROM `{}` A JOIN `{}` B"
-    " ON A.`group_id` = :group_id AND A.`member_id` = B.`id`"
-};
+template <>
+std::vector<contact::contact>
+contact_manager<BACKEND>::group_const_ref::members () const
+{
+    return backend::sqlite3::members(_pmanager->_rep, _id, _pmanager->my_contact());
+}
 
 template <>
 std::vector<contact::contact>
 contact_manager<BACKEND>::group_ref::members () const
 {
-    PFS__ASSERT(_pmanager, "");
-
-    auto & rep = _pmanager->_rep;
-
-    std::vector<contact::contact> members;
-
-    // Add own contact
-    if (is_member_of(_pmanager->my_contact().contact_id)) {
-        auto me = _pmanager->my_contact();
-        contact::contact c;
-
-        c.contact_id  = me.contact_id;
-        c.creator_id  = me.contact_id;
-        c.alias       = me.alias;
-        c.avatar      = me.avatar;
-        c.description = me.description;
-        c.type        = conversation_enum::person;
-
-        members.push_back(std::move(c));
-    }
-
-    try {
-        auto stmt = rep.dbh->prepare(fmt::format(SELECT_MEMBERS
-            , rep.members_table_name, rep.contacts_table_name));
-
-        stmt.bind(":group_id", _id);
-
-        auto res = stmt.exec();
-
-        while (res.has_more()) {
-            contact::contact c;
-
-            res["id"]          >> c.contact_id;
-            res["creator_id"]  >> c.creator_id;
-            res["alias"]       >> c.alias;
-            res["avatar"]      >> c.avatar;
-            res["description"] >> c.description;
-            res["type"]        >> c.type;
-
-            members.push_back(std::move(c));
-            res.next();
-        }
-    } catch (debby::error ex) {
-        throw error {errc::storage_error, ex.what()};
-    }
-
-    return members;
+    return backend::sqlite3::members(_pmanager->_rep, _id, _pmanager->my_contact());
 }
 
-static std::string const SELECT_MEMBER_IDS {
-    "SELECT `member_id` FROM `{}` WHERE `group_id` = :group_id"
-};
+template <>
+std::vector<contact::id>
+contact_manager<BACKEND>::group_const_ref::member_ids () const
+{
+    return backend::sqlite3::member_ids(_pmanager->_rep, _id);
+}
 
 template <>
 std::vector<contact::id>
 contact_manager<BACKEND>::group_ref::member_ids () const
 {
-    PFS__ASSERT(_pmanager, "");
-
-    auto & rep = _pmanager->_rep;
-
-    std::vector<contact::id> members;
-
-    try {
-        auto stmt = rep.dbh->prepare(fmt::format(SELECT_MEMBER_IDS
-            , rep.members_table_name));
-
-        stmt.bind(":group_id", _id);
-
-        auto res = stmt.exec();
-
-        while (res.has_more()) {
-            contact::id member_id;
-            res["member_id"] >> member_id;
-            members.push_back(std::move(member_id));
-            res.next();
-        }
-    } catch (debby::error ex) {
-        throw error {errc::storage_error, ex.what()};
-    }
-
-    return members;
+    return backend::sqlite3::member_ids(_pmanager->_rep, _id);
 }
 
-static std::string const MEMBER_COUNT {
-    "SELECT COUNT(1) as count FROM `{}` WHERE `group_id` = :group_id"
-};
+template <>
+std::size_t contact_manager<BACKEND>::group_const_ref::count () const
+{
+    return backend::sqlite3::count(_pmanager->_rep, _id);
+}
 
 template <>
 std::size_t contact_manager<BACKEND>::group_ref::count () const
 {
-    PFS__ASSERT(_pmanager, "");
-
-    std::size_t count = 0;
-    auto & rep = _pmanager->_rep;
-
-    try {
-        auto stmt = rep.dbh->prepare(fmt::format(MEMBER_COUNT, rep.members_table_name));
-
-        stmt.bind(":group_id", _id);
-
-        auto res = stmt.exec();
-
-        if (res.has_more())
-            count = res.get<std::size_t>(0);
-    } catch (debby::error ex) {
-        throw error {errc::storage_error, ex.what()};
-    }
-
-    return count;
+    return backend::sqlite3::count(_pmanager->_rep, _id);
 }
 
 template <>

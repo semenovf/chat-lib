@@ -225,14 +225,6 @@ public:
         _contact_manager->change_my_description(desc);
     }
 
-    /**
-     * Total contacts count.
-     */
-    std::size_t contacts_count () const
-    {
-        return _contact_manager->count();
-    }
-
 ////////////////////////////////////////////////////////////////////////////////
 // Group contact specific methods
 ////////////////////////////////////////////////////////////////////////////////
@@ -400,22 +392,6 @@ public:
     }
 
     /**
-     * Count of contacts in specified group. Return @c 0 on error.
-     */
-    std::size_t members_count (contact::id group_id, std::error_code & ec) const noexcept
-    {
-        auto group_ref = _contact_manager->gref(group_id);
-
-        // Attempt to get members count of non-existent group
-        if (!group_ref) {
-            ec = make_error_code(errc::group_not_found);
-            return 0;
-        }
-
-        return group_ref.count();
-    }
-
-    /**
      * Count of contacts in specified group.
      *
      * @throw chat::error{errc::group_not_found} if conversation group not found
@@ -558,51 +534,10 @@ public:
         this->contact_removed(id);
     }
 
-    /**
-     * Get contact by @a id. On error returns invalid contact.
-     */
-    contact::contact
-    contact (contact::id id) const noexcept
-    {
-        return _contact_manager->get(id);
-    }
-
-    /**
-     * Get contact by @a offset. On error returns invalid contact.
-     */
-    contact::contact
-    contact (int offset) const noexcept
-    {
-        return _contact_manager->get(offset);
-    }
-
-    /**
-     * Fetch all contacts and process them by @a f
-     *
-     * @throw chat::error{errc::storage_error} on storage error.
-     */
-    template <typename F>
-    void for_each_contact (F && f) const
-    {
-        _contact_manager->for_each(std::forward<F>(f));
-    }
-
-    /**
-     * Fetch all contacts and process them by @a f until @f does not
-     * return @c false.
-     *
-     * @throw chat::error{errc::storage_error} on storage error.
-     */
-    template <typename F>
-    void for_each_until (F && f)
-    {
-        _contact_manager->for_each_until(std::forward<F>(f));
-    }
-
     conversation_type conversation (contact::id conversation_id) const
     {
         // Check for contact exists
-        auto c = contact(conversation_id);
+        auto c = _contact_manager->get(conversation_id);
 
         if (!is_valid(c))
             return conversation_type{};
@@ -655,7 +590,7 @@ public:
     {
         std::size_t result = 0;
 
-        for_each_contact([this, & result] (contact::contact const & c) {
+        _contact_manager->for_each([this, & result] (contact::contact const & c) {
             auto conv = conversation(c.contact_id);
 
             if (conv)
@@ -685,13 +620,14 @@ public:
         if (!conv)
             return;
 
-        auto addressee = contact(conv.id());
+        auto addressee = _contact_manager->get(conv.id());
         auto msg = conv.message(message_id);
 
         protocol::regular_message m;
         m.message_id = msg->message_id;
         m.author_id  = msg->author_id;
-        m.conversation_id = is_person(addressee) ? msg->author_id : conv.id();
+        m.conversation_id = chat::contact::is_person(addressee)
+            ? msg->author_id : conv.id();
         m.mod_time   = msg->modification_time;
         m.content    = msg->contents.has_value()
             ? to_string(*msg->contents)
@@ -743,11 +679,11 @@ public:
         //
         // Dispatch message read notification to message sender.
         //
-        auto conv_contact = contact(conv.id());
+        auto conv_contact = _contact_manager->get(conv.id());
 
         protocol::read_notification m;
         m.message_id = message_id;
-        m.conversation_id = is_person(conv_contact)
+        m.conversation_id = chat::contact::is_person(conv_contact)
             ? my_contact().contact_id : conversation_id;
         m.read_time = read_time;
 
@@ -854,7 +790,7 @@ public:
     {
         auto my_contact_id = my_contact().contact_id;
 
-        for_each_contact([this, addressee_id, my_contact_id] (contact::contact const & c) {
+        _contact_manager->for_each([this, addressee_id, my_contact_id] (contact::contact const & c) {
             auto self_created_group = (c.type == conversation_enum::group)
                 && (c.creator_id == my_contact_id);
 
@@ -1080,6 +1016,11 @@ public:
         return *_activity_manager;
     }
 
+    contact_manager_type const & get_contact_manager () const noexcept
+    {
+        return *_contact_manager;
+    }
+
 private:
     // Can be considered that `dispatch_data` is analog to `dispatch_unicast`.
     void dispatch_multicast (contact::contact const & addressee, std::string const & data)
@@ -1152,19 +1093,19 @@ private:
         , message::id message_id
         , pfs::utc_time_point received_time)
     {
-        auto conv_contact = contact(conversation_id);
+        auto conv_contact = _contact_manager->get(conversation_id);
 
         if (!is_valid(conv_contact))
             throw error{errc::contact_not_found, to_string(conversation_id)};
 
-        auto addressee = contact(author_id);
+        auto addressee = _contact_manager->get(author_id);
 
         if (!is_valid(addressee))
             throw error{errc::contact_not_found, to_string(addressee.contact_id)};
 
         protocol::delivery_notification m;
         m.message_id      = message_id;
-        m.conversation_id = is_person(conv_contact)
+        m.conversation_id = chat::contact::is_person(conv_contact)
             ? my_contact().contact_id : conversation_id;
         m.delivered_time  = received_time;
 

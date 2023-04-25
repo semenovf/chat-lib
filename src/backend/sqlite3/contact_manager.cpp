@@ -218,6 +218,18 @@ contact_manager<BACKEND>::at (int offset) const
 }
 
 template <>
+contact_manager<BACKEND>::group_const_ref
+contact_manager<BACKEND>::gref (contact::id group_id) const
+{
+    auto c = get(group_id);
+
+    if (is_valid(c) && c.type == conversation_enum::group)
+        return group_const_ref{group_id, this};
+
+    return group_const_ref{};
+}
+
+template <>
 contact_manager<BACKEND>::group_ref
 contact_manager<BACKEND>::gref (contact::id group_id)
 {
@@ -497,7 +509,7 @@ contact_manager<BACKEND>::for_each (std::function<void(contact::contact const &)
 
 template <>
 void
-contact_manager<BACKEND>::for_each (std::function<void(contact::contact &&)> f) const
+contact_manager<BACKEND>::for_each_movable (std::function<void(contact::contact &&)> f) const
 {
     auto stmt = _rep.dbh->prepare(fmt::format(SELECT_ALL_CONTACTS, _rep.contacts_table_name));
     auto res = stmt.exec();
@@ -527,7 +539,7 @@ contact_manager<BACKEND>::for_each_until (std::function<bool(contact::contact co
 
 template <>
 void
-contact_manager<BACKEND>::for_each_until (std::function<bool(contact::contact &&)> f) const
+contact_manager<BACKEND>::for_each_until_movable (std::function<bool(contact::contact &&)> f) const
 {
     auto stmt = _rep.dbh->prepare(fmt::format(SELECT_ALL_CONTACTS, _rep.contacts_table_name));
     auto res = stmt.exec();
@@ -556,7 +568,7 @@ contact_manager<BACKEND>::contacts<backend::in_memory::contact_list> (
         }
     };
 
-    this->for_each(std::move(ff));
+    this->for_each_movable(std::move(ff));
 
     return contact_list<backend::in_memory::contact_list>(std::move(contact_list_rep));
 }
@@ -602,7 +614,7 @@ contact_manager<BACKEND>::contacts<backend::sqlite3::contact_list> (
             }
         };
 
-        this->for_each(std::move(ff));
+        this->for_each_movable(std::move(ff));
 
         _rep.dbh->commit();
     } catch (debby::error ex) {
