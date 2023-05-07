@@ -11,6 +11,18 @@
 
 namespace chat {
 
+namespace backend {
+namespace in_memory {
+
+contact_list::rep_type
+contact_list::make ()
+{
+    rep_type rep;
+    return rep;
+}
+
+}} // namespace backend::in_memory
+
 using BACKEND = backend::in_memory::contact_list;
 
 template <>

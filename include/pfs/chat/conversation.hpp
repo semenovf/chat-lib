@@ -228,22 +228,24 @@ public:
      */
     CHAT__EXPORT void wipe ();
 
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////
+// Search specific types and methods.
+////////////////////////////////////////////////////////////////////////////
 public:
-    ////////////////////////////////////////////////////////////////////////////
-    // Search specific types and methods.
-    ////////////////////////////////////////////////////////////////////////////
     enum search_flag
     {
-          ignore_case_flag     = 1 << 0
-        , text_content_flag    = 1 << 1
-        , attachment_name_flag = 1 << 2
+          ignore_case     = 1 << 0
+        , text_content    = 1 << 1
+        , attachment_name = 1 << 2
     };
 
     struct match_item
     {
         message::id message_id;
-        pfs::unicode::match_item m;
         int content_index; // index of content in message_credentials::contents
+        pfs::unicode::match_item m;
     };
 
     struct search_result
@@ -251,12 +253,23 @@ public:
         std::vector<match_item> m;
     };
 
+private:
+    static void search_all (std::string const & s, std::string const & pattern
+        , bool ignore_case, std::function<void(pfs::unicode::match_item const &)> && f)
+    {
+        auto first = utf8_input_iterator::begin(s.begin(), s.end());
+        auto s_first = utf8_input_iterator::begin(pattern.begin(), pattern.end());
+
+        pfs::unicode::search_all(first, first.end(), s_first, s_first.end()
+            , ignore_case, std::move(f));
+    }
+
 public:
     /**
      * Searches conversion messages for specified @a pattern.
      */
     search_result search_all (std::string const & pattern
-        , int search_flags = ignore_case_flag | text_content_flag)
+        , int search_flags = ignore_case | text_content)
     {
         search_result res;
 
@@ -269,8 +282,8 @@ public:
                         || cc.mime == message::mime_enum::text__html;
 
                     bool content_search_requested = is_text_content
-                        ? (search_flags & text_content_flag)
-                        : (search_flags & attachment_name_flag);
+                        ? (search_flags & text_content)
+                        : (search_flags & attachment_name);
 
                     auto first = utf8_input_iterator::begin(cc.text.begin(), cc.text.end());
                     auto s_first = utf8_input_iterator::begin(pattern.begin(), pattern.end());
@@ -278,15 +291,15 @@ public:
                     if (content_search_requested) {
                         if (cc.mime == message::mime_enum::text__html) {
                             pfs::unicode::search_all(first, first.end(), s_first, s_first.end()
-                                , search_flags & ignore_case_flag, '<', '>'
+                                , search_flags & ignore_case, '<', '>'
                                 , [& res, & mc, i] (pfs::unicode::match_item const & m) {
-                                    res.m.emplace_back(match_item{mc.message_id, m, i});
+                                    res.m.emplace_back(match_item{mc.message_id, i, m});
                                 });
                         } else {
                             pfs::unicode::search_all(first, first.end(), s_first, s_first.end()
-                                , search_flags & ignore_case_flag
+                                , search_flags & ignore_case
                                 , [& res, & mc, i] (pfs::unicode::match_item const & m) {
-                                    res.m.emplace_back(match_item{mc.message_id, m, i});
+                                    res.m.emplace_back(match_item{mc.message_id, i, m});
                                 });
                         }
                     }

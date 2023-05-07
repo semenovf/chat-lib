@@ -556,7 +556,7 @@ contact_manager<BACKEND>::for_each_until_movable (std::function<bool(contact::co
 template <>
 template <>
 contact_list<backend::in_memory::contact_list>
-contact_manager<BACKEND>::contacts<backend::in_memory::contact_list> (
+contact_manager<BACKEND>::contacts<contact_list<backend::in_memory::contact_list>> (
     std::function<bool(contact::contact const &)> f) const
 {
     backend::in_memory::contact_list::rep_type contact_list_rep;
@@ -576,7 +576,7 @@ contact_manager<BACKEND>::contacts<backend::in_memory::contact_list> (
 template <>
 template <>
 contact_list<backend::sqlite3::contact_list>
-contact_manager<BACKEND>::contacts<backend::sqlite3::contact_list> (
+contact_manager<BACKEND>::contacts<contact_list<backend::sqlite3::contact_list>> (
     std::function<bool(contact::contact const &)> f) const
 {
 

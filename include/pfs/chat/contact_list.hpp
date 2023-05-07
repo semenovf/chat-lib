@@ -22,6 +22,7 @@ namespace chat {
 template <typename Backend>
 class contact_list final
 {
+public:
     using rep_type = typename Backend::rep_type;
     using utf8_input_iterator = pfs::unicode::utf8_input_iterator<std::string::const_iterator>;
 
@@ -81,15 +82,22 @@ public:
      */
     CHAT__EXPORT void for_each_until (std::function<bool(contact::contact const &)> f) const;
 
+////////////////////////////////////////////////////////////////////////////
+// Search specific types and methods.
+////////////////////////////////////////////////////////////////////////////
 public:
-    ////////////////////////////////////////////////////////////////////////////
-    // Search specific types and methods.
-    ////////////////////////////////////////////////////////////////////////////
     enum search_flag
     {
           ignore_case = 1 << 0
         , alias_field = 1 << 1
         , desc_field  = 1 << 2
+    };
+
+    struct match_spec
+    {
+        contact::id contact_id;
+        std::size_t index; // first match position
+        std::size_t count; // number of matches
     };
 
     struct match_item
@@ -101,6 +109,7 @@ public:
 
     struct search_result
     {
+        std::vector<match_spec> sp;
         std::vector<match_item> m;
     };
 
@@ -130,6 +139,12 @@ public:
                 search_all(c.alias, pattern, search_flags & ignore_case
                     , [& res, pc] (pfs::unicode::match_item const & m) {
                         res.m.emplace_back(match_item{pc->contact_id, alias_field, m});
+
+                        if (res.sp.empty() || res.sp.back().contact_id != pc->contact_id) {
+                            res.sp.emplace_back(match_spec{pc->contact_id, res.m.size() - 1, 1});
+                        } else {
+                            res.sp.back().count++;
+                        }
                     });
             }
 
@@ -137,6 +152,12 @@ public:
                 search_all(c.description, pattern, search_flags & ignore_case
                     , [& res, pc] (pfs::unicode::match_item const & m) {
                         res.m.emplace_back(match_item{pc->contact_id, desc_field, m});
+
+                        if (res.sp.empty() || res.sp.back().contact_id != pc->contact_id) {
+                            res.sp.emplace_back(match_spec{pc->contact_id, res.m.size() - 1, 1});
+                        } else {
+                            res.sp.back().count++;
+                        }
                     });
             }
         });

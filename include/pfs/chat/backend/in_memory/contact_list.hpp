@@ -23,6 +23,9 @@ struct contact_list
         std::vector<contact::contact> data;
         std::map<contact::id, std::size_t> map;
     };
+
+    // Makes empty contact list
+    static CHAT__EXPORT rep_type make ();
 };
 
 }}} // namespace chat::backend::in_memory

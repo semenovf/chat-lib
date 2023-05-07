@@ -413,8 +413,8 @@ public:
      */
     CHAT__EXPORT bool transaction (std::function<bool()> op) noexcept;
 
-    template <typename U = backend::in_memory::contact_list>
-    CHAT__EXPORT contact_list<U> contacts (std::function<bool(contact::contact const &)> f
+    template <typename ContactList = contact_list<backend::in_memory::contact_list>>
+    CHAT__EXPORT ContactList contacts (std::function<bool(contact::contact const &)> f
         = [] (contact::contact const &) { return true; }) const;
 
 public:
