@@ -11,8 +11,6 @@
 #include "contact.hpp"
 #include "exports.hpp"
 #include "pfs/string_view.hpp"
-#include "pfs/unicode/search.hpp"
-#include "pfs/unicode/utf8_iterator.hpp"
 #include <algorithm>
 #include <functional>
 #include <vector>
@@ -24,7 +22,6 @@ class contact_list final
 {
 public:
     using rep_type = typename Backend::rep_type;
-    using utf8_input_iterator = pfs::unicode::utf8_input_iterator<std::string::const_iterator>;
 
 private:
     rep_type _rep;
@@ -81,89 +78,6 @@ public:
      * @throw chat::error (@c errc::storage_error) on storage error.
      */
     CHAT__EXPORT void for_each_until (std::function<bool(contact::contact const &)> f) const;
-
-////////////////////////////////////////////////////////////////////////////
-// Search specific types and methods.
-////////////////////////////////////////////////////////////////////////////
-public:
-    enum search_flag
-    {
-          ignore_case = 1 << 0
-        , alias_field = 1 << 1
-        , desc_field  = 1 << 2
-    };
-
-    struct match_spec
-    {
-        contact::id contact_id;
-        std::size_t index; // first match position
-        std::size_t count; // number of matches
-    };
-
-    struct match_item
-    {
-        contact::id contact_id;
-        search_flag field;      // field that matches search pattern (alias_field or desc_field)
-        pfs::unicode::match_item m;
-    };
-
-    struct search_result
-    {
-        std::vector<match_spec> sp;
-        std::vector<match_item> m;
-    };
-
-private:
-    static void search_all (std::string const & s, std::string const & pattern
-        , bool ignore_case, std::function<void(pfs::unicode::match_item const &)> && f)
-    {
-        auto first = utf8_input_iterator::begin(s.begin(), s.end());
-        auto s_first = utf8_input_iterator::begin(pattern.begin(), pattern.end());
-
-        pfs::unicode::search_all(first, first.end(), s_first, s_first.end()
-            , ignore_case, std::move(f));
-    }
-
-public:
-    /**
-     * Searches contact list for specified @a pattern.
-     */
-    search_result search_all (std::string const & pattern, int search_flags = ignore_case | alias_field)
-    {
-        search_result res;
-
-        for_each([& res, & pattern, search_flags] (contact::contact const & c) {
-            contact::contact const * pc = & c;
-
-            if (search_flags & alias_field) {
-                search_all(c.alias, pattern, search_flags & ignore_case
-                    , [& res, pc] (pfs::unicode::match_item const & m) {
-                        res.m.emplace_back(match_item{pc->contact_id, alias_field, m});
-
-                        if (res.sp.empty() || res.sp.back().contact_id != pc->contact_id) {
-                            res.sp.emplace_back(match_spec{pc->contact_id, res.m.size() - 1, 1});
-                        } else {
-                            res.sp.back().count++;
-                        }
-                    });
-            }
-
-            if (search_flags & desc_field) {
-                search_all(c.description, pattern, search_flags & ignore_case
-                    , [& res, pc] (pfs::unicode::match_item const & m) {
-                        res.m.emplace_back(match_item{pc->contact_id, desc_field, m});
-
-                        if (res.sp.empty() || res.sp.back().contact_id != pc->contact_id) {
-                            res.sp.emplace_back(match_spec{pc->contact_id, res.m.size() - 1, 1});
-                        } else {
-                            res.sp.back().count++;
-                        }
-                    });
-            }
-        });
-
-        return res;
-    }
 
 public:
     template <typename ...Args>

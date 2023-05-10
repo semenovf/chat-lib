@@ -196,14 +196,14 @@ public:
      * @throw chat::error if message content is invalid (i.e. bad JSON source).
      */
     CHAT__EXPORT void for_each (std::function<void(message::message_credentials const &)> f
-        , int sort_flags, int max_count);
+        , int sort_flags, int max_count) const;
 
     /**
      * Convenient function for fetch all conversation messages in order
      * @c conversation_sort_flag::by_creation_time | @c conversation_sort_flag::ascending_order
      */
     void for_each (std::function<void(message::message_credentials const &)> f
-        , int max_count = -1)
+        , int max_count = -1) const
     {
         int sf = sort_flags(
               conversation_sort_flag::by_creation_time
@@ -228,87 +228,6 @@ public:
      */
     CHAT__EXPORT void wipe ();
 
-
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////
-// Search specific types and methods.
-////////////////////////////////////////////////////////////////////////////
-public:
-    enum search_flag
-    {
-          ignore_case     = 1 << 0
-        , text_content    = 1 << 1
-        , attachment_name = 1 << 2
-    };
-
-    struct match_item
-    {
-        message::id message_id;
-        int content_index; // index of content in message_credentials::contents
-        pfs::unicode::match_item m;
-    };
-
-    struct search_result
-    {
-        std::vector<match_item> m;
-    };
-
-private:
-    static void search_all (std::string const & s, std::string const & pattern
-        , bool ignore_case, std::function<void(pfs::unicode::match_item const &)> && f)
-    {
-        auto first = utf8_input_iterator::begin(s.begin(), s.end());
-        auto s_first = utf8_input_iterator::begin(pattern.begin(), pattern.end());
-
-        pfs::unicode::search_all(first, first.end(), s_first, s_first.end()
-            , ignore_case, std::move(f));
-    }
-
-public:
-    /**
-     * Searches conversion messages for specified @a pattern.
-     */
-    search_result search_all (std::string const & pattern
-        , int search_flags = ignore_case | text_content)
-    {
-        search_result res;
-
-        for_each([& res, & pattern, search_flags] (message::message_credentials const & mc) {
-            if (mc.contents) {
-                for (int i = 0, count = mc.contents->count(); i < count; i++) {
-                    auto cc = mc.contents->at(i);
-
-                    bool is_text_content = cc.mime == message::mime_enum::text__plain
-                        || cc.mime == message::mime_enum::text__html;
-
-                    bool content_search_requested = is_text_content
-                        ? (search_flags & text_content)
-                        : (search_flags & attachment_name);
-
-                    auto first = utf8_input_iterator::begin(cc.text.begin(), cc.text.end());
-                    auto s_first = utf8_input_iterator::begin(pattern.begin(), pattern.end());
-
-                    if (content_search_requested) {
-                        if (cc.mime == message::mime_enum::text__html) {
-                            pfs::unicode::search_all(first, first.end(), s_first, s_first.end()
-                                , search_flags & ignore_case, '<', '>'
-                                , [& res, & mc, i] (pfs::unicode::match_item const & m) {
-                                    res.m.emplace_back(match_item{mc.message_id, i, m});
-                                });
-                        } else {
-                            pfs::unicode::search_all(first, first.end(), s_first, s_first.end()
-                                , search_flags & ignore_case
-                                , [& res, & mc, i] (pfs::unicode::match_item const & m) {
-                                    res.m.emplace_back(match_item{mc.message_id, i, m});
-                                });
-                        }
-                    }
-                }
-            }
-        });
-
-        return res;
-    }
 public:
     template <typename ...Args>
     static conversation make (Args &&... args)

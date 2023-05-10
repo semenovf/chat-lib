@@ -1021,6 +1021,11 @@ public:
         return *_contact_manager;
     }
 
+    message_store_type const & get_message_store () const noexcept
+    {
+        return *_message_store;
+    }
+
 private:
     // Can be considered that `dispatch_data` is analog to `dispatch_unicast`.
     void dispatch_multicast (contact::contact const & addressee, std::string const & data)

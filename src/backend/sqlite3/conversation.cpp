@@ -550,7 +550,7 @@ static std::string const SELECT_ALL_MESSAGES {
 template <>
 void
 conversation<BACKEND>::for_each (std::function<void(message::message_credentials const &)> f
-    , int sort_flags, int max_count)
+    , int sort_flags, int max_count) const
 {
     std::string field = "`creation_time`";
     std::string order = "ASC";
