@@ -125,95 +125,9 @@ public:
     }
 };
 
-template <typename Conversation>
-class conversation_searcher
+class message_searcher
 {
     using utf8_input_iterator = pfs::unicode::utf8_input_iterator<std::string::const_iterator>;
-
-private:
-    Conversation const * _pcv {nullptr};
-
-public:
-    struct match_item
-    {
-        message::id message_id;
-        int content_index; // index of content in message_credentials::contents
-        pfs::unicode::match_item m;
-    };
-
-    struct search_result
-    {
-        std::vector<match_item> m;
-    };
-
-public:
-    conversation_searcher (Conversation const & cv)
-        : _pcv(& cv)
-    {}
-
-public:
-    /**
-     * Searches all contents of all conversion messages for specified @a pattern.
-     */
-    search_result search_all (std::string const & pattern
-        , search_flags sf = search_flags::ignore_case | search_flags::text_content) const
-    {
-        search_result sr;
-
-        _pcv->for_each([& sr, & pattern, sf] (message::message_credentials const & mc) {
-            if (mc.contents) {
-                for (int i = 0, count = mc.contents->count(); i < count; i++) {
-                    auto cc = mc.contents->at(i);
-
-                    bool is_text_content = cc.mime == message::mime_enum::text__plain
-                        || cc.mime == message::mime_enum::text__html;
-
-                    bool content_search_requested = is_text_content
-                        ? (sf.value & search_flags::text_content)
-                        : (sf.value & search_flags::attachment_name);
-
-                    auto first = utf8_input_iterator::begin(cc.text.begin(), cc.text.end());
-                    auto s_first = utf8_input_iterator::begin(pattern.begin(), pattern.end());
-
-                    if (content_search_requested) {
-                        if (cc.mime == message::mime_enum::text__html) {
-                            pfs::unicode::search_all(first, first.end(), s_first, s_first.end()
-                                , sf.value & search_flags::ignore_case, '<', '>'
-                                , [& sr, & mc, i] (pfs::unicode::match_item const & m) {
-                                    sr.m.emplace_back(match_item{mc.message_id, i, m});
-                                });
-                        } else {
-                            pfs::unicode::search_all(first, first.end(), s_first, s_first.end()
-                                , sf.value & search_flags::ignore_case
-                                , [& sr, & mc, i] (pfs::unicode::match_item const & m) {
-                                    sr.m.emplace_back(match_item{mc.message_id, i, m});
-                                });
-                        }
-                    }
-                }
-            }
-        });
-
-        return sr;
-    }
-};
-
-template <typename MessageStore, typename ContactList>
-class messages_searcher
-{
-    using utf8_input_iterator = pfs::unicode::utf8_input_iterator<std::string::const_iterator>;
-    using conversation_type = typename MessageStore::conversation_type;
-    using conversation_searcher_type = conversation_searcher<conversation_type>;
-
-private:
-    MessageStore const * _pms {nullptr};
-    ContactList const *  _pcl {nullptr};
-
-public:
-    messages_searcher (MessageStore const & ms, ContactList const & cl)
-        : _pms(& ms)
-        , _pcl(& cl)
-    {}
 
 public:
     struct match_item
@@ -229,10 +143,172 @@ public:
         std::vector<match_item> m;
     };
 
+private:
+    contact::id _contact_id;
+    message::message_credentials const * _pmc {nullptr};
+
+public:
+    message_searcher (contact::id contact_id, message::message_credentials const & mc)
+        : _contact_id(contact_id), _pmc(& mc)
+    {}
+
+private:
+    void search_helper (search_result & sr, std::string const & pattern
+        , bool first_match_only
+        , search_flags sf = search_flags::ignore_case | search_flags::text_content) const
+    {
+        if (_pmc->contents) {
+            for (int i = 0, count = _pmc->contents->count(); i < count; i++) {
+                auto cc = _pmc->contents->at(i);
+
+                bool is_text_content = cc.mime == message::mime_enum::text__plain
+                    || cc.mime == message::mime_enum::text__html;
+
+                bool content_search_requested = is_text_content
+                    ? (sf.value & search_flags::text_content)
+                    : (sf.value & search_flags::attachment_name);
+
+                auto first = utf8_input_iterator::begin(cc.text.begin(), cc.text.end());
+                auto s_first = utf8_input_iterator::begin(pattern.begin(), pattern.end());
+
+                if (content_search_requested) {
+                    if (cc.mime == message::mime_enum::text__html) {
+                        if (first_match_only) {
+                            auto m = pfs::unicode::search_first(first, first.end(), s_first, s_first.end()
+                                , sf.value & search_flags::ignore_case, '<', '>');
+
+                            if (m.cp_first >= 0) {
+                                sr.m.emplace_back(match_item{_contact_id, _pmc->message_id, i, m});
+                                break;
+                            };
+                        } else {
+                            pfs::unicode::search_all(first, first.end(), s_first, s_first.end()
+                                , sf.value & search_flags::ignore_case, '<', '>'
+                                , [this, & sr, i] (pfs::unicode::match_item const & m) {
+                                    sr.m.emplace_back(match_item{_contact_id, _pmc->message_id, i, m});
+                                });
+                        }
+                    } else {
+                        if (first_match_only) {
+                            auto m = pfs::unicode::search_first(first, first.end(), s_first, s_first.end()
+                                , sf.value & search_flags::ignore_case);
+
+                            if (m.cp_first >= 0) {
+                                sr.m.emplace_back(match_item{_contact_id, _pmc->message_id, i, m});
+                                break;
+                            }
+                        } else {
+                            pfs::unicode::search_all(first, first.end(), s_first, s_first.end()
+                                , sf.value & search_flags::ignore_case
+                                , [this, & sr, i] (pfs::unicode::match_item const & m) {
+                                    sr.m.emplace_back(match_item{_contact_id, _pmc->message_id, i, m});
+                                });
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+public:
+    void search_all (search_result & sr, std::string const & pattern
+        , search_flags sf = search_flags::ignore_case | search_flags::text_content) const
+    {
+        search_helper(sr, pattern, false, sf);
+    }
+
+    search_result search_all (std::string const & pattern
+        , search_flags sf = search_flags::ignore_case | search_flags::text_content) const
+    {
+        search_result sr;
+        search_helper(sr, pattern, false, sf);
+        return sr;
+    }
+
+    void search_first (search_result & sr, std::string const & pattern
+        , search_flags sf = search_flags::ignore_case | search_flags::text_content) const
+    {
+        search_helper(sr, pattern, true, sf);
+    }
+
+    search_result search_first (std::string const & pattern
+        , search_flags sf = search_flags::ignore_case | search_flags::text_content) const
+    {
+        search_result sr;
+        search_helper(sr, pattern, true, sf);
+        return sr;
+    }
+};
+
+template <typename Conversation>
+class conversation_searcher
+{
+public:
+    using match_item    = message_searcher::match_item;
+    using search_result = message_searcher::search_result;
+
+private:
+    contact::id _contact_id;
+    Conversation const * _pcv {nullptr};
+
+public:
+    conversation_searcher (contact::id contact_id, Conversation const & cv)
+        : _contact_id(contact_id)
+        , _pcv(& cv)
+    {}
+
+public:
+    /**
+     * Searches all contents of all conversion messages for specified @a pattern.
+     */
+    search_result search_all (std::string const & pattern
+        , search_flags sf = search_flags::ignore_case | search_flags::text_content) const
+    {
+        search_result sr;
+
+        _pcv->for_each([this, & sr, & pattern, sf] (message::message_credentials const & mc) {
+            message_searcher{_contact_id, mc}.search_all(sr, pattern, sf);
+        });
+
+        return sr;
+    }
+
+    search_result search_first (std::string const & pattern
+        , search_flags sf = search_flags::ignore_case | search_flags::text_content) const
+    {
+        search_result sr;
+
+        _pcv->for_each([this, & sr, & pattern, sf] (message::message_credentials const & mc) {
+            message_searcher{_contact_id, mc}.search_first(sr, pattern, sf);
+        });
+
+        return sr;
+    }
+};
+
+template <typename MessageStore, typename ContactList>
+class message_store_searcher
+{
+    using conversation_type = typename MessageStore::conversation_type;
+    using conversation_searcher_type = conversation_searcher<conversation_type>;
+
+public:
+    using match_item    = message_searcher::match_item;
+    using search_result = message_searcher::search_result;
+
+private:
+    MessageStore const * _pms {nullptr};
+    ContactList const *  _pcl {nullptr};
+
+public:
+    message_store_searcher (MessageStore const & ms, ContactList const & cl)
+        : _pms(& ms)
+        , _pcl(& cl)
+    {}
+
 public:
     /**
      * Searches all messages for specified @a pattern.
-     * Only the first message content that matches the @a pattern matters.
      */
     search_result search_all (std::string const & pattern
         , search_flags sf = search_flags::ignore_case | search_flags::text_content) const
@@ -246,41 +322,30 @@ public:
                 return;
 
             cv.for_each([& sr, & c, & pattern, sf] (message::message_credentials const & mc) {
-                if (mc.contents) {
-                    for (int i = 0, count = mc.contents->count(); i < count; i++) {
-                        auto cc = mc.contents->at(i);
+                message_searcher{c.contact_id, mc}.search_all(sr, pattern, sf);
+            });
+        });
 
-                        bool is_text_content = cc.mime == message::mime_enum::text__plain
-                            || cc.mime == message::mime_enum::text__html;
+        return sr;
+    }
 
-                        bool content_search_requested = is_text_content
-                            ? (sf.value & search_flags::text_content)
-                            : (sf.value & search_flags::attachment_name);
+    /**
+     * Searches all messages for specified @a pattern.
+     * Only the first message content that matches the @a pattern matters.
+     */
+    search_result search_first (std::string const & pattern
+        , search_flags sf = search_flags::ignore_case | search_flags::text_content) const
+    {
+        search_result sr;
 
-                        auto first = utf8_input_iterator::begin(cc.text.begin(), cc.text.end());
-                        auto s_first = utf8_input_iterator::begin(pattern.begin(), pattern.end());
+        _pcl->for_each([this, & sr, & pattern, sf] (chat::contact::contact const & c) {
+            auto cv = _pms->conversation(c.contact_id);
 
-                        if (content_search_requested) {
-                            if (cc.mime == message::mime_enum::text__html) {
-                                auto m = pfs::unicode::search_first(first, first.end(), s_first, s_first.end()
-                                    , sf.value & search_flags::ignore_case, '<', '>');
+            if (!cv)
+                return;
 
-                                if (m.cp_first >= 0) {
-                                    sr.m.emplace_back(match_item{c.contact_id, mc.message_id, i, m});
-                                    break;
-                                };
-                            } else {
-                                auto m = pfs::unicode::search_first(first, first.end(), s_first, s_first.end()
-                                    , sf.value & search_flags::ignore_case);
-
-                                if (m.cp_first >= 0) {
-                                    sr.m.emplace_back(match_item{c.contact_id, mc.message_id, i, m});
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                }
+            cv.for_each([& sr, & c, & pattern, sf] (message::message_credentials const & mc) {
+                message_searcher{c.contact_id, mc}.search_first(sr, pattern, sf);
             });
         });
 
