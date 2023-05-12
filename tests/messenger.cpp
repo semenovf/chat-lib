@@ -307,8 +307,8 @@ TEST_CASE("messenger") {
 ////////////////////////////////////////////////////////////////////////////////
 // Step 5. Add contacts
 ////////////////////////////////////////////////////////////////////////////////
-    REQUIRE_EQ(messenger1->contacts_count(), 0);
-    REQUIRE_EQ(messenger2->contacts_count(), 0);
+    REQUIRE_EQ(messenger1->get_contact_manager().count(), 0);
+    REQUIRE_EQ(messenger2->get_contact_manager().count(), 0);
 
     auto contact1 = messenger1->my_contact();
     auto contact2 = messenger2->my_contact();
@@ -332,8 +332,8 @@ TEST_CASE("messenger") {
     REQUIRE_NE(messenger1->add(contact3), chat::contact::id{});
     REQUIRE_NE(messenger2->add(contact3), chat::contact::id{});
 
-    REQUIRE_EQ(messenger1->contacts_count(), 2);
-    REQUIRE_EQ(messenger2->contacts_count(), 2);
+    REQUIRE_EQ(messenger1->get_contact_manager().count(), 2);
+    REQUIRE_EQ(messenger2->get_contact_manager().count(), 2);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Step 5.1 Add group contact
@@ -348,7 +348,7 @@ TEST_CASE("messenger") {
     REQUIRE(messenger1->is_member_of(groupId1, contactId3));
     REQUIRE_FALSE(messenger1->is_member_of(groupId1, unknownContactId));
 
-    REQUIRE_EQ(messenger1->members_count(groupId1), 3);
+    REQUIRE_EQ(messenger1->get_contact_manager().members_count(groupId1), 3);
 
     auto members = messenger1->members(groupId1);
 

@@ -444,14 +444,6 @@ public:
     }
 
     /**
-     * Total count of contacts with specified @a type.
-     */
-    std::size_t contacts_count (conversation_enum type) const
-    {
-        return _contact_manager->count(type);
-    }
-
-    /**
      * Add personal or group contact.
      *
      * @return Identifier of just added contact or @c chat::contact::id{}

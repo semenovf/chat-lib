@@ -99,7 +99,7 @@ TEST_CASE("constructors") {
     REQUIRE_FALSE(std::is_copy_constructible<in_memory_contact_list_t>::value);
     REQUIRE_FALSE(std::is_copy_assignable<in_memory_contact_list_t>::value);
     REQUIRE(std::is_move_constructible<in_memory_contact_list_t>::value);
-    REQUIRE_FALSE(std::is_move_assignable<in_memory_contact_list_t>::value);
+    REQUIRE(std::is_move_assignable<in_memory_contact_list_t>::value);
     REQUIRE(std::is_destructible<in_memory_contact_list_t>::value);
 
     // Contact manager public constructors/assign operators
@@ -237,7 +237,7 @@ void test_contacts ()
 
     std::vector<person_t> all_contacts;
 
-    auto contacts = contact_manager.contacts<ContactListBackend>();
+    auto contacts = contact_manager.contacts<chat::contact_list<ContactListBackend>>();
 
     contacts.for_each([& all_contacts] (contact_t const & c) {
         //fmt::print("{} | {:10} | {}\n", c.contact_id, c.alias, to_string(c.type));

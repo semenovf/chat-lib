@@ -11,6 +11,7 @@
 #include "pfs/log.hpp"
 #include "pfs/chat/contact.hpp"
 #include "pfs/chat/contact_manager.hpp"
+#include "pfs/chat/search.hpp"
 #include "pfs/chat/backend/in_memory/contact_list.hpp"
 #include "pfs/chat/backend/sqlite3/contact_manager.hpp"
 #include "pfs/lorem/person.hpp"
@@ -85,8 +86,11 @@ TEST_CASE("search") {
     REQUIRE(contact_manager);
 
     auto contact_list = contact_manager.contacts<>();
-    auto search_result = contact_list.search_all("нов"
-        , contact_list.alias_field | contact_list.desc_field | contact_list.ignore_case);
+    chat::contacts_searcher<decltype(contact_list)> contacts_searcher{contact_list};
+
+    auto search_result = contacts_searcher.search_all("нов"
+        , chat::search_flags {chat::search_flags::alias_field
+            | chat::search_flags::desc_field | chat::search_flags::ignore_case});
 
     int counter = 0;
 
@@ -95,7 +99,7 @@ TEST_CASE("search") {
 
         counter++;
 
-        if (r.field == contact_list.alias_field) {
+        if (r.field == chat::search_flags::alias_field) {
             std::string prefix (c.alias.begin(), c.alias.begin() + r.m.cu_first);
             std::string substr (c.alias.begin() + r.m.cu_first, c.alias.begin() + r.m.cu_last);
             std::string suffix (c.alias.begin() + r.m.cu_last, c.alias.end());

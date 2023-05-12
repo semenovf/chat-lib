@@ -11,6 +11,7 @@
 #include "pfs/log.hpp"
 #include "pfs/chat/conversation.hpp"
 #include "pfs/chat/message_store.hpp"
+#include "pfs/chat/search.hpp"
 #include "pfs/chat/backend/sqlite3/conversation.hpp"
 #include "pfs/chat/backend/sqlite3/message_store.hpp"
 
@@ -87,9 +88,10 @@ TEST_CASE("search") {
     REQUIRE(message_store);
 
     auto conversation = message_store.conversation(conversation_id);
-
-    auto search_result = conversation.search_all("лорем"
-         , conversation.ignore_case_flag | conversation.text_content_flag);
+    chat::conversation_searcher<decltype(conversation)> conversation_searcher{conversation_id, conversation};
+    auto search_result = conversation_searcher.search_all("лорем"
+        , chat::search_flags{chat::search_flags::ignore_case
+            | chat::search_flags::text_content});
 
     int counter = 0;
 

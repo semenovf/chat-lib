@@ -8,6 +8,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 #include "contact.hpp"
+#include "message.hpp"
 #include "pfs/unicode/search.hpp"
 #include "pfs/unicode/utf8_iterator.hpp"
 #include <cstdint>
@@ -69,7 +70,7 @@ private:
     ContactList const * _pcl {nullptr};
 
 public:
-    contacts_searcher (ContactList & cl) : _pcl(& cl) {}
+    contacts_searcher (ContactList const & cl) : _pcl(& cl) {}
 
 private:
     static void search_all_helper (std::string const & s, std::string const & pattern
