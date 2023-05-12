@@ -42,7 +42,7 @@ public:
 template <typename ContactList>
 class contacts_searcher
 {
-    using utf8_input_iterator = pfs::unicode::utf8_input_iterator<std::string::const_iterator>;
+    using utf8_iterator = pfs::unicode::utf8_iterator<std::string::const_iterator>;
 
 public:
     struct match_spec
@@ -75,8 +75,8 @@ private:
     static void search_all_helper (std::string const & s, std::string const & pattern
         , bool ignore_case, std::function<void(pfs::unicode::match_item const &)> && f)
     {
-        auto first = utf8_input_iterator::begin(s.begin(), s.end());
-        auto s_first = utf8_input_iterator::begin(pattern.begin(), pattern.end());
+        auto first = utf8_iterator::begin(s.begin(), s.end());
+        auto s_first = utf8_iterator::begin(pattern.begin(), pattern.end());
 
         pfs::unicode::search_all(first, first.end(), s_first, s_first.end()
             , ignore_case, std::move(f));
@@ -127,7 +127,7 @@ public:
 
 class message_searcher
 {
-    using utf8_input_iterator = pfs::unicode::utf8_input_iterator<std::string::const_iterator>;
+    using utf8_iterator = pfs::unicode::utf8_iterator<std::string::const_iterator>;
 
 public:
     struct match_item
@@ -168,8 +168,8 @@ private:
                     ? (sf.value & search_flags::text_content)
                     : (sf.value & search_flags::attachment_name);
 
-                auto first = utf8_input_iterator::begin(cc.text.begin(), cc.text.end());
-                auto s_first = utf8_input_iterator::begin(pattern.begin(), pattern.end());
+                auto first = utf8_iterator::begin(cc.text.begin(), cc.text.end());
+                auto s_first = utf8_iterator::begin(pattern.begin(), pattern.end());
 
                 if (content_search_requested) {
                     if (cc.mime == message::mime_enum::text__html) {

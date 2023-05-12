@@ -36,7 +36,7 @@ template <typename Backend>
 class conversation final
 {
     using rep_type = typename Backend::rep_type;
-    using utf8_input_iterator = pfs::unicode::utf8_input_iterator<std::string::const_iterator>;
+    using utf8_iterator = pfs::unicode::utf8_iterator<std::string::const_iterator>;
 
 public:
     using editor_type = editor<typename Backend::editor_type>;
