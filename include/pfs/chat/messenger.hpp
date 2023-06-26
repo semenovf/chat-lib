@@ -166,7 +166,6 @@ private:
     std::unique_ptr<file_cache_type>       _file_cache;
     contact::id_generator _contact_id_generator;
     message::id_generator _message_id_generator;
-    file::id_generator    _file_id_generator;
 
 public:
     messenger (std::unique_ptr<contact_manager_type> contact_manager
@@ -536,15 +535,17 @@ public:
 
         auto convers = _message_store->conversation(conversation_id);
 
-        convers.cache_outcome_local_file = [this] (pfs::filesystem::path const & path) {
-            return _file_cache->store_outgoing_file(path);
+        convers.cache_outcome_local_file = [this, conversation_id] (pfs::filesystem::path const & path) {
+            return _file_cache->cache_outgoing_file(my_contact().contact_id
+                , conversation_id, path);
         };
 
-        convers.cache_outcome_custom_file = [this] (std::string const & uri
+        convers.cache_outcome_custom_file = [this, conversation_id] (std::string const & uri
                 , std::string const & display_name
                 , std::int64_t size
                 , pfs::utc_time modtime) {
-            return _file_cache->store_outgoing_file(uri, display_name, size, modtime);
+            return _file_cache->cache_outgoing_file(my_contact().contact_id
+                , conversation_id, uri, display_name, size, modtime);
         };
 
         return convers;
@@ -955,10 +956,9 @@ public:
      * @details Must be called by messenger implementer when attachment/file
      *          received completely.
      */
-    void commit_incoming_file (contact::id author_id, file::id file_id
-        , pfs::filesystem::path const & path)
+    void commit_incoming_file (file::id file_id, pfs::filesystem::path const & path)
     {
-        _file_cache->store_incoming_file(author_id, file_id, path);
+        _file_cache->commit_incoming_file(file_id, path);
     }
 
     std::string incoming_file (file::id file_id) const
@@ -971,6 +971,22 @@ public:
     {
         auto fc = _file_cache->outgoing_file(file_id);
         return !!fc ? fc->abspath : std::string{};
+    }
+
+    /**
+     * Total list of incoming files (attachments) from specified opponent.
+     */
+    std::vector<file::credentials> incoming_files (contact::id opponent_id) const
+    {
+        return _file_cache->incoming_files(opponent_id);
+    }
+
+    /**
+     * Total list of outgoing files (attachments) for specified opponent.
+     */
+    std::vector<file::credentials> outgoing_files (contact::id opponent_id) const
+    {
+        return _file_cache->outgoing_files(opponent_id);
     }
 
     /**
@@ -1062,9 +1078,21 @@ private:
                 , to_string(m.conversation_id)};
         }
 
-
         // Can throw when bad/corrupted content in incoming message
         message::content content{m.content};
+
+        // Search content for attachments and cache their credentials in the
+        // `file_cache`
+        for (std::size_t i = 0, count = content.count(); i < count; i++) {
+            auto cc = content.at(i);
+            auto att = content.attachment(i);
+
+            // Attachment really
+            if (!att.name.empty()) {
+                _file_cache->reserve_incoming_file(att.file_id, m.author_id
+                    , m.conversation_id, att.name, att.size, cc.mime);
+            }
+        }
 
         conv.save_incoming(m.message_id
             , m.author_id

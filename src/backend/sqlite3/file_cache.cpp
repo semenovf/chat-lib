@@ -18,32 +18,28 @@ namespace chat {
 using namespace debby::backend::sqlite3;
 namespace fs = pfs::filesystem;
 
-static std::string const DEFAULT_TABLE_NAME_PREFIX  { "file_cache" };
+static std::string const DEFAULT_INCOMING_TABLE_NAME { "file_cache_in" };
+static std::string const DEFAULT_OUTGOING_TABLE_NAME { "file_cache_out" };
 
-static std::string const CREATE_OUT_TABLE {
+static std::string const CREATE_FILE_CACHE_TABLE {
     "CREATE TABLE IF NOT EXISTS `{}` ("
-    "`id` {} NOT NULL"
-    ", `path` {} NOT NULL"
+    "`file_id` {} NOT NULL"
+    ", `author_id` {} NOT NULL"
+    ", `conversation_id` {} NOT NULL"
+    ", `abspath` {} NOT NULL"
     ", `name` {} NOT NULL"
     ", `size` {} NOT NULL"
+    ", `mime` {} NOT NULL"
     ", `modtime` {} NOT NULL"
-    ", PRIMARY KEY (`id`)) WITHOUT ROWID"
-};
-
-static std::string const CREATE_INCOMING_TABLE {
-    "CREATE TABLE IF NOT EXISTS `{}` ("
-    "`id` {} NOT NULL"
-    ", `author_id` {} NOT NULL"
-    ", `path` {} NOT NULL"
-    ", PRIMARY KEY (`id`)) WITHOUT ROWID"
+    ", PRIMARY KEY (`file_id`)) WITHOUT ROWID"
 };
 
 static std::string const CREATE_OUTGOING_INDEX_BY_ID {
-    "CREATE UNIQUE INDEX IF NOT EXISTS `{0}_id_index` ON `{0}` (`id`)"
+    "CREATE UNIQUE INDEX IF NOT EXISTS `{0}_id_index` ON `{0}` (`file_id`)"
 };
 
 static std::string const CREATE_INCOMING_INDEX_BY_ID {
-    "CREATE UNIQUE INDEX IF NOT EXISTS `{0}_id_index` ON `{0}` (`id`)"
+    "CREATE UNIQUE INDEX IF NOT EXISTS `{0}_id_index` ON `{0}` (`file_id`)"
 };
 
 namespace backend {
@@ -54,28 +50,32 @@ file_cache::rep_type file_cache::make (shared_db_handle dbh)
     file_cache::rep_type rep;
 
     rep.dbh = dbh;
-    rep.out_table_name = DEFAULT_TABLE_NAME_PREFIX + "_out";
-    rep.in_table_name = DEFAULT_TABLE_NAME_PREFIX + "_in";
 
-    std::array<std::string, 4> sqls = {
-          fmt::format(CREATE_OUT_TABLE
-            , rep.out_table_name
-            , affinity_traits<file::id>::name()
-            , affinity_traits<decltype(file::file_credentials::abspath)>::name()
-            , affinity_traits<decltype(file::file_credentials::name)>::name()
-            , affinity_traits<decltype(file::file_credentials::size)>::name()
-            , affinity_traits<decltype(file::file_credentials::modtime)>::name())
-        , fmt::format(CREATE_INCOMING_TABLE
-            , rep.in_table_name
-            , affinity_traits<file::id>::name()
-            , affinity_traits<contact::id>::name()
-            , affinity_traits<decltype(file::file_credentials::abspath)>::name())
-        , fmt::format(CREATE_OUTGOING_INDEX_BY_ID , rep.out_table_name)
+    rep.in_table_name  = DEFAULT_INCOMING_TABLE_NAME;
+    rep.out_table_name = DEFAULT_OUTGOING_TABLE_NAME;
+
+    std::array<std::string, 2> sqls = {
+          fmt::format(CREATE_OUTGOING_INDEX_BY_ID , rep.out_table_name)
         , fmt::format(CREATE_INCOMING_INDEX_BY_ID , rep.in_table_name)
     };
 
     try {
         rep.dbh->begin();
+
+        for (auto const & table_name: {rep.in_table_name, rep.out_table_name}) {
+            auto sql = fmt::format(CREATE_FILE_CACHE_TABLE
+                , table_name
+                , affinity_traits<file::id>::name()
+                , affinity_traits<contact::id>::name()
+                , affinity_traits<contact::id>::name()
+                , affinity_traits<decltype(file::credentials::abspath)>::name()
+                , affinity_traits<decltype(file::credentials::name)>::name()
+                , affinity_traits<decltype(file::credentials::size)>::name()
+                , affinity_traits<decltype(file::credentials::mime)>::name()
+                , affinity_traits<decltype(file::credentials::modtime)>::name());
+
+            rep.dbh->query(sql);
+        }
 
         for (auto const & sql: sqls)
             rep.dbh->query(sql);
@@ -107,87 +107,29 @@ file_cache<BACKEND>::operator bool () const noexcept
     return !!_rep.dbh;
 }
 
-static std::string const INSERT_OUTGOING_FILE {
-    "INSERT OR REPLACE INTO `{}` (`id`, `path`, `name`, `size`, `modtime`)"
-    " VALUES (:file_id, :path, :name, :size, :modtime)"
-};
-
-template<>
-file::file_credentials
-file_cache<BACKEND>::store_outgoing_file (std::string const & uri
-    , std::string const & display_name
-    , std::int64_t size
-    , pfs::utc_time_point modtime)
+static void store_file (backend::sqlite3::shared_db_handle dbh, std::string const & table_name
+    , file::credentials const & fc)
 {
-    auto fc = file::make_credentials(uri, display_name, size, modtime);
-
-    auto stmt = _rep.dbh->prepare(fmt::format(INSERT_OUTGOING_FILE, _rep.out_table_name));
-
-    stmt.bind(":file_id", fc.file_id);
-    stmt.bind(":path"   , fc.abspath);
-    stmt.bind(":name"   , fc.name);
-    stmt.bind(":size"   , fc.size);
-    stmt.bind(":modtime", fc.modtime);
-
-    auto res = stmt.exec();
-    auto n = stmt.rows_affected();
-
-    if (n <= 0)
-        throw error {errc::storage_error, tr::_("Expected to cache file credentials")};
-
-    return fc;
-}
-
-template<>
-file::file_credentials
-file_cache<BACKEND>::store_outgoing_file (fs::path const & path)
-{
-    auto abspath = path.is_absolute()
-        ? path
-        : fs::absolute(path);
-
-    auto fc = file::make_credentials(abspath);
-
-    auto stmt = _rep.dbh->prepare(fmt::format(INSERT_OUTGOING_FILE, _rep.out_table_name));
-
-    stmt.bind(":file_id", fc.file_id);
-    stmt.bind(":path"   , fc.abspath);
-    stmt.bind(":name"   , fc.name);
-    stmt.bind(":size"   , fc.size);
-    stmt.bind(":modtime", fc.modtime);
-
-    auto res = stmt.exec();
-    auto n = stmt.rows_affected();
-
-    if (n <= 0)
-        throw error {errc::storage_error, tr::_("Expected to cache file credentials")};
-
-    return fc;
-}
-
-static std::string const INSERT_INCOMING_FILE {
-    "INSERT OR REPLACE INTO `{}` (`id`, `author_id`, `path`)"
-    " VALUES (:file_id, :author_id, :path)"
-};
-
-template<>
-void
-file_cache<BACKEND>::store_incoming_file (contact::id author_id, file::id file_id
-    , pfs::filesystem::path const & abspath)
-{
-    if (!abspath.is_absolute()) {
-        throw error {errc::filesystem_error
-            , tr::_("Path for incoming file must be an absolute")};
-    }
+    static std::string const INSERT_FILE {
+        "INSERT OR REPLACE INTO `{}` (`file_id`, `author_id`, `conversation_id`"
+            ", `abspath`, `name`, `size`, `mime`, `modtime`)"
+        " VALUES (:file_id, :author_id, :conversation_id, :abspath, :name"
+            ", :size, :mime, :modtime)"
+    };
 
     int n = 0;
 
     try {
-        auto stmt = _rep.dbh->prepare(fmt::format(INSERT_INCOMING_FILE, _rep.in_table_name));
+        auto stmt = dbh->prepare(fmt::format(INSERT_FILE, table_name));
 
-        stmt.bind(":file_id"  , file_id);
-        stmt.bind(":author_id", author_id);
-        stmt.bind(":path"     , abspath);
+        stmt.bind(":file_id"        , fc.file_id);
+        stmt.bind(":author_id"      , fc.author_id);
+        stmt.bind(":conversation_id", fc.conversation_id);
+        stmt.bind(":abspath"        , fc.abspath);
+        stmt.bind(":name"           , fc.name);
+        stmt.bind(":size"           , fc.size);
+        stmt.bind(":mime"           , fc.mime);
+        stmt.bind(":modtime"        , fc.modtime);
 
         auto res = stmt.exec();
         n = stmt.rows_affected();
@@ -196,72 +138,242 @@ file_cache<BACKEND>::store_incoming_file (contact::id author_id, file::id file_i
     }
 
     if (n <= 0) {
-        throw error {errc::storage_error
-            , tr::_("Unable to store incoming file credentials: unexpected issue")};
+        throw error {
+              errc::storage_error
+            , tr::f_("Unable to store file credentials into {}: unexpected issue"
+                , table_name)
+        };
     }
 }
 
-std::string const SELECT_OUTGOING_FILE_BY_ID {
-    "SELECT `id`, `path`, `name`, `size`, `modtime` FROM `{}` WHERE `id` = :id"
-};
+template<>
+file::credentials
+file_cache<BACKEND>::cache_outgoing_file (contact::id author_id
+    , contact::id conversation_id, fs::path const & path)
+{
+    auto abspath = path.is_absolute()
+        ? path
+        : fs::absolute(path);
+
+    file::credentials fc(author_id, conversation_id, abspath);
+    store_file(_rep.dbh, _rep.out_table_name, fc);
+
+    return fc;
+}
 
 template<>
-file::optional_file_credentials
+file::credentials
+file_cache<BACKEND>::cache_outgoing_file (contact::id author_id
+    , contact::id conversation_id
+    , std::string const & uri
+    , std::string const & display_name
+    , std::int64_t size
+    , pfs::utc_time_point modtime)
+{
+    file::credentials fc(author_id, conversation_id, uri
+        , display_name, size, modtime);
+    store_file(_rep.dbh, _rep.out_table_name, fc);
+
+    return fc;
+}
+
+template<>
+void
+file_cache<BACKEND>::reserve_incoming_file (file::id file_id
+    , contact::id author_id
+    , contact::id conversation_id
+    , std::string const & name
+    , std::size_t size
+    , mime_enum mime)
+{
+    static std::string const RESERVE_INCOMING_FILE {
+        "INSERT OR REPLACE INTO `{}` (`file_id`, `author_id`, `conversation_id`"
+            ", `abspath`, `name`, `size`, `mime`, `modtime`)"
+        " VALUES (:file_id, :author_id, :conversation_id, :abspath, :name"
+            ", :size, :mime, :modtime)"
+    };
+
+    int n = 0;
+
+    file::credentials fc(file_id, author_id, conversation_id, name, size, mime);
+
+    try {
+        auto stmt = _rep.dbh->prepare(fmt::format(RESERVE_INCOMING_FILE, _rep.in_table_name));
+
+        stmt.bind(":file_id"        , fc.file_id);
+        stmt.bind(":author_id"      , fc.author_id);
+        stmt.bind(":conversation_id", fc.conversation_id);
+        stmt.bind(":abspath"        , fc.abspath); // invalid value (will be updated later)
+        stmt.bind(":name"           , fc.name);
+        stmt.bind(":size"           , fc.size);
+        stmt.bind(":mime"           , fc.mime);
+        stmt.bind(":modtime"        , fc.modtime); // invalid value (will be updated later)
+
+        auto res = stmt.exec();
+        n = stmt.rows_affected();
+    } catch (debby::error ex) {
+        throw error {errc::storage_error, ex.what()};
+    }
+
+    if (n <= 0) {
+        throw error {
+              errc::storage_error
+            , tr::f_("Unable to reserve incoming file credentials into {}: unexpected issue"
+                , _rep.in_table_name)
+        };
+    }
+}
+
+template<>
+void
+file_cache<BACKEND>::commit_incoming_file (file::id file_id
+    , pfs::filesystem::path const & abspath)
+{
+    static std::string const COMMIT_INCOMING_FILE {
+        "UPDATE `{}` SET `abspath` = :abspath, `name` = :name, `size` = :size"
+        ", `modtime` = :modtime"
+        " WHERE `file_id` = :file_id"
+    };
+
+    bool no_mime = true; // MIME already set by `reserve_incoming_file`.
+    file::credentials fc(file_id, abspath, no_mime);
+
+    int n = 0;
+
+    try {
+        auto stmt = _rep.dbh->prepare(fmt::format(COMMIT_INCOMING_FILE, _rep.in_table_name));
+
+        stmt.bind(":file_id"        , fc.file_id);
+        stmt.bind(":abspath"        , fc.abspath);
+        stmt.bind(":name"           , fc.name);
+        stmt.bind(":size"           , fc.size);
+        stmt.bind(":modtime"        , fc.modtime);
+
+        auto res = stmt.exec();
+        n = stmt.rows_affected();
+    } catch (debby::error ex) {
+        throw error {errc::storage_error, ex.what()};
+    }
+
+    if (n <= 0) {
+        throw error {
+              errc::storage_error
+            , tr::f_("Unable to commit incoming file credentials into {}: unexpected issue"
+                , _rep.in_table_name)
+        };
+    }
+}
+
+static file::optional_credentials
+fetch_file (file::id file_id, backend::sqlite3::shared_db_handle dbh
+    , std::string const & table_name)
+{
+    static std::string const SELECT_FILE_BY_ID {
+        "SELECT `file_id`, `author_id`, `conversation_id`, `abspath`, `name`"
+            ", `size`, `mime`, `modtime`"
+        " FROM `{}` WHERE `file_id` = :file_id"
+    };
+
+    try {
+        auto stmt = dbh->prepare(fmt::format(SELECT_FILE_BY_ID, table_name));
+
+        stmt.bind(":file_id", file_id);
+
+        auto res = stmt.exec();
+
+        if (res.has_more()) {
+            file::credentials fc;
+
+            res["file_id"]         >> fc.file_id;
+            res["author_id"]       >> fc.author_id;
+            res["conversation_id"] >> fc.conversation_id;
+            res["abspath"]         >> fc.abspath;
+            res["name"]            >> fc.name;
+            res["size"]            >> fc.size;
+            res["mime"]            >> fc.mime;
+            res["modtime"]         >> fc.modtime;
+
+            return fc;
+        }
+    } catch (debby::error ex) {
+        throw error {errc::storage_error, ex.what()};
+    }
+
+    return pfs::nullopt;
+}
+
+template<>
+file::optional_credentials
 file_cache<BACKEND>::outgoing_file (file::id file_id) const
 {
-    auto stmt = _rep.dbh->prepare(fmt::format(SELECT_OUTGOING_FILE_BY_ID
-        , _rep.out_table_name));
-
-    stmt.bind(":id", file_id);
-
-    auto res = stmt.exec();
-
-    if (res.has_more()) {
-        file::file_credentials fc;
-
-        res["id"]      >> fc.file_id;
-        res["path"]    >> fc.abspath;
-        res["name"]    >> fc.name;
-        res["size"]    >> fc.size;
-        res["modtime"] >> fc.modtime;
-
-        return fc;
-    }
-
-    return pfs::nullopt;
+    return fetch_file(file_id, _rep.dbh, _rep.out_table_name);
 }
-
-std::string const SELECT_INCOMING_FILE_BY_ID {
-    "SELECT `id`, `author_id`, `path` FROM `{}` WHERE `id` = :id"
-};
 
 template<>
-file::optional_file_credentials
-file_cache<BACKEND>::incoming_file (file::id file_id, contact::id * author_id_ptr) const
+file::optional_credentials
+file_cache<BACKEND>::incoming_file (file::id file_id) const
 {
-    auto stmt = _rep.dbh->prepare(fmt::format(SELECT_INCOMING_FILE_BY_ID
-        , _rep.in_table_name));
-
-    stmt.bind(":id", file_id);
-
-    auto res = stmt.exec();
-
-    if (res.has_more()) {
-        file::file_credentials fc;
-
-        res["id"]   >> fc.file_id;
-        res["path"] >> fc.abspath;
-
-        if (author_id_ptr)
-            res["author_id"] >> *author_id_ptr;
-
-        return fc;
-    }
-
-    return pfs::nullopt;
+    return fetch_file(file_id, _rep.dbh, _rep.in_table_name);
 }
 
-std::string const DELETE_BY_ID { "DELETE FROM `{}` WHERE `id` = {}" };
+static
+std::vector<file::credentials>
+fetch_files (contact::id conversation_id, backend::sqlite3::shared_db_handle dbh
+    , std::string const & table_name)
+{
+    static std::string const SELECT_FILES {
+        "SELECT `file_id`, `author_id`, `conversation_id`, `abspath`, `name`"
+            ", `size`, `mime`, `modtime`"
+        " FROM `{}` WHERE `conversation_id` = :conversation_id"
+    };
+
+    std::vector<file::credentials> result;
+
+    try {
+        auto stmt = dbh->prepare(fmt::format(SELECT_FILES, table_name));
+
+        stmt.bind(":conversation_id", conversation_id);
+
+        auto res = stmt.exec();
+
+        while (res.has_more()) {
+            file::credentials fc;
+
+            res["file_id"]         >> fc.file_id;
+            res["author_id"]       >> fc.author_id;
+            res["conversation_id"] >> fc.conversation_id;
+            res["abspath"]         >> fc.abspath;
+            res["name"]            >> fc.name;
+            res["size"]            >> fc.size;
+            res["mime"]            >> fc.mime;
+            res["modtime"]         >> fc.modtime;
+
+            result.push_back(std::move(fc));
+
+            res.next();
+        }
+    } catch (debby::error ex) {
+        throw error {errc::storage_error, ex.what()};
+    }
+
+    return result;
+}
+
+template <>
+std::vector<file::credentials>
+file_cache<BACKEND>::outgoing_files (contact::id conversation_id) const
+{
+    return fetch_files(conversation_id, _rep.dbh, _rep.out_table_name);
+}
+
+template <>
+std::vector<file::credentials>
+file_cache<BACKEND>::incoming_files (contact::id conversation_id) const
+{
+    return fetch_files(conversation_id, _rep.dbh, _rep.in_table_name);
+}
+
+static std::string const DELETE_BY_ID { "DELETE FROM `{}` WHERE `file_id` = {}" };
 
 template<>
 void
@@ -279,13 +391,11 @@ file_cache<BACKEND>::remove_incoming_file (file::id file_id)
     _rep.dbh->query(sql);
 }
 
-static std::string const SELECT_PATH { "SELECT `id`, `path` FROM `{}`" };
-
 template<>
 void
 file_cache<BACKEND>::remove_broken ()
 {
-    //std::vector<file::id> broken_ids;
+    static std::string const SELECT_PATH { "SELECT `file_id`, `path` FROM `{}`" };
 
     try {
         _rep.dbh->begin();
@@ -298,7 +408,7 @@ file_cache<BACKEND>::remove_broken ()
                 file::id file_id;
                 fs::path path;
 
-                res["id"]   >> file_id;
+                res["file_id"]   >> file_id;
                 res["path"] >> path;
 
                 if (!fs::exists(path)) {

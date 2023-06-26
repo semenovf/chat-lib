@@ -116,9 +116,9 @@ TEST_CASE("outgoing messages") {
         auto ed = conversation.open(m.message_id);
 
         if (ed.content().count() > 0) {
-            REQUIRE_EQ(ed.content().at(0).mime, chat::message::mime_enum::text__plain);
-            REQUIRE_EQ(ed.content().at(1).mime, chat::message::mime_enum::text__html);
-            REQUIRE_EQ(ed.content().at(2).mime, chat::message::mime_enum::application__octet_stream);
+            REQUIRE_EQ(ed.content().at(0).mime, chat::mime_enum::text__plain);
+            REQUIRE_EQ(ed.content().at(1).mime, chat::mime_enum::text__html);
+            REQUIRE_EQ(ed.content().at(2).mime, chat::mime_enum::application__octet_stream);
 
             REQUIRE_EQ(ed.content().at(0).text, std::string{"Hello"});
             REQUIRE_EQ(ed.content().at(1).text, std::string{"<html><body><h1>World</h1></body></html>"});

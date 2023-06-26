@@ -23,7 +23,6 @@
 #endif
 
 namespace chat {
-namespace message {
 
 namespace fs = pfs::filesystem;
 using string_view = pfs::string_view;
@@ -167,4 +166,4 @@ mime_enum mime_by_extension (std::string const & filename)
     return mime_enum::application__octet_stream;
 }
 
-}} // namespace chat::message
+} // namespace chat

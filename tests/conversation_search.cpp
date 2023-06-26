@@ -28,11 +28,11 @@ static auto conversation_id = "01FV1KFY7WWS3WSBV4BFYF7ZC9"_uuid;
 
 static std::vector<chat::message::content_credentials> test_data = {
     {
-          chat::message::mime_enum::text__plain
+          chat::mime_enum::text__plain
         , "Лорем ипсум долор сит амет. Вис лорем. Хис ан ЛоРеМ, куад алтера лореМ. Еи хас ЛОРЕМ."
     }
     , {
-          chat::message::mime_enum::text__html
+          chat::mime_enum::text__html
         , "<span>Лорем ипсум долор сит амет.</span> Вис лорем. Хис ан <div ЛоРеМ>ЛоРеМ</div>, куад алтера лореМ. Еи хас ЛОРЕМ."
     }
 };
@@ -64,11 +64,11 @@ TEST_CASE("initialization") {
         auto ed = conversation.create();
 
         switch (cc.mime) {
-            case chat::message::mime_enum::text__plain:
+            case chat::mime_enum::text__plain:
                 ed.add_text(cc.text);
                 ed.save();
                 break;
-            case chat::message::mime_enum::text__html:
+            case chat::mime_enum::text__html:
                 ed.add_html(cc.text);
                 ed.save();
                 break;

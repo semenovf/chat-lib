@@ -12,6 +12,7 @@
 #include "exports.hpp"
 #include "file.hpp"
 #include "json.hpp"
+#include "mime.hpp"
 #include "pfs/filesystem.hpp"
 #include "pfs/optional.hpp"
 #include "pfs/time_point.hpp"
@@ -22,40 +23,6 @@ namespace chat {
 namespace message {
 
 using id = ::pfs::universal_id;
-
-// Media Types
-// [Media Types](https://www.iana.org/assignments/media-types/media-types.xhtml)
-enum class mime_enum
-{
-      // Used internally
-      invalid
-
-    // The default value for textual files.
-    // A textual file should be human-readable and must not contain binary data.
-    , text__plain
-
-    , text__html
-
-    // Special MIME type for attachments (files) described by
-    // `attachment_credentials`.
-    , application__octet_stream
-
-    // Concrete types of attachments.
-    // [RFC 2046](https://www.iana.org/assignments/media-types/audio/basic)
-    , audio__ogg
-
-    , audio__wav
-
-    , video__mp4
-
-    , image__bmp
-    , image__gif
-    , image__ico  // vnd.microsoft.icon
-    , image__jpeg
-    , image__jpg = image__jpeg
-    , image__png
-    , image__tiff
-};
 
 class id_generator
 {
@@ -71,14 +38,14 @@ public:
 struct content_credentials
 {
     mime_enum   mime; // Message content MIME
-    std::string text; // Message content (path for attachments, audio
-                      // and video files)
+    std::string text; // Message content or file name for attachments, audio
+                      // and video files
 };
 
 struct attachment_credentials
 {
     file::id         file_id;
-    std::string      name;   // file name
+    std::string      name;    // file name
     file::filesize_t size;
 };
 
@@ -150,7 +117,7 @@ public:
     /**
      * Attach file.
      */
-    CHAT__EXPORT void attach (file::file_credentials const & fc);
+    CHAT__EXPORT void attach (file::credentials const & fc);
 
     /**
      * Clear content (delete all content components).
@@ -186,11 +153,5 @@ struct message_credentials
 
     pfs::optional<content> contents;
 };
-
-CHAT__EXPORT
-mime_enum read_mime (pfs::filesystem::path const & path);
-
-CHAT__EXPORT
-mime_enum mime_by_extension (std::string const & filename);
 
 }} // namespace chat::message

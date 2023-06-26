@@ -397,10 +397,10 @@ TEST_CASE("messenger") {
 
         auto editor = conversation.open(last_message_id);
 
-        REQUIRE_EQ(editor.content().at(0).mime, chat::message::mime_enum::text__plain);
-        REQUIRE_EQ(editor.content().at(1).mime, chat::message::mime_enum::text__html);
-        REQUIRE_EQ(editor.content().at(2).mime, chat::message::mime_enum::application__octet_stream);
-        REQUIRE_EQ(editor.content().at(3).mime, chat::message::mime_enum::application__octet_stream);
+        REQUIRE_EQ(editor.content().at(0).mime, chat::mime_enum::text__plain);
+        REQUIRE_EQ(editor.content().at(1).mime, chat::mime_enum::text__html);
+        REQUIRE_EQ(editor.content().at(2).mime, chat::mime_enum::application__octet_stream);
+        REQUIRE_EQ(editor.content().at(3).mime, chat::mime_enum::application__octet_stream);
 
         REQUIRE_EQ(editor.content().at(0).text, TEXT);
         REQUIRE_EQ(editor.content().at(1).text, HTML);

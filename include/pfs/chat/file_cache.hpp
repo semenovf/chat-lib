@@ -11,6 +11,7 @@
 #include "file.hpp"
 #include "pfs/filesystem.hpp"
 #include "pfs/universal_id.hpp"
+#include <vector>
 
 namespace chat {
 
@@ -44,24 +45,35 @@ public:
      *
      * @return Stored file credentials.
      */
-    CHAT__EXPORT file::file_credentials store_outgoing_file (std::string const & uri
-        , std::string const & display_name
-        , std::int64_t size
-        , pfs::utc_time modtime);
+    CHAT__EXPORT file::credentials cache_outgoing_file (contact::id author_id
+        , contact::id conversation_id, pfs::filesystem::path const & path);
 
     /**
      * Stores the outgoing file credentials.
      *
      * @return Stored file credentials.
      */
-    CHAT__EXPORT file::file_credentials store_outgoing_file (
-        pfs::filesystem::path const & path);
+    CHAT__EXPORT file::credentials cache_outgoing_file (contact::id author_id
+        , contact::id conversation_id
+        , std::string const & uri
+        , std::string const & display_name
+        , std::int64_t size
+        , pfs::utc_time modtime);
 
     /**
-     * Stores the incoming file credentials.
+     * Reserve incoming file credentials in cache.
      */
-    CHAT__EXPORT void store_incoming_file (contact::id author_id
-        , file::id file_id
+    CHAT__EXPORT void reserve_incoming_file (file::id file_id
+        , contact::id author_id
+        , contact::id conversation_id
+        , std::string const & name
+        , std::size_t size
+        , mime_enum mime);
+
+    /**
+     * Commits (stores absolute path) the incoming file.
+     */
+    CHAT__EXPORT void commit_incoming_file (file::id file_id
         , pfs::filesystem::path const & path);
 
     /**
@@ -70,7 +82,7 @@ public:
      * @return Not @c nullopt if file credentials found and loaded successfully
      *         or @c nullopt otherwise.
      */
-    CHAT__EXPORT file::optional_file_credentials outgoing_file (file::id file_id) const;
+    CHAT__EXPORT file::optional_credentials outgoing_file (file::id file_id) const;
 
     /**
      * Loads incoming file credentials by specified unique identifier @a file_id.
@@ -81,8 +93,17 @@ public:
      * @return Not @c nullopt if file credentials found and loaded successfully
      *         or @c nullopt otherwise.
      */
-    CHAT__EXPORT file::optional_file_credentials incoming_file (file::id file_id
-        , contact::id * author_id_ptr = nullptr) const;
+    CHAT__EXPORT file::optional_credentials incoming_file (file::id file_id) const;
+
+    /**
+     * Total list of incoming files (attachments) from specified opponent.
+     */
+    CHAT__EXPORT std::vector<file::credentials> incoming_files (contact::id conversation_id) const;
+
+    /**
+     * Total list of outgoing files (attachments) for specified opponent.
+     */
+    CHAT__EXPORT std::vector<file::credentials> outgoing_files (contact::id conversation_id) const;
 
     /**
      * Removes broken outgoing and incoming file credentials (when there is no

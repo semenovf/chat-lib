@@ -144,25 +144,12 @@ void content::add_html (std::string const & text)
     _d.push_back(std::move(elem));
 }
 
-void content::attach (file::file_credentials const & fc)
+void content::attach (file::credentials const & fc)
 {
     using pfs::to_string;
 
-    auto mime = mime_enum::application__octet_stream;
-
-    // TODO Need more suitable check if file is not a local.
-    if (!pfs::starts_with(fc.abspath, "content:/")) {
-        mime = read_mime(fc.abspath);
-
-        // Try to recognize MIME by extension
-        if (mime == mime_enum::application__octet_stream)
-            mime = mime_by_extension(fc.name);
-    } else {
-        mime = mime_by_extension(fc.name);
-    }
-
     json elem;
-    elem[MIME_KEY]   = static_cast<int>(mime);
+    elem[MIME_KEY]   = static_cast<int>(fc.mime);
     elem[ID_KEY]     = to_string(fc.file_id);
     elem[TEXT_KEY]   = fc.name;
     elem[SIZE_KEY]   = fc.size;

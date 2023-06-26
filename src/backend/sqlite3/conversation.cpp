@@ -187,7 +187,10 @@ conversation<BACKEND>::conversation (conversation && other)
     : _rep(std::move(other._rep))
     , cache_outcome_local_file(std::move(other.cache_outcome_local_file))
     , cache_outcome_custom_file(std::move(other.cache_outcome_custom_file))
-{}
+{
+    other.cache_outcome_local_file = nullptr;
+    other.cache_outcome_custom_file = nullptr;
+}
 
 template <>
 conversation<BACKEND> & conversation<BACKEND>::operator = (conversation && other)
@@ -195,6 +198,8 @@ conversation<BACKEND> & conversation<BACKEND>::operator = (conversation && other
     _rep = std::move(other._rep);
     cache_outcome_local_file = std::move(other.cache_outcome_local_file);
     cache_outcome_custom_file = std::move(other.cache_outcome_custom_file);
+    other.cache_outcome_local_file = nullptr;
+    other.cache_outcome_custom_file = nullptr;
     return *this;
 }
 
