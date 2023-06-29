@@ -76,7 +76,7 @@ TEST_CASE("outgoing messages") {
     auto addressee_id = chat::contact::id_generator{}.next();
     auto conversation = message_store.conversation(addressee_id);
 
-    conversation.cache_outcome_local_file = [] (pfs::filesystem::path const & path) {
+    conversation.cache_outgoing_local_file = [] (pfs::filesystem::path const & path) {
         return chat::file::file_credentials {
               chat::file::id_generator{}.next()
             , path

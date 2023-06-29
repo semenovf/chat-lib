@@ -79,7 +79,7 @@ static filesize_t file_size_check_limit (fs::path const & path)
 }
 
 credentials::credentials (contact::id author_id, contact::id conversation_id
-    , fs::path const & path)
+    , message::id message_id, std::int16_t attachment_index, fs::path const & path)
 {
     auto abspath = path.is_absolute()
         ? path
@@ -115,18 +115,22 @@ credentials::credentials (contact::id author_id, contact::id conversation_id
     if (mime == mime_enum::application__octet_stream)
         mime = mime_by_extension(utf8_path);
 
-    this->file_id         = id_generator{}.next();
-    this->author_id       = author_id;
-    this->conversation_id = conversation_id;
-    this->abspath         = utf8_path;
-    this->name            = fs::utf8_encode(path.filename());
-    this->size            = filesize;
-    this->mime            = mime;
-    this->modtime         = modtime_utc(path);
+    this->file_id          = id_generator{}.next();
+    this->author_id        = author_id;
+    this->conversation_id  = conversation_id;
+    this->message_id       = message_id;
+    this->attachment_index = attachment_index;
+    this->abspath          = utf8_path;
+    this->name             = fs::utf8_encode(path.filename());
+    this->size             = filesize;
+    this->mime             = mime;
+    this->modtime          = modtime_utc(path);
 }
 
 credentials::credentials (contact::id author_id
     , contact::id conversation_id
+    , message::id message_id
+    , std::int16_t attachment_index
     , std::string const & uri
     , std::string const & display_name
     , std::int64_t size
@@ -145,19 +149,23 @@ credentials::credentials (contact::id author_id
 
     auto mime = mime_by_extension(display_name);
 
-    this->file_id = id_generator{}.next();
-    this->author_id       = author_id;
-    this->conversation_id = conversation_id;
-    this->abspath = uri;
-    this->name    = display_name;
-    this->size    = filesize;
-    this->mime    = mime;
-    this->modtime = modtime;
+    this->file_id          = id_generator{}.next();
+    this->author_id        = author_id;
+    this->conversation_id  = conversation_id;
+    this->message_id       = message_id;
+    this->attachment_index = attachment_index;
+    this->abspath          = uri;
+    this->name             = display_name;
+    this->size             = filesize;
+    this->mime             = mime;
+    this->modtime          = modtime;
 }
 
 credentials::credentials (file::id file_id
     , contact::id author_id
     , contact::id conversation_id
+    , message::id message_id
+    , std::int16_t attachment_index
     , std::string const & name
     , std::size_t size
     , mime_enum mime)
@@ -173,14 +181,16 @@ credentials::credentials (file::id file_id
         };
     }
 
-    this->file_id = file_id;
-    this->author_id = author_id;
-    this->conversation_id = conversation_id;
-    this->abspath = std::string{};
-    this->name    = name;
-    this->size    = filesize;
-    this->mime    = mime;
-    this->modtime = pfs::utc_time_point{};
+    this->file_id          = file_id;
+    this->author_id        = author_id;
+    this->conversation_id  = conversation_id;
+    this->message_id       = message_id;
+    this->attachment_index = attachment_index;
+    this->abspath          = std::string{};
+    this->name             = name;
+    this->size             = filesize;
+    this->mime             = mime;
+    this->modtime          = pfs::utc_time_point{};
 }
 
 credentials::credentials (file::id file_id, pfs::filesystem::path const & path

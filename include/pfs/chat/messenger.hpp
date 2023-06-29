@@ -22,6 +22,7 @@
 #include "pfs/fmt.hpp"
 #include "pfs/i18n.hpp"
 #include "pfs/log.hpp"
+#include "pfs/numeric_cast.hpp"
 #include <algorithm>
 #include <functional>
 #include <iterator>
@@ -535,17 +536,23 @@ public:
 
         auto convers = _message_store->conversation(conversation_id);
 
-        convers.cache_outcome_local_file = [this, conversation_id] (pfs::filesystem::path const & path) {
+        convers.cache_outgoing_local_file = [this, conversation_id] (message::id message_id
+                , std::int16_t attachment_index, pfs::filesystem::path const & path) {
+
             return _file_cache->cache_outgoing_file(my_contact().contact_id
-                , conversation_id, path);
+                , conversation_id, message_id, attachment_index, path);
         };
 
-        convers.cache_outcome_custom_file = [this, conversation_id] (std::string const & uri
+        convers.cache_outgoing_custom_file = [this, conversation_id] (
+                  message::id message_id
+                , std::int16_t attachment_index
+                , std::string const & uri
                 , std::string const & display_name
                 , std::int64_t size
                 , pfs::utc_time modtime) {
             return _file_cache->cache_outgoing_file(my_contact().contact_id
-                , conversation_id, uri, display_name, size, modtime);
+                , conversation_id, message_id, attachment_index, uri
+                , display_name, size, modtime);
         };
 
         return convers;
@@ -961,32 +968,30 @@ public:
         _file_cache->commit_incoming_file(file_id, path);
     }
 
-    std::string incoming_file (file::id file_id) const
+    file::optional_credentials incoming_file (file::id file_id) const
     {
-        auto fc = _file_cache->incoming_file(file_id);
-        return !!fc ? fc->abspath : std::string{};
+        return _file_cache->incoming_file(file_id);
     }
 
-    std::string outgoing_file (file::id file_id) const
+    file::optional_credentials outgoing_file (file::id file_id) const
     {
-        auto fc = _file_cache->outgoing_file(file_id);
-        return !!fc ? fc->abspath : std::string{};
-    }
-
-    /**
-     * Total list of incoming files (attachments) from specified opponent.
-     */
-    std::vector<file::credentials> incoming_files (contact::id opponent_id) const
-    {
-        return _file_cache->incoming_files(opponent_id);
+        return _file_cache->outgoing_file(file_id);
     }
 
     /**
-     * Total list of outgoing files (attachments) for specified opponent.
+     * Total list of incoming files (attachments) from specified conversation.
      */
-    std::vector<file::credentials> outgoing_files (contact::id opponent_id) const
+    std::vector<file::credentials> incoming_files (contact::id conversation_id) const
     {
-        return _file_cache->outgoing_files(opponent_id);
+        return _file_cache->incoming_files(conversation_id);
+    }
+
+    /**
+     * Total list of outgoing files (attachments) for specified conversation.
+     */
+    std::vector<file::credentials> outgoing_files (contact::id conversation_id) const
+    {
+        return _file_cache->outgoing_files(conversation_id);
     }
 
     /**
@@ -1090,7 +1095,8 @@ private:
             // Attachment really
             if (!att.name.empty()) {
                 _file_cache->reserve_incoming_file(att.file_id, m.author_id
-                    , m.conversation_id, att.name, att.size, cc.mime);
+                    , m.conversation_id, m.message_id, pfs::numeric_cast<std::int16_t>(i)
+                    , att.name, att.size, cc.mime);
             }
         }
 

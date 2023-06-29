@@ -185,21 +185,21 @@ conversation<BACKEND>::conversation ()
 template <>
 conversation<BACKEND>::conversation (conversation && other)
     : _rep(std::move(other._rep))
-    , cache_outcome_local_file(std::move(other.cache_outcome_local_file))
-    , cache_outcome_custom_file(std::move(other.cache_outcome_custom_file))
+    , cache_outgoing_local_file(std::move(other.cache_outgoing_local_file))
+    , cache_outgoing_custom_file(std::move(other.cache_outgoing_custom_file))
 {
-    other.cache_outcome_local_file = nullptr;
-    other.cache_outcome_custom_file = nullptr;
+    other.cache_outgoing_local_file = nullptr;
+    other.cache_outgoing_custom_file = nullptr;
 }
 
 template <>
 conversation<BACKEND> & conversation<BACKEND>::operator = (conversation && other)
 {
     _rep = std::move(other._rep);
-    cache_outcome_local_file = std::move(other.cache_outcome_local_file);
-    cache_outcome_custom_file = std::move(other.cache_outcome_custom_file);
-    other.cache_outcome_local_file = nullptr;
-    other.cache_outcome_custom_file = nullptr;
+    cache_outgoing_local_file = std::move(other.cache_outgoing_local_file);
+    cache_outgoing_custom_file = std::move(other.cache_outgoing_custom_file);
+    other.cache_outgoing_local_file = nullptr;
+    other.cache_outgoing_custom_file = nullptr;
     return *this;
 }
 
@@ -326,8 +326,8 @@ conversation<BACKEND>::editor_type
 conversation<BACKEND>::create ()
 {
     auto ed = editor_type::make(& this->_rep, message::id{});
-    ed.cache_outcome_local_file = cache_outcome_local_file;
-    ed.cache_outcome_custom_file = cache_outcome_custom_file;
+    ed.cache_outgoing_local_file = cache_outgoing_local_file;
+    ed.cache_outgoing_custom_file = cache_outgoing_custom_file;
     return ed;
 }
 
@@ -363,7 +363,7 @@ conversation<BACKEND>::open (message::id message_id)
             content = message::content{*content_data};
 
         auto ed = editor_type::make(& this->_rep, message_id, std::move(content));
-        ed.cache_outcome_local_file = cache_outcome_local_file;
+        ed.cache_outgoing_local_file = cache_outgoing_local_file;
         return ed;
     }
 

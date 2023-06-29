@@ -20,6 +20,13 @@
 #include <memory>
 
 namespace chat {
+namespace message {
+
+using id = ::pfs::universal_id;
+
+}}
+
+namespace chat {
 namespace file {
 
 using id = pfs::universal_id;
@@ -32,6 +39,8 @@ struct credentials
 
     contact::id author_id;
     contact::id conversation_id;
+    message::id message_id;
+    std::int16_t attachment_index {-1}; // attachment index in the message::content object
 
     // Absolute path.
     // For outgoing file it is absolute path in local filesystem or URI.
@@ -66,6 +75,7 @@ public:
      */
     CHAT__EXPORT
     credentials (contact::id author_id, contact::id conversation_id
+        , message::id message_id, std::int16_t attachment_index
         , pfs::filesystem::path const & path);
 
     /**
@@ -75,6 +85,8 @@ public:
     CHAT__EXPORT
     credentials (contact::id author_id
         , contact::id conversation_id
+        , message::id message_id
+        , std::int16_t attachment_index
         , std::string const & uri
         , std::string const & display_name
         , std::int64_t size
@@ -87,6 +99,8 @@ public:
     credentials (file::id file_id
         , contact::id author_id
         , contact::id conversation_id
+        , message::id message_id
+        , std::int16_t attachment_index
         , std::string const & name
         , std::size_t size
         , mime_enum mime);

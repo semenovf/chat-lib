@@ -46,7 +46,8 @@ public:
      * @return Stored file credentials.
      */
     CHAT__EXPORT file::credentials cache_outgoing_file (contact::id author_id
-        , contact::id conversation_id, pfs::filesystem::path const & path);
+        , contact::id conversation_id, message::id message_id
+        , std::int16_t attachment_index,  pfs::filesystem::path const & path);
 
     /**
      * Stores the outgoing file credentials.
@@ -55,6 +56,8 @@ public:
      */
     CHAT__EXPORT file::credentials cache_outgoing_file (contact::id author_id
         , contact::id conversation_id
+        , message::id message_id
+        , std::int16_t attachment_index
         , std::string const & uri
         , std::string const & display_name
         , std::int64_t size
@@ -66,6 +69,8 @@ public:
     CHAT__EXPORT void reserve_incoming_file (file::id file_id
         , contact::id author_id
         , contact::id conversation_id
+        , message::id message_id
+        , std::int16_t attachment_index
         , std::string const & name
         , std::size_t size
         , mime_enum mime);
