@@ -1011,12 +1011,21 @@ public:
     }
 
     /**
-     * Erases all person contacts, groups, channels and all messages.
+     * Erases file cache.
+     */
+    void clear_file_cache ()
+    {
+        _file_cache->clear();
+    }
+
+    /**
+     * Erases all person contacts, groups, channels and all messages, and file cache.
      */
     void wipe_all ()
     {
         wipe_contacts();
         wipe_messages();
+        clear_file_cache();
     }
 
     activity_manager_type const & get_activity_manager () const noexcept

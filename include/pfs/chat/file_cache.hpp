@@ -125,13 +125,6 @@ public:
      */
     CHAT__EXPORT void clear () noexcept;
 
-    /**
-     * Wipes (drop) file cache.
-     *
-     * @throw chat::error @c errc::storage_error on storage error.
-     */
-    CHAT__EXPORT void wipe () noexcept;
-
 private:
     /**
      * Removes outgoing file credentials from cache by specified unique identifier

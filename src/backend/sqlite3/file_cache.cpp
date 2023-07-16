@@ -464,18 +464,4 @@ file_cache<BACKEND>::clear () noexcept
     }
 }
 
-static std::string const DROP_TABLE {
-    "DROP TABLE IF EXISTS `{}`"
-};
-
-template<>
-void
-file_cache<BACKEND>::wipe () noexcept
-{
-    for (auto const * table_name: {& _rep.out_table_name, & _rep.in_table_name}) {
-        auto stmt = _rep.dbh->prepare(fmt::format(DROP_TABLE, *table_name));
-        stmt.exec();
-    }
-}
-
 } // namespace chat
