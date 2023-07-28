@@ -245,17 +245,20 @@ template <typename Conversation>
 class conversation_searcher
 {
 public:
-    using match_item    = message_searcher::match_item;
-    using search_result = message_searcher::search_result;
+    using match_item = message_searcher::match_item;
+
+    struct search_result
+    {
+        std::size_t total_found;
+        std::map<message::id, message_searcher::search_result> m;
+    };
 
 private:
-    contact::id _contact_id;
     Conversation const * _pcv {nullptr};
 
 public:
-    conversation_searcher (contact::id contact_id, Conversation const & cv)
-        : _contact_id(contact_id)
-        , _pcv(& cv)
+    conversation_searcher (Conversation const & cv)
+        : _pcv(& cv)
     {}
 
 public:
@@ -266,9 +269,16 @@ public:
         , search_flags sf = search_flags::ignore_case | search_flags::text_content) const
     {
         search_result sr;
+        sr.total_found = 0;
 
         _pcv->for_each([this, & sr, & pattern, sf] (message::message_credentials const & mc) {
-            message_searcher{_contact_id, mc}.search_all(sr, pattern, sf);
+            message_searcher::search_result msr;
+            message_searcher{_pcv->id(), mc}.search_all(msr, pattern, sf);
+
+            if (!msr.m.empty()) {
+                sr.total_found += msr.m.size();
+                sr.m.emplace(mc.message_id, std::move(msr));
+            }
         });
 
         return sr;
@@ -278,9 +288,16 @@ public:
         , search_flags sf = search_flags::ignore_case | search_flags::text_content) const
     {
         search_result sr;
+        sr.total_found = 0;
 
         _pcv->for_each([this, & sr, & pattern, sf] (message::message_credentials const & mc) {
-            message_searcher{_contact_id, mc}.search_first(sr, pattern, sf);
+            message_searcher::search_result msr;
+            message_searcher{_pcv->id(), mc}.search_first(msr, pattern, sf);
+
+            if (!msr.m.empty()) {
+                sr.total_found += msr.m.size();
+                sr.m.emplace(mc.message_id, std::move(msr));
+            }
         });
 
         return sr;
