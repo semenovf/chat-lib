@@ -250,7 +250,8 @@ public:
     struct search_result
     {
         std::size_t total_found;
-        std::map<message::id, message_searcher::search_result> m;
+        std::vector<message_searcher::search_result> m;
+        std::map<message::id, std::size_t> indices;
     };
 
 private:
@@ -277,7 +278,8 @@ public:
 
             if (!msr.m.empty()) {
                 sr.total_found += msr.m.size();
-                sr.m.emplace(mc.message_id, std::move(msr));
+                sr.m.push_back(std::move(msr));
+                sr.indices.emplace(mc.message_id, sr.m.size() - 1);
             }
         });
 
@@ -296,7 +298,8 @@ public:
 
             if (!msr.m.empty()) {
                 sr.total_found += msr.m.size();
-                sr.m.emplace(mc.message_id, std::move(msr));
+                sr.m.push_back(std::move(msr));
+                sr.indices.emplace(mc.message_id, sr.m.size() - 1);
             }
         });
 
