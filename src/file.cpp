@@ -11,6 +11,7 @@
 #include "pfs/filesystem.hpp"
 #include "pfs/i18n.hpp"
 #include "pfs/time_point.hpp"
+#include <utility>
 
 namespace chat {
 namespace file {
@@ -45,26 +46,20 @@ static pfs::utc_time_point modtime_utc (fs::path const & path)
     return pfs::utc_time_point_cast(pfs::local_time_point{last_write_time.time_since_epoch()});
 }
 
-/**
- * @return @a filesize cast to @c filesize_t or @c filesize_t{-1} if the file
- *         size exceeded the limit.
- */
-static filesize_t file_size_check_limit (std::size_t filesize)
+static std::pair<bool, std::size_t> file_size_check_limit (std::size_t filesize)
 {
     if (filesize > (std::numeric_limits<filesize_t>::max)())
-        return filesize_t{-1};
+        return std::make_pair(false, filesize);
 
-    return static_cast<filesize_t>(filesize);
+    return std::make_pair(true, filesize);
 }
 
 /**
  * Obtains file size with checking the upper limit.
  *
- * @return File size or @c filesize_t{-1} if the file size exceeded the limit.
- *
  * @throw chat::error (@c errc::filesystem_error) on filesystem error.
  */
-static filesize_t file_size_check_limit (fs::path const & path)
+static std::pair<bool, std::size_t> file_size_check_limit (fs::path const & path)
 {
     std::error_code ec;
     auto filesize = fs::file_size(path, ec);
@@ -73,9 +68,20 @@ static filesize_t file_size_check_limit (fs::path const & path)
         throw error {errc::filesystem_error, fs::utf8_encode(path), ec.message()};
 
     if (filesize > (std::numeric_limits<filesize_t>::max)())
-        return filesize_t{-1};
+        return std::make_pair(false, filesize);
 
-    return static_cast<filesize_t>(filesize);
+    return std::make_pair(true, filesize);
+}
+
+static error make_filesize_limit_error (std::string const & path, std::size_t filesize)
+{
+    return error {
+          errc::attachment_failure
+        , path
+        , tr::f_("maximum file size limit ({} bytes) exceeded: {} bytes"
+            ", use another way to transfer file or data"
+            , (std::numeric_limits<filesize_t>::max)(), filesize)
+    };
 }
 
 credentials::credentials (contact::id author_id, contact::id conversation_id
@@ -98,16 +104,10 @@ credentials::credentials (contact::id author_id, contact::id conversation_id
         };
     }
 
-    auto filesize = file_size_check_limit(path);
+    auto res = file_size_check_limit(path);
 
-    if (filesize < 0) {
-        throw error {
-              errc::attachment_failure
-            , utf8_path
-            , tr::_("maximum file size limit exceeded"
-                ", use another way to transfer file or data")
-        };
-    }
+    if (!res.first)
+        throw make_filesize_limit_error(utf8_path, res.second);
 
     auto mime = read_mime(path);
 
@@ -122,7 +122,7 @@ credentials::credentials (contact::id author_id, contact::id conversation_id
     this->attachment_index = attachment_index;
     this->abspath          = utf8_path;
     this->name             = fs::utf8_encode(path.filename());
-    this->size             = filesize;
+    this->size             = static_cast<filesize_t>(res.second);
     this->mime             = mime;
     this->modtime          = modtime_utc(path);
 }
@@ -136,16 +136,10 @@ credentials::credentials (contact::id author_id
     , std::int64_t size
     , pfs::utc_time_point modtime)
 {
-    auto filesize = file_size_check_limit(size);
+    auto res = file_size_check_limit(size);
 
-    if (filesize < 0) {
-        throw error {
-              errc::attachment_failure
-            , uri
-            , tr::_("maximum file size limit exceeded"
-                ", use another way to transfer file or data")
-        };
-    }
+    if (!res.first)
+        throw make_filesize_limit_error(uri, size);
 
     auto mime = mime_by_extension(display_name);
 
@@ -156,7 +150,7 @@ credentials::credentials (contact::id author_id
     this->attachment_index = attachment_index;
     this->abspath          = uri;
     this->name             = display_name;
-    this->size             = filesize;
+    this->size             = static_cast<filesize_t>(size);
     this->mime             = mime;
     this->modtime          = modtime;
 }
@@ -170,16 +164,10 @@ credentials::credentials (file::id file_id
     , std::size_t size
     , mime_enum mime)
 {
-    auto filesize = file_size_check_limit(size);
+    auto res = file_size_check_limit(size);
 
-    if (filesize < 0) {
-        throw error {
-              errc::attachment_failure
-            , name
-            , tr::_("maximum file size limit exceeded"
-                ", use another way to transfer file or data")
-        };
-    }
+    if (!res.first)
+        throw make_filesize_limit_error(name, size);
 
     this->file_id          = file_id;
     this->author_id        = author_id;
@@ -188,7 +176,7 @@ credentials::credentials (file::id file_id
     this->attachment_index = attachment_index;
     this->abspath          = std::string{};
     this->name             = name;
-    this->size             = filesize;
+    this->size             = static_cast<filesize_t>(size);
     this->mime             = mime;
     this->modtime          = pfs::utc_time_point{};
 }
@@ -213,23 +201,17 @@ credentials::credentials (file::id file_id, pfs::filesystem::path const & path
         };
     }
 
-    auto filesize = file_size_check_limit(path);
+    auto res = file_size_check_limit(path);
 
-    if (filesize < 0) {
-        throw error {
-              errc::attachment_failure
-            , utf8_path
-            , tr::_("maximum file size limit exceeded"
-                ", use another way to transfer file or data")
-        };
-    }
+    if (!res.first)
+        throw make_filesize_limit_error(utf8_path, size);
 
     this->file_id         = file_id;
     //this->author_id       = author_id;
     //this->conversation_id = conversation_id;
     this->abspath         = utf8_path;
     this->name            = fs::utf8_encode(path.filename());
-    this->size            = filesize;
+    this->size            = static_cast<filesize_t>(res.second);
     this->modtime         = modtime_utc(path);
 
     if (! no_mime) {
