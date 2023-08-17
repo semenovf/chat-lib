@@ -23,10 +23,11 @@ namespace chat {
 
 enum class conversation_sort_flag: int
 {
-      by_creation_time       = 1 << 0
-    , by_modification_time   = 1 << 1
-    , by_delivered_time      = 1 << 2
-    , by_read_time           = 1 << 3
+      by_id                = 1 << 0
+    , by_creation_time     = 1 << 1
+    , by_modification_time = 1 << 2
+    , by_delivered_time    = 1 << 3
+    , by_read_time         = 1 << 4
 
     , ascending_order  = 1 << 8
     , descending_order = 1 << 9
@@ -177,11 +178,11 @@ public:
      * @throw debby::error on storage error.
      * @throw chat::error if message content is invalid (i.e. bad JSON source).
      *
-     * @note By default, messages are sorted by create time. Thus the messages
-     *       can be displayed in the correct chronological order.
+     * @note By default, messages are sorted by sequential identifier. Thus the
+     *       messages can be displayed in the order in which they were saved.
      */
     CHAT__EXPORT pfs::optional<message::message_credentials>
-    message (int offset, int sf = sort_flags(conversation_sort_flag::by_creation_time
+    message (int offset, int sf = sort_flags(conversation_sort_flag::by_id
         , conversation_sort_flag::ascending_order)) const;
 
     /**

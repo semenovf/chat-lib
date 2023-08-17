@@ -143,10 +143,12 @@ static void prefetch (BACKEND::rep_type const * rep
     rep->cache.dirty = true;
     rep->cache.sort_flags = sort_flags;
 
-    std::string field = "`creation_time`";
+    std::string field = "`rowid`";
     std::string order = "ASC";
 
-    if (sort_flag_on(sort_flags, conversation_sort_flag::by_creation_time))
+    if (sort_flag_on(sort_flags, conversation_sort_flag::by_id))
+        field = "`rowid`";
+    else if (sort_flag_on(sort_flags, conversation_sort_flag::by_creation_time))
         field = "`creation_time`";
     else if (sort_flag_on(sort_flags, conversation_sort_flag::by_modification_time))
         field = "`modification_time`";
