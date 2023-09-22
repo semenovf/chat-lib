@@ -109,11 +109,7 @@ credentials::credentials (contact::id author_id, contact::id conversation_id
     if (!res.first)
         throw make_filesize_limit_error(utf8_path, res.second);
 
-    auto mime = read_mime(path);
-
-    // Try to recognize MIME by extension
-    if (mime == mime_enum::application__octet_stream)
-        mime = mime_by_extension(utf8_path);
+    auto mime = mime::mime_by_extension_fallback(utf8_path);
 
     this->file_id          = id_generator{}.next();
     this->author_id        = author_id;
@@ -141,7 +137,7 @@ credentials::credentials (contact::id author_id
     if (!res.first)
         throw make_filesize_limit_error(uri, size);
 
-    auto mime = mime_by_extension(display_name);
+    auto mime = mime::mime_by_extension_fallback(display_name);
 
     this->file_id          = id_generator{}.next();
     this->author_id        = author_id;
@@ -162,7 +158,7 @@ credentials::credentials (file::id file_id
     , std::int16_t attachment_index
     , std::string const & name
     , std::size_t size
-    , mime_enum mime)
+    , mime::mime_enum mime)
 {
     auto res = file_size_check_limit(size);
 
@@ -214,15 +210,8 @@ credentials::credentials (file::id file_id, pfs::filesystem::path const & path
     this->size            = static_cast<filesize_t>(res.second);
     this->modtime         = modtime_utc(path);
 
-    if (! no_mime) {
-        auto mime = read_mime(path);
-
-        // Try to recognize MIME by extension
-        if (mime == mime_enum::application__octet_stream)
-            mime = mime_by_extension(utf8_path);
-
-        this->mime = mime;
-    }
+    if (! no_mime)
+        this->mime = mime::mime_by_extension_fallback(utf8_path);
 }
 
 }} // namespace chat::file

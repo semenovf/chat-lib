@@ -12,8 +12,8 @@
 #include "exports.hpp"
 #include "file.hpp"
 #include "json.hpp"
-#include "mime.hpp"
 #include "pfs/filesystem.hpp"
+#include "pfs/mime.hpp"
 #include "pfs/optional.hpp"
 #include "pfs/time_point.hpp"
 #include "pfs/universal_id.hpp"
@@ -37,7 +37,7 @@ public:
 
 struct content_credentials
 {
-    mime_enum   mime; // Message content MIME
+    mime::mime_enum mime; // Message content MIME
     std::string text; // Message content or file name for attachments, audio
                       // and video files
 };

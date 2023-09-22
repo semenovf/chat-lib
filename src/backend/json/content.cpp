@@ -53,40 +53,20 @@ std::size_t content::count () const noexcept
 content_credentials content::at (std::size_t index) const
 {
     if (index >= _d.size())
-        return content_credentials{mime_enum::invalid, std::string{}};
+        return content_credentials{mime::mime_enum::unknown, std::string{}};
 
     auto elem = _d[index];
     assert(elem);
 
-    auto x = jeyson::get_or<int>(elem[MIME_KEY], static_cast<int>(mime_enum::invalid));
-    auto mime = static_cast<mime_enum>(x);
+    auto x = jeyson::get_or<int>(elem[MIME_KEY], static_cast<int>(mime::mime_enum::unknown));
+    auto mime = static_cast<mime::mime_enum>(x);
 
-    switch (mime) {
-        case mime_enum::text__plain:
-        case mime_enum::text__html: {
-            auto text = jeyson::get_or<std::string>(elem[TEXT_KEY], std::string{});
-            return content_credentials{mime, text};
-        }
-
-        case mime_enum::application__octet_stream:
-        case mime_enum::audio__ogg:
-        case mime_enum::audio__wav:
-        case mime_enum::video__mp4:
-        case mime_enum::image__bmp:
-        case mime_enum::image__gif:
-        case mime_enum::image__ico:
-        case mime_enum::image__jpeg:
-        case mime_enum::image__png:
-        case mime_enum::image__tiff: {
-            auto text = jeyson::get_or<std::string>(elem[TEXT_KEY], std::string{});
-            return content_credentials{mime, text};
-        }
-
-        default:
-            break;
+    if (is_valid(mime)) {
+        auto text = jeyson::get_or<std::string>(elem[TEXT_KEY], std::string{});
+        return content_credentials{mime, text};
     }
 
-    return content_credentials{mime_enum::invalid, std::string{}};
+    return content_credentials{mime::mime_enum::unknown, std::string{}};
 }
 
 attachment_credentials content::attachment (std::size_t index) const
@@ -95,33 +75,20 @@ attachment_credentials content::attachment (std::size_t index) const
         auto elem = _d[index];
         assert(elem);
 
-        auto x = jeyson::get_or<int>(elem[MIME_KEY], static_cast<int>(mime_enum::invalid));
-        auto mime = static_cast<mime_enum>(x);
+        auto x = jeyson::get_or<int>(elem[MIME_KEY], static_cast<int>(mime::mime_enum::unknown));
+        auto mime = static_cast<mime::mime_enum>(x);
 
-        switch (mime) {
-            case mime_enum::application__octet_stream:
-            case mime_enum::audio__ogg:
-            case mime_enum::audio__wav:
-            case mime_enum::video__mp4:
-            case mime_enum::image__bmp:
-            case mime_enum::image__gif:
-            case mime_enum::image__ico:
-            case mime_enum::image__jpeg:
-            case mime_enum::image__png:
-            case mime_enum::image__tiff: {
-                auto file_id = jeyson::get_or<std::string>(elem[ID_KEY], std::string{});
-                auto name    = jeyson::get_or<std::string>(elem[TEXT_KEY], std::string{});
-                auto size    = jeyson::get_or<file::filesize_t>(elem[SIZE_KEY], 0);
+        if (is_valid(mime) && !(mime == mime::mime_enum::text__plain
+                || mime == mime::mime_enum::text__html)) {
+            auto file_id = jeyson::get_or<std::string>(elem[ID_KEY], std::string{});
+            auto name    = jeyson::get_or<std::string>(elem[TEXT_KEY], std::string{});
+            auto size    = jeyson::get_or<file::filesize_t>(elem[SIZE_KEY], 0);
 
-                return attachment_credentials {
-                      pfs::from_string<file::id>(file_id)
-                    , name
-                    , size
-                };
-            }
-
-            default:
-                break;
+            return attachment_credentials {
+                    pfs::from_string<file::id>(file_id)
+                , name
+                , size
+            };
         }
     }
 
@@ -131,7 +98,7 @@ attachment_credentials content::attachment (std::size_t index) const
 void content::add_text (std::string const & text)
 {
     json elem;
-    elem[MIME_KEY] = static_cast<int>(mime_enum::text__plain);
+    elem[MIME_KEY] = static_cast<int>(mime::mime_enum::text__plain);
     elem[TEXT_KEY] = text;
     _d.push_back(std::move(elem));
 }
@@ -139,7 +106,7 @@ void content::add_text (std::string const & text)
 void content::add_html (std::string const & text)
 {
     json elem;
-    elem[MIME_KEY] = static_cast<int>(mime_enum::text__html);
+    elem[MIME_KEY] = static_cast<int>(mime::mime_enum::text__html);
     elem[TEXT_KEY] = text;
     _d.push_back(std::move(elem));
 }

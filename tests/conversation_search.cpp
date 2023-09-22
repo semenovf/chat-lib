@@ -28,11 +28,11 @@ static auto conversation_id = "01FV1KFY7WWS3WSBV4BFYF7ZC9"_uuid;
 
 static std::vector<chat::message::content_credentials> test_data = {
     {
-          chat::mime_enum::text__plain
+          mime::mime_enum::text__plain
         , "Лорем ипсум долор сит амет. Вис лорем. Хис ан ЛоРеМ, куад алтера лореМ. Еи хас ЛОРЕМ."
     }
     , {
-          chat::mime_enum::text__html
+          mime::mime_enum::text__html
         , "<span>Лорем ипсум долор сит амет.</span> Вис лорем. Хис ан <div ЛоРеМ>ЛоРеМ</div>, куад алтера лореМ. Еи хас ЛОРЕМ."
     }
 };
@@ -64,11 +64,11 @@ TEST_CASE("initialization") {
         auto ed = conversation.create();
 
         switch (cc.mime) {
-            case chat::mime_enum::text__plain:
+            case mime::mime_enum::text__plain:
                 ed.add_text(cc.text);
                 ed.save();
                 break;
-            case chat::mime_enum::text__html:
+            case mime::mime_enum::text__html:
                 ed.add_html(cc.text);
                 ed.save();
                 break;
@@ -88,26 +88,24 @@ TEST_CASE("search") {
     REQUIRE(message_store);
 
     auto conversation = message_store.conversation(conversation_id);
-    chat::conversation_searcher<decltype(conversation)> conversation_searcher{conversation_id, conversation};
+    chat::conversation_searcher<decltype(conversation)> conversation_searcher{conversation};
     auto search_result = conversation_searcher.search_all("лорем"
         , chat::search_flags{chat::search_flags::ignore_case
             | chat::search_flags::text_content});
 
-    int counter = 0;
+    REQUIRE_EQ(search_result.total_found, 10);
+    int counter = 1;
 
     for (auto const & r: search_result.m) {
-        auto m = conversation.message(r.message_id);
+        for (auto const & r1: r.m) {
+            auto m = conversation.message(r1.message_id);
+            auto cc = m->contents->at(r1.content_index);
 
-        counter++;
+            std::string prefix (cc.text.begin(), cc.text.begin() + r1.m.cu_first);
+            std::string substr (cc.text.begin() + r1.m.cu_first, cc.text.begin() + r1.m.cu_last);
+            std::string suffix (cc.text.begin() + r1.m.cu_last, cc.text.end());
 
-        auto cc = m->contents->at(r.content_index);
-
-        std::string prefix (cc.text.begin(), cc.text.begin() + r.m.cu_first);
-        std::string substr (cc.text.begin() + r.m.cu_first, cc.text.begin() + r.m.cu_last);
-        std::string suffix (cc.text.begin() + r.m.cu_last, cc.text.end());
-
-        LOGD(TAG, "{}. {}: {}[{}]{}", counter, r.message_id, prefix, substr, suffix);
+            LOGD(TAG, "{}. {}: {}[{}]{}", counter++, r1.message_id, prefix, substr, suffix);
+        }
     }
-
-    REQUIRE_EQ(counter, 10);
 }

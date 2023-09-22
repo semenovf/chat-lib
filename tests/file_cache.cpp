@@ -41,6 +41,6 @@ TEST_CASE("file_cache") {
     auto file_cache = file_cache_t::make(dbh);
 
     REQUIRE(file_cache);
-    file_cache.wipe();
+    file_cache.clear();
 }
 

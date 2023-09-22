@@ -40,7 +40,6 @@ list(APPEND _chat__sources
     ${CMAKE_CURRENT_LIST_DIR}/src/error.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/file.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/member_difference.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/src/mime.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/backend/in_memory/contact_list.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/backend/json/content.cpp)
 
@@ -84,6 +83,11 @@ if (NOT TARGET pfs::debby AND NOT TARGET pfs::debby::static)
         ${PORTABLE_TARGET__CURRENT_PROJECT_DIR}/3rdparty/pfs/debby/library.cmake)
 endif()
 
+if (NOT TARGET pfs::mime AND NOT TARGET pfs::mime::static)
+    portable_target(INCLUDE_PROJECT
+        ${PORTABLE_TARGET__CURRENT_PROJECT_DIR}/3rdparty/pfs/mime/library.cmake)
+endif()
+
 if (CHAT__SERIALIZER_BACKEND STREQUAL "cereal")
     if (NOT TARGET cereal)
         portable_target(INCLUDE_PROJECT ${PORTABLE_TARGET__CURRENT_PROJECT_DIR}/cmake/Cereal.cmake)
@@ -118,6 +122,12 @@ if (CHAT__BUILD_SHARED)
     elseif(TARGET pfs::jeyson::static)
         portable_target(LINK ${PROJECT_NAME} PUBLIC pfs::jeyson::static)
     endif()
+
+    if (TARGET pfs::mime)
+        portable_target(LINK ${PROJECT_NAME} PUBLIC pfs::mime)
+    elseif(TARGET pfs::mime::static)
+        portable_target(LINK ${PROJECT_NAME} PUBLIC pfs::mime::static)
+    endif()
 endif()
 
 if (CHAT__BUILD_STATIC)
@@ -135,5 +145,11 @@ if (CHAT__BUILD_STATIC)
         portable_target(LINK ${STATIC_PROJECT_NAME} PUBLIC pfs::jeyson::static)
     elseif (TARGET pfs::jeyson)
         portable_target(LINK ${STATIC_PROJECT_NAME} PUBLIC pfs::jeyson)
+    endif()
+
+    if (TARGET pfs::mime::static)
+        portable_target(LINK ${STATIC_PROJECT_NAME} PUBLIC pfs::mime::static)
+    elseif (TARGET pfs::mime)
+        portable_target(LINK ${STATIC_PROJECT_NAME} PUBLIC pfs::mime)
     endif()
 endif()

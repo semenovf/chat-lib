@@ -162,8 +162,8 @@ private:
             for (int i = 0, count = _pmc->contents->count(); i < count; i++) {
                 auto cc = _pmc->contents->at(i);
 
-                bool is_text_content = cc.mime == mime_enum::text__plain
-                    || cc.mime == mime_enum::text__html;
+                bool is_text_content = cc.mime == mime::mime_enum::text__plain
+                    || cc.mime == mime::mime_enum::text__html;
 
                 bool content_search_requested = is_text_content
                     ? (sf.value & search_flags::text_content)
@@ -173,7 +173,7 @@ private:
                 auto s_first = utf8_iterator::begin(pattern.begin(), pattern.end());
 
                 if (content_search_requested) {
-                    if (cc.mime == mime_enum::text__html) {
+                    if (cc.mime == mime::mime_enum::text__html) {
                         if (first_match_only) {
                             auto m = pfs::unicode::search_first(first, first.end(), s_first, s_first.end()
                                 , sf.value & search_flags::ignore_case, '<', '>');

@@ -12,8 +12,8 @@
 #pragma once
 #include "contact.hpp"
 #include "exports.hpp"
-#include "mime.hpp"
 #include "pfs/filesystem.hpp"
+#include "pfs/mime.hpp"
 #include "pfs/optional.hpp"
 #include "pfs/universal_id.hpp"
 #include "pfs/time_point.hpp"
@@ -57,7 +57,7 @@ struct credentials
     // File size
     filesize_t size;
 
-    mime_enum mime = mime_enum::invalid;
+    mime::mime_enum mime = mime::mime_enum::unknown;
 
     // File last modification time in UTC.
     pfs::utc_time_point modtime;
@@ -66,7 +66,7 @@ public:
     credentials () = default;
 
     /**
-     * Constracts complete file credentials from local file with new unique
+     * Constructs complete file credentials from local file with new unique
      * identifier.
      *
      * @throw chat::error { @c errc::file_not_found } if file @a path not found.
@@ -79,7 +79,7 @@ public:
         , pfs::filesystem::path const & path);
 
     /**
-     * Constracts complete file credentials from URI (useful on Android) with
+     * Constructs complete file credentials from URI (useful on Android) with
      * new unique identifier.
      */
     CHAT__EXPORT
@@ -93,7 +93,7 @@ public:
         , pfs::utc_time_point modtime);
 
     /**
-     * Constracts incomplete file credentials: abspath and modtime stay invalid.
+     * Constructs incomplete file credentials: abspath and modtime stay invalid.
      */
     CHAT__EXPORT
     credentials (file::id file_id
@@ -103,10 +103,10 @@ public:
         , std::int16_t attachment_index
         , std::string const & name
         , std::size_t size
-        , mime_enum mime);
+        , mime::mime_enum mime);
 
     /**
-     * Constracts incomplete file credentials: author_id and conversation_id stay
+     * Constructs incomplete file credentials: author_id and conversation_id stay
      * invalid; mime also stay invalid if @no_mime is @c true.
      */
     CHAT__EXPORT

@@ -73,7 +73,7 @@ public:
         , std::int16_t attachment_index
         , std::string const & name
         , std::size_t size
-        , mime_enum mime);
+        , mime::mime_enum mime);
 
     /**
      * Commits (stores absolute path) the incoming file.

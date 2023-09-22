@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright (c) 2021 Vladislav Trifochkin
+// Copyright (c) 2021-2023 Vladislav Trifochkin
 //
 // This file is part of `chat-lib`.
 //
@@ -75,15 +75,11 @@ TEST_CASE("outgoing messages") {
 
     auto addressee_id = chat::contact::id_generator{}.next();
     auto conversation = message_store.conversation(addressee_id);
+    auto conversation_id = conversation.id();
 
-    conversation.cache_outgoing_local_file = [] (pfs::filesystem::path const & path) {
-        return chat::file::file_credentials {
-              chat::file::id_generator{}.next()
-            , path
-            , path.filename()
-            , static_cast<chat::file::filesize_t>(pfs::filesystem::file_size(path))
-            , utc_time_point_cast(pfs::local_time_point{pfs::filesystem::last_write_time(path).time_since_epoch()})
-        };
+    conversation.cache_outgoing_local_file = [my_id, conversation_id] (chat::message::id message_id
+        , std::int16_t attachment_index, fs::path const & path) {
+        return chat::file::credentials {my_id, conversation_id, message_id, attachment_index, path};
     };
 
     REQUIRE(conversation);
@@ -116,9 +112,9 @@ TEST_CASE("outgoing messages") {
         auto ed = conversation.open(m.message_id);
 
         if (ed.content().count() > 0) {
-            REQUIRE_EQ(ed.content().at(0).mime, chat::mime_enum::text__plain);
-            REQUIRE_EQ(ed.content().at(1).mime, chat::mime_enum::text__html);
-            REQUIRE_EQ(ed.content().at(2).mime, chat::mime_enum::application__octet_stream);
+            REQUIRE_EQ(ed.content().at(0).mime, mime::mime_enum::text__plain);
+            REQUIRE_EQ(ed.content().at(1).mime, mime::mime_enum::text__html);
+            REQUIRE_EQ(ed.content().at(2).mime, mime::mime_enum::application__octet_stream);
 
             REQUIRE_EQ(ed.content().at(0).text, std::string{"Hello"});
             REQUIRE_EQ(ed.content().at(1).text, std::string{"<html><body><h1>World</h1></body></html>"});

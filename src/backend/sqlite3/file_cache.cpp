@@ -197,7 +197,7 @@ file_cache<BACKEND>::reserve_incoming_file (file::id file_id
     , std::int16_t attachment_index
     , std::string const & name
     , std::size_t size
-    , mime_enum mime)
+    , mime::mime_enum mime)
 {
     static std::string const RESERVE_INCOMING_FILE {
         "INSERT OR REPLACE INTO `{}` (`file_id`, `author_id`, `conversation_id`"
