@@ -12,6 +12,7 @@
 #include "pfs/numeric_cast.hpp"
 #include "pfs/chat/editor.hpp"
 #include "pfs/chat/backend/sqlite3/conversation.hpp"
+#include "pfs/ionik/audio/wav_explorer.hpp"
 
 #if _MSC_VER
 #   include <io.h>
@@ -98,6 +99,37 @@ editor<BACKEND>::add_html (std::string const & text)
 
 template <>
 void
+editor<BACKEND>::add_audio_wav (pfs::filesystem::path const & path)
+{
+    auto attachment_index = pfs::numeric_cast<std::int16_t>(_rep.content.count());
+    auto fc = cache_outgoing_local_file(_rep.message_id, attachment_index, path);
+
+    ////////////////////////////////////
+    ionik::audio::wav_explorer explorer {path};
+    ionik::audio::wav_spectrum_builder spectrum_builder {explorer};
+
+    std::size_t chunk_count = 40;
+    auto res = spectrum_builder(chunk_count);
+
+    if (res) {
+        if (res->info.num_channels > 0 && res->info.num_channels <= 2) {
+            message::audio_wav_credentials wav;
+            wav.num_channels = pfs::numeric_cast<std::uint8_t>(res->info.num_channels);
+            wav.duration = res->info.duration / 1000; // Milliseconds
+            wav.min_frame = res->min_frame;
+            wav.max_frame = res->max_frame;
+            wav.data = res->data;
+
+            _rep.content.add_audio_wav(wav, fc);
+            return;
+        }
+    }
+
+    _rep.content.attach(fc);
+}
+
+template <>
+void
 editor<BACKEND>::attach (pfs::filesystem::path const & path)
 {
     auto attachment_index = pfs::numeric_cast<std::int16_t>(_rep.content.count());
@@ -115,7 +147,6 @@ editor<BACKEND>::attach (std::string const & uri, std::string const & display_na
         , uri, display_name, size, modtime);
     _rep.content.attach(fc);
 }
-
 
 template <>
 void

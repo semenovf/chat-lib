@@ -75,6 +75,11 @@ public:
     CHAT__EXPORT void add_html (std::string const & text);
 
     /**
+     * Add audio WAV to message content.
+     */
+    CHAT__EXPORT void add_audio_wav (pfs::filesystem::path const & path);
+
+    /**
      * Add attachment to message content.
      *
      * @throw chat::error @c errc::attachment_failure.

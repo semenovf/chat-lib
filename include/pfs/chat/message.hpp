@@ -18,6 +18,7 @@
 #include "pfs/time_point.hpp"
 #include "pfs/universal_id.hpp"
 #include <memory>
+#include <utility>
 
 namespace chat {
 namespace message {
@@ -37,9 +38,10 @@ public:
 
 struct content_credentials
 {
+    bool is_attachment;   // Attacment flag (is content is attachment or embedded data)
     mime::mime_enum mime; // Message content MIME
-    std::string text; // Message content or file name for attachments, audio
-                      // and video files
+    std::string text;     // Message content or file name for attachments, audio
+                          // and video files
 };
 
 struct attachment_credentials
@@ -48,6 +50,23 @@ struct attachment_credentials
     std::string      name;    // file name
     file::filesize_t size;
 };
+
+// FrameType must be same or at least convertable to ionik::audio::wav_spectrum::unified_frame
+// for stereo and ionik::audio::wav_spectrum::unified_frame::first for mono
+template <typename FrameType>
+struct audio_wav_credentials_basic
+{
+    std::uint8_t num_channels; // Number of channels: 1 - Mono, 2 - Stereo
+    std::uint32_t duration;    // Duration in milliseconds
+
+    FrameType min_frame;
+    FrameType max_frame;
+    std::vector<FrameType> data;
+};
+
+// using audio_wav_mono_credentials = audio_wav_credentials_basic<float>;
+// using audio_wav_stereo_credentials = audio_wav_credentials_basic<std::pair<float, float>>;
+using audio_wav_credentials = audio_wav_credentials_basic<std::pair<float, float>>;
 
 class content
 {
@@ -110,9 +129,15 @@ public:
     CHAT__EXPORT void add_text (std::string const & text);
 
     /**
-     * Add plain text.
+     * Add HTML text.
      */
     CHAT__EXPORT void add_html (std::string const & text);
+
+    /**
+     * Add audio WAV credentials.
+     */
+    CHAT__EXPORT void add_audio_wav (audio_wav_credentials const & wav
+        , file::credentials const & fc);
 
     /**
      * Attach file.
