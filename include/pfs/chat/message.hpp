@@ -124,6 +124,13 @@ public:
     CHAT__EXPORT attachment_credentials attachment (std::size_t index) const;
 
     /**
+     * Returns audio WAV credentials of the component specified by @a index.
+     * If no audio WAV credentials specified for component by @a index, result will
+     * contain zeroed values for @c num_channels, @c duration.
+     */
+    CHAT__EXPORT audio_wav_credentials audio_wav (std::size_t index) const;
+
+    /**
      * Add plain text.
      */
     CHAT__EXPORT void add_text (std::string const & text);

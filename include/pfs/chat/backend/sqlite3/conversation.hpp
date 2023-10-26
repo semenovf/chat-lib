@@ -62,14 +62,16 @@ struct editor
         conversation::rep_type * convers;
         message::id      message_id;
         message::content content;
+        bool mod; // modification (true) or creation (false)
     };
 
     static CHAT__EXPORT rep_type make (conversation::rep_type * convers
-        , message::id message_id);
+        , message::id message_id, bool modification);
 
     static CHAT__EXPORT rep_type make (conversation::rep_type * convers
         , message::id message_id
-        , message::content && content);
+        , message::content && content
+        , bool modification);
 };
 
 }}} // namespace chat::backend::sqlite3

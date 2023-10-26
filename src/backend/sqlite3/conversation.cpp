@@ -327,7 +327,8 @@ template <>
 conversation<BACKEND>::editor_type
 conversation<BACKEND>::create ()
 {
-    auto ed = editor_type::make(& this->_rep, message::id{});
+    auto message_id = message::id_generator{}.next();
+    auto ed = editor_type::make(& this->_rep, message_id, false);
     ed.cache_outgoing_local_file = cache_outgoing_local_file;
     ed.cache_outgoing_custom_file = cache_outgoing_custom_file;
     return ed;

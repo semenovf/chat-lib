@@ -101,6 +101,46 @@ attachment_credentials content::attachment (std::size_t index) const
     return attachment_credentials{};
 }
 
+audio_wav_credentials content::audio_wav (std::size_t index) const
+{
+    if (index < _d.size()) {
+        auto elem = _d[index];
+        assert(elem);
+
+        auto att = jeyson::get_or<bool>(elem[ATT_KEY], false);
+        auto x = jeyson::get_or<int>(elem[MIME_KEY], static_cast<int>(mime::mime_enum::unknown));
+        auto mime = static_cast<mime::mime_enum>(x);
+
+        if (att && mime == mime::mime_enum::audio__wav) {
+            auto num_channels = jeyson::get_or<std::uint8_t>(elem[AU_WAV_KEY][AU_NUM_CHAN_KEY], 0);
+            auto duration = jeyson::get_or<std::uint32_t>(elem[AU_WAV_KEY][AU_DURATION_KEY], 0);
+            auto min_frame_left  = jeyson::get_or<float>(elem[AU_WAV_KEY][AU_MIN_FRAME_KEY][0], .0f);
+            auto max_frame_left  = jeyson::get_or<float>(elem[AU_WAV_KEY][AU_MAX_FRAME_KEY][0], .0f);
+            auto min_frame_right = jeyson::get_or<float>(elem[AU_WAV_KEY][AU_MIN_FRAME_KEY][1], .0f);
+            auto max_frame_right = jeyson::get_or<float>(elem[AU_WAV_KEY][AU_MAX_FRAME_KEY][1], .0f);
+
+            std::vector<std::pair<float, float>> data;
+
+            elem[AU_WAV_KEY][AU_SPECTRUM].for_each ([& data] (json::reference ref) {
+                auto frame_left = jeyson::get_or<float>(ref[0], 0.f);
+                auto frame_right = jeyson::get_or<float>(ref[1], 0.f);
+
+                data.push_back(std::make_pair(frame_left, frame_right));
+            });
+
+            return audio_wav_credentials {
+                  num_channels
+                , duration
+                , std::make_pair(min_frame_left, min_frame_right)
+                , std::make_pair(max_frame_left, max_frame_right)
+                , std::move(data)
+            };
+        }
+    }
+
+    return audio_wav_credentials{};
+}
+
 void content::add_text (std::string const & text)
 {
     json elem;
@@ -141,12 +181,12 @@ void content::add_audio_wav (audio_wav_credentials const & wav
         elem[AU_WAV_KEY][AU_DURATION_KEY] = wav.duration;
         elem[AU_WAV_KEY][AU_NUM_CHAN_KEY] = wav.num_channels;
 
-        elem[AU_WAV_KEY][AU_MAX_FRAME_KEY][0] = wav.min_frame.first;
-        elem[AU_WAV_KEY][AU_MIN_FRAME_KEY][0] = wav.max_frame.first;
+        elem[AU_WAV_KEY][AU_MIN_FRAME_KEY][0] = wav.min_frame.first;
+        elem[AU_WAV_KEY][AU_MAX_FRAME_KEY][0] = wav.max_frame.first;
 
         if (wav.num_channels == 2) {
-            elem[AU_WAV_KEY][AU_MAX_FRAME_KEY][1] = wav.min_frame.second;
-            elem[AU_WAV_KEY][AU_MIN_FRAME_KEY][1] = wav.max_frame.second;
+            elem[AU_WAV_KEY][AU_MIN_FRAME_KEY][1] = wav.min_frame.second;
+            elem[AU_WAV_KEY][AU_MAX_FRAME_KEY][1] = wav.max_frame.second;
         }
 
         for (std::size_t i = 0, count = wav.data.size(); i < count; i++) {
