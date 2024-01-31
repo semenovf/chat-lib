@@ -80,6 +80,16 @@ public:
     CHAT__EXPORT void add_audio_wav (pfs::filesystem::path const & path);
 
     /**
+     * Notify Live Video started with SDP description @a sdp_desc.
+     */
+    CHAT__EXPORT void add_live_video_started (std::string const & sdp_desc);
+
+    /**
+     * Notify Live Video stopped.
+     */
+    CHAT__EXPORT void add_live_video_stopped ();
+
+    /**
      * Add attachment to message content.
      *
      * @throw chat::error @c errc::attachment_failure.

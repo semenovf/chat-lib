@@ -41,7 +41,7 @@ struct content_credentials
     bool is_attachment;   // Attacment flag (is content is attachment or embedded data)
     mime::mime_enum mime; // Message content MIME
     std::string text;     // Message content or file name for attachments, audio
-                          // and video files
+                          // and video files, or SDP description for Live Video.
 };
 
 struct attachment_credentials
@@ -67,6 +67,12 @@ struct audio_wav_credentials_basic
 // using audio_wav_mono_credentials = audio_wav_credentials_basic<float>;
 // using audio_wav_stereo_credentials = audio_wav_credentials_basic<std::pair<float, float>>;
 using audio_wav_credentials = audio_wav_credentials_basic<std::pair<float, float>>;
+
+struct live_video_credentials
+{
+    std::string description; // For SDP - SDP description if Live Video has started, or "-" if
+                             // Live Video has stopped
+};
 
 class content
 {
@@ -131,6 +137,15 @@ public:
     CHAT__EXPORT audio_wav_credentials audio_wav (std::size_t index) const;
 
     /**
+     * Returns Live Video credentials of the component specified by @a index.
+     * If Live Video credentials specified for component by @a index, result will
+     * contain empty string for @c description.
+     *
+     * @note Only SDP supported now.
+     */
+    CHAT__EXPORT live_video_credentials live_video (std::size_t index) const;
+
+    /**
      * Add plain text.
      */
     CHAT__EXPORT void add_text (std::string const & text);
@@ -145,6 +160,13 @@ public:
      */
     CHAT__EXPORT void add_audio_wav (audio_wav_credentials const & wav
         , file::credentials const & fc);
+
+    /**
+     * Add Live Video credentials to notify Live Video has started or stopped.
+     *
+     * @note Only SDP supported now.
+     */
+    CHAT__EXPORT void add_live_video (live_video_credentials const & lvc);
 
     /**
      * Attach file.

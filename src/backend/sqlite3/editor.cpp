@@ -133,6 +133,24 @@ editor<BACKEND>::add_audio_wav (pfs::filesystem::path const & path)
 
 template <>
 void
+editor<BACKEND>::add_live_video_started (std::string const & sdp_desc)
+{
+    message::live_video_credentials lvc;
+    lvc.description = sdp_desc;
+    _rep.content.add_live_video(lvc);
+}
+
+template <>
+void
+editor<BACKEND>::add_live_video_stopped ()
+{
+    message::live_video_credentials lvc;
+    lvc.description = "-";
+    _rep.content.add_live_video(lvc);
+}
+
+template <>
+void
 editor<BACKEND>::attach (pfs::filesystem::path const & path)
 {
     auto attachment_index = pfs::numeric_cast<std::int16_t>(_rep.content.count());

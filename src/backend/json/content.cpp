@@ -19,7 +19,7 @@ static char const * TEXT_KEY = "text"; // message text or attachment path
 static char const * ID_KEY   = "id";
 static char const * SIZE_KEY = "size";
 
-static char const * AU_WAV_KEY       = "au-wav"; // Audio WAV subkey
+static char const * AU_WAV_KEY       = "au-wav";   // Audio WAV subkey
 static char const * AU_DURATION_KEY  = "duration"; // Duration for embedded audio or video
 static char const * AU_NUM_CHAN_KEY  = "num-chan"; // Number of channels (1 or 2)
 static char const * AU_MAX_FRAME_KEY = "max-frame";
@@ -141,6 +141,25 @@ audio_wav_credentials content::audio_wav (std::size_t index) const
     return audio_wav_credentials{};
 }
 
+live_video_credentials content::live_video (std::size_t index) const
+{
+    if (index < _d.size()) {
+        auto elem = _d[index];
+        assert(elem);
+
+        auto att = jeyson::get_or<bool>(elem[ATT_KEY], false);
+        auto x = jeyson::get_or<int>(elem[MIME_KEY], static_cast<int>(mime::mime_enum::unknown));
+        auto mime = static_cast<mime::mime_enum>(x);
+
+        if (is_valid(mime) && mime == mime::mime_enum::application__sdp) {
+            auto description = jeyson::get_or<std::string>(elem[TEXT_KEY], std::string{});
+            return live_video_credentials{description};
+        }
+    }
+
+    return live_video_credentials{};
+}
+
 void content::add_text (std::string const & text)
 {
     json elem;
@@ -197,6 +216,15 @@ void content::add_audio_wav (audio_wav_credentials const & wav
         }
     }
 
+    _d.push_back(std::move(elem));
+}
+
+void content::add_live_video (live_video_credentials const & lvc)
+{
+    json elem;
+    elem[ATT_KEY] = false;
+    elem[MIME_KEY] = static_cast<int>(mime::mime_enum::application__sdp);
+    elem[TEXT_KEY] = lvc.description;
     _d.push_back(std::move(elem));
 }
 
