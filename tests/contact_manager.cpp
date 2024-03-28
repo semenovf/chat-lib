@@ -241,7 +241,7 @@ void test_contacts ()
 
     contacts.for_each([& all_contacts] (contact_t const & c) {
         //fmt::print("{} | {:10} | {}\n", c.contact_id, c.alias, to_string(c.type));
-        all_contacts.push_back(person_t {c.contact_id, c.alias, c.avatar, c.description});
+        all_contacts.push_back(person_t {c.contact_id, c.alias, c.avatar, c.description, c.extra});
     });
 
     // No new contacts added as they already exist.

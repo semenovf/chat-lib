@@ -31,6 +31,7 @@ static void fill_contact (backend::sqlite3::db_traits::result_type & result
     result["alias"]       >> c.alias;
     result["avatar"]      >> c.avatar;
     result["description"] >> c.description;
+    result["extra"]       >> c.extra;
     result["type"]        >> c.type;
 }
 
@@ -49,8 +50,8 @@ contact_list::make (shared_db_handle dbh
 }
 
 static std::string const SELECT_ROWS_RANGE {
-    "SELECT `id`, `creator_id`,  `alias`, `avatar`, `description`, `type`"
-    " FROM `{}`"
+    "SELECT id, creator_id,  alias, avatar, description, extra, type"
+    " FROM \"{}\""
  //   " {}"        // ORDER BY ...
     " LIMIT {} OFFSET {}"
 };
@@ -73,7 +74,7 @@ void contact_list::prefetch (rep_type const * rep, int offset, int limit/*, int 
     //std::string order_by {"ORDER BY "};
 
     //if (sort_flag_on(sort_flags, contact_sort_flag::by_alias))
-    //    order_by += "`alias`";
+    //    order_by += "alias";
     //else
     //    order_by.clear();
 
@@ -123,7 +124,7 @@ std::size_t
 contact_list<BACKEND>::count (conversation_enum type) const
 {
     static std::string const COUNT_CONTACTS_BY_TYPE {
-        "SELECT COUNT(1) as count FROM {} WHERE `type` = :type"
+        "SELECT COUNT(1) as count FROM \"{}\" WHERE type = :type"
     };
 
     std::size_t count = 0;
@@ -145,8 +146,8 @@ template <>
 contact::contact
 contact_list<BACKEND>::get (contact::id id) const
 {
-    static char const * SELECT_CONTACT = "SELECT `id`, `creator_id`, `alias`"
-        ", `avatar`, `description`, `type` FROM `{}` WHERE `id` = :id";
+    static char const * SELECT_CONTACT = "SELECT id, creator_id, alias"
+        ", avatar, description, extra, type FROM \"{}\" WHERE id = :id";
 
     auto it = _rep.cache.map.find(id);
 
@@ -194,8 +195,8 @@ contact_list<BACKEND>::at (int offset) const
     return _rep.cache.data[offset - _rep.cache.offset];
 }
 
-static char const * SELECT_ALL_CONTACTS = "SELECT `id`, `creator_id`"
-    ", `alias`, `avatar`, `description`, `type` FROM `{}`";
+static char const * SELECT_ALL_CONTACTS = "SELECT id, creator_id"
+    ", alias, avatar, description, extra, type FROM \"{}\"";
 
 template <>
 void

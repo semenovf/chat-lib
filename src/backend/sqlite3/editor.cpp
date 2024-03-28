@@ -177,20 +177,18 @@ editor<BACKEND>::clear ()
 }
 
 static std::string const INSERT_MESSAGE {
-    "INSERT INTO `{}` (`message_id`, `author_id`"
-    ", `creation_time`, `modification_time`, `content`)"
-    " VALUES (:message_id, :author_id, :creation_time"
-    ", :modification_time, :content)"
+    "INSERT INTO \"{}\" (message_id, author_id, creation_time, modification_time, content)"
+    " VALUES (:message_id, :author_id, :creation_time, :modification_time, :content)"
 };
 
 static std::string const DELETE_MESSAGE {
-    "DELETE FROM `{}` WHERE `message_id` = :message_id"
+    "DELETE FROM \"{}\" WHERE message_id = :message_id"
 };
 
 static std::string const MODIFY_CONTENT {
-    "UPDATE OR IGNORE `{}` SET `content` = :content"
-    ", `modification_time` = :modification_time"
-    " WHERE `message_id` = :message_id"
+    "UPDATE OR IGNORE \"{}\" SET content = :content"
+    ", modification_time = :modification_time"
+    " WHERE message_id = :message_id"
 };
 
 template <>

@@ -30,43 +30,44 @@ static std::string const CREATE_CONTACTS_TABLE {
     //      ---- Optional TEMPORARY
     //      |
     //      v
-    "CREATE {} TABLE IF NOT EXISTS `{}` ("
-        "`id` {} NOT NULL UNIQUE"
-        ", `creator_id` {} NOT NULL"
-        ", `alias` {} NOT NULL"
-        ", `avatar` {}"
-        ", `description` {}"
-        ", `type` {} NOT NULL"
-        ", PRIMARY KEY(`id`)) WITHOUT ROWID"
+    "CREATE {} TABLE IF NOT EXISTS \"{}\" ("
+        "id {} NOT NULL UNIQUE"
+        ", creator_id {} NOT NULL"
+        ", alias {} NOT NULL"
+        ", avatar {}"
+        ", description {}"
+        ", extra {}"
+        ", type {} NOT NULL"
+        ", PRIMARY KEY(id)) WITHOUT ROWID"
 };
 
 static std::string const CREATE_MEMBERS_TABLE {
-    "CREATE TABLE IF NOT EXISTS `{}` ("
-        "`group_id` {} NOT NULL"
-        ", `member_id` {} NOT NULL)"
+    "CREATE TABLE IF NOT EXISTS \"{}\" ("
+        "group_id {} NOT NULL"
+        ", member_id {} NOT NULL)"
 };
 
 static std::string const CREATE_FOLLOWERS_TABLE {
-    "CREATE TABLE IF NOT EXISTS `{}` ("
-        "`channel_id` {} NOT NULL"
-        ", `follower_id` {} NOT NULL)"
+    "CREATE TABLE IF NOT EXISTS \"{}\" ("
+        "channel_id {} NOT NULL"
+        ", follower_id {} NOT NULL)"
 };
 
 static std::string const CREATE_CONTACTS_INDEX {
-    "CREATE UNIQUE INDEX IF NOT EXISTS `{0}_index` ON `{0}` (`id`)"
+    "CREATE UNIQUE INDEX IF NOT EXISTS \"{0}_index\" ON \"{0}\" (id)"
 };
 
 static std::string const CREATE_MEMBERS_INDEX {
-    "CREATE INDEX IF NOT EXISTS `{0}_index` ON `{0}` (`group_id`)"
+    "CREATE INDEX IF NOT EXISTS \"{0}_index\" ON \"{0}\" (group_id)"
 };
 
 // Preventing duplicate pairs of group_id:member_id
 static std::string const CREATE_MEMBERS_UNIQUE_INDEX {
-    "CREATE UNIQUE INDEX IF NOT EXISTS `{0}_unique_index` ON `{0}` (`group_id`, `member_id`)"
+    "CREATE UNIQUE INDEX IF NOT EXISTS \"{0}_unique_index\" ON \"{0}\" (group_id, member_id)"
 };
 
 static std::string const CREATE_FOLLOWERS_INDEX {
-    "CREATE INDEX IF NOT EXISTS `{0}_index` ON `{0}` (`channel_id`)"
+    "CREATE INDEX IF NOT EXISTS \"{0}_index\" ON \"{0}\" (channel_id)"
 };
 
 contact_manager::rep_type
@@ -89,6 +90,7 @@ contact_manager::make (contact::person const & me, shared_db_handle dbh)
             , affinity_traits<decltype(contact::contact{}.alias)>::name()
             , affinity_traits<decltype(contact::contact{}.avatar)>::name()
             , affinity_traits<decltype(contact::contact{}.description)>::name()
+            , affinity_traits<decltype(contact::contact{}.extra)>::name()
             , affinity_traits<decltype(contact::contact{}.type)>::name())
         , fmt::format(CREATE_MEMBERS_TABLE
             , rep.members_table_name
@@ -134,6 +136,7 @@ static void fill_contact (backend::sqlite3::db_traits::result_type & result
     result["alias"]       >> c.alias;
     result["avatar"]      >> c.avatar;
     result["description"] >> c.description;
+    result["extra"]       >> c.extra;
     result["type"]        >> c.type;
 }
 
@@ -170,8 +173,8 @@ template <>
 contact::contact
 contact_manager<BACKEND>::get (contact::id id) const
 {
-    static char const * SELECT_CONTACT = "SELECT `id`, `creator_id`, `alias`"
-        ", `avatar`, `description`, `type` FROM `{}` WHERE `id` = :id";
+    static char const * SELECT_CONTACT = "SELECT id, creator_id, alias"
+        ", avatar, description, extra, type FROM \"{}\" WHERE id = :id";
 
     try {
         auto stmt = _rep.dbh->prepare(fmt::format(SELECT_CONTACT, _rep.contacts_table_name));
@@ -196,8 +199,8 @@ template <>
 contact::contact
 contact_manager<BACKEND>::at (int offset) const
 {
-    static char const * SELECT_CONTACT_AT = "SELECT `id`, `creator_id`"
-        ", `alias`, `avatar`, `description`, `type` FROM `{}` LIMIT 1 OFFSET {}";
+    static char const * SELECT_CONTACT_AT = "SELECT id, creator_id"
+        ", alias, avatar, description, extra, type FROM \"{}\" LIMIT 1 OFFSET {}";
 
     try {
         auto stmt = _rep.dbh->prepare(fmt::format(SELECT_CONTACT_AT
@@ -250,6 +253,7 @@ contact_manager<BACKEND>::my_contact () const
         , _rep.me.alias
         , _rep.me.avatar
         , _rep.me.description
+        , _rep.me.extra
     };
 }
 
@@ -287,7 +291,7 @@ std::size_t
 contact_manager<BACKEND>::count (conversation_enum type) const
 {
     static char const * COUNT_CONTACTS_BY_TYPE =
-        "SELECT COUNT(1) as count FROM {} WHERE `type` = :type";
+        "SELECT COUNT(1) as count FROM \"{}\" WHERE type = :type";
 
     //return _rep.contacts->count(type);
     std::size_t count = 0;
@@ -306,9 +310,8 @@ contact_manager<BACKEND>::count (conversation_enum type) const
 }
 
 static char const * INSERT_CONTACT =
-    "INSERT OR IGNORE INTO `{}` (`id`, `creator_id`, `alias`, `avatar`"
-    ", `description`, `type`)"
-    " VALUES (:id, :creator_id, :alias, :avatar, :description, :type)";
+    "INSERT OR IGNORE INTO \"{}\" (id, creator_id, alias, avatar, description, extra, type)"
+    " VALUES (:id, :creator_id, :alias, :avatar, :description, :extra, :type)";
 
 template <>
 bool
@@ -322,6 +325,7 @@ contact_manager<BACKEND>::add (contact::contact const & c)
         stmt.bind(":alias"      , to_storage(c.alias));
         stmt.bind(":avatar"     , to_storage(c.avatar));
         stmt.bind(":description", to_storage(c.description));
+        stmt.bind(":extra"      , to_storage(c.extra));
         stmt.bind(":type"       , to_storage(c.type));
 
         auto res = stmt.exec();
@@ -344,6 +348,7 @@ contact_manager<BACKEND>::add (contact::person const & p)
         , p.alias
         , p.avatar
         , p.description
+        , p.extra
         , p.contact_id
         , chat::conversation_enum::person
     };
@@ -361,6 +366,7 @@ contact_manager<BACKEND>::add (contact::group const & g)
             , g.alias
             , g.avatar
             , g.description
+            , g.extra
             , g.creator_id
             , chat::conversation_enum::group};
 
@@ -383,9 +389,9 @@ template <>
 bool
 contact_manager<BACKEND>::update (contact::contact const & c)
 {
-    static char const * UPDATE_CONTACT = "UPDATE OR IGNORE `{}` SET"
-        " `alias` = :alias, `avatar` = :avatar, `description` = :description"
-        " WHERE `id` = :id AND `type` = :type";
+    static char const * UPDATE_CONTACT = "UPDATE OR IGNORE \"{}\" SET"
+        " alias = :alias, avatar = :avatar, description = :description, extra = :extra"
+        " WHERE id = :id AND type = :type";
 
     try {
         auto stmt = _rep.dbh->prepare(fmt::format(UPDATE_CONTACT, _rep.contacts_table_name));
@@ -393,6 +399,7 @@ contact_manager<BACKEND>::update (contact::contact const & c)
         stmt.bind(":alias" , to_storage(c.alias));
         stmt.bind(":avatar", to_storage(c.avatar));
         stmt.bind(":description", to_storage(c.description));
+        stmt.bind(":extra", to_storage(c.extra));
         stmt.bind(":id", to_storage(c.contact_id));
         stmt.bind(":type", to_storage(c.type));
 
@@ -414,6 +421,7 @@ contact_manager<BACKEND>::update (contact::person const & p)
         , p.alias
         , p.avatar
         , p.description
+        , p.extra
         , p.contact_id
         , conversation_enum::person
     };
@@ -430,6 +438,7 @@ contact_manager<BACKEND>::update (contact::group const & g)
         , g.alias
         , g.avatar
         , g.description
+        , g.extra
         , g.creator_id
         , conversation_enum::group
     };
@@ -441,9 +450,9 @@ template <>
 void
 contact_manager<BACKEND>::remove (contact::id id)
 {
-    static char const * REMOVE_MEMBERSHIPS = "DELETE from `{}` WHERE `member_id` = :member_id";
-    static char const * REMOVE_GROUP = "DELETE from `{}` WHERE `group_id` = :group_id";
-    static char const * REMOVE_CONTACT = "DELETE from `{}` WHERE `id` = :id";
+    static char const * REMOVE_MEMBERSHIPS = "DELETE FROM \"{}\" WHERE member_id = :member_id";
+    static char const * REMOVE_GROUP = "DELETE FROM \"{}\" WHERE group_id = :group_id";
+    static char const * REMOVE_CONTACT = "DELETE FROM \"{}\" WHERE id = :id";
 
     auto stmt1 = _rep.dbh->prepare(fmt::format(REMOVE_MEMBERSHIPS, _rep.members_table_name));
     auto stmt2 = _rep.dbh->prepare(fmt::format(REMOVE_GROUP, _rep.members_table_name));
@@ -489,9 +498,8 @@ contact_manager<BACKEND>::wipe ()
     }
 }
 
-static char const * SELECT_ALL_CONTACTS = "SELECT `id`, `creator_id`"
-    ", `alias`, `avatar`, `description`, `type` FROM `{}`";
-
+static char const * SELECT_ALL_CONTACTS = "SELECT id, creator_id, alias, avatar"
+    ", description, extra, type FROM \"{}\"";
 
 template <>
 void
@@ -595,6 +603,7 @@ contact_manager<BACKEND>::contacts<contact_list<backend::sqlite3::contact_list>>
             , affinity_traits<decltype(contact::contact{}.alias)>::name()
             , affinity_traits<decltype(contact::contact{}.avatar)>::name()
             , affinity_traits<decltype(contact::contact{}.description)>::name()
+            , affinity_traits<decltype(contact::contact{}.extra)>::name()
             , affinity_traits<decltype(contact::contact{}.type)>::name());
 
         _rep.dbh->query(sql);
@@ -608,6 +617,7 @@ contact_manager<BACKEND>::contacts<contact_list<backend::sqlite3::contact_list>>
                 stmt.bind(":alias"      , to_storage(c.alias));
                 stmt.bind(":avatar"     , to_storage(c.avatar));
                 stmt.bind(":description", to_storage(c.description));
+                stmt.bind(":extra"      , to_storage(c.extra));
                 stmt.bind(":type"       , to_storage(c.type));
 
                 stmt.exec();

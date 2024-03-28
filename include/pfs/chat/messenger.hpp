@@ -704,6 +704,7 @@ public:
             , me.alias
             , me.avatar
             , me.description
+            , me.extra
             , me.contact_id
             , conversation_enum::person
         }};
@@ -737,6 +738,7 @@ public:
             , g.alias
             , g.avatar
             , g.description
+            , g.extra
             , g.creator_id
             , conversation_enum::group
         }};
@@ -860,6 +862,7 @@ public:
                         p.alias = std::move(cc.contact.alias);
                         p.avatar = std::move(cc.contact.avatar);
                         p.description = std::move(cc.contact.description);
+                        p.extra = std::move(cc.contact.extra);
 
                         /*auto id = */update_or_add(std::move(p));
                         break;
@@ -872,6 +875,7 @@ public:
                         g.alias = std::move(cc.contact.alias);
                         g.avatar = std::move(cc.contact.avatar);
                         g.description = std::move(cc.contact.description);
+                        g.extra = std::move(cc.contact.extra);
 
                         /*auto id = */update_or_add(std::move(g));
                         break;

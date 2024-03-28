@@ -89,6 +89,7 @@ serializer::input_packet::operator >> <protocol::contact_credentials> (
         >> target.contact.alias
         >> target.contact.avatar
         >> target.contact.description
+        >> target.contact.extra
         >> target.contact.type;
 
     return *this;
@@ -105,6 +106,7 @@ serializer::output_packet::operator << <protocol::contact_credentials> (
         << payload.contact.alias
         << payload.contact.avatar
         << payload.contact.description
+        << payload.contact.extra
         << payload.contact.type;
 
     return *this;

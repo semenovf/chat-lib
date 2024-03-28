@@ -6,8 +6,6 @@
 // Changelog:
 //      2022.03.10 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
-// FIXME REMOVE
-// #include "conversation_enum_traits.hpp"
 #include "pfs/assert.hpp"
 #include "pfs/i18n.hpp"
 #include "pfs/chat/contact_manager.hpp"
@@ -22,8 +20,8 @@ bool is_member_of (contact_manager::rep_type const & rep
     , contact::id group_id
     , contact::id member_id)
 {
-    static char const * IS_MEMBER_OF = "SELECT COUNT(1) as count FROM `{}`"
-        " WHERE `group_id` = :group_id AND `member_id` = :member_id";
+    static char const * IS_MEMBER_OF = "SELECT COUNT(1) as count FROM \"{}\""
+        " WHERE group_id = :group_id AND member_id = :member_id";
 
     std::size_t count = 0;
 
@@ -47,7 +45,7 @@ bool is_member_of (contact_manager::rep_type const & rep
 std::size_t count (contact_manager::rep_type const & rep, contact::id group_id)
 {
     static char const * MEMBER_COUNT =
-        "SELECT COUNT(1) as count FROM `{}` WHERE `group_id` = :group_id";
+        "SELECT COUNT(1) as count FROM \"{}\" WHERE group_id = :group_id";
 
     std::size_t count = 0;
 
@@ -70,8 +68,7 @@ std::size_t count (contact_manager::rep_type const & rep, contact::id group_id)
 auto member_ids (contact_manager::rep_type const & rep
     , contact::id group_id) -> std::vector<contact::id>
 {
-    static char const * SELECT_MEMBER_IDS = "SELECT `member_id` FROM `{}`"
-        " WHERE `group_id` = :group_id";
+    static char const * SELECT_MEMBER_IDS = "SELECT member_id FROM \"{}\" WHERE group_id = :group_id";
 
     std::vector<contact::id> members;
 
@@ -100,10 +97,10 @@ auto members (contact_manager::rep_type const & rep
     , contact::id group_id
     , contact::person const & me) -> std::vector<contact::contact>
 {
-    static char const * SELECT_MEMBERS = "SELECT B.`id`, B.`creator_id`"
-        ", B.`alias`, B.`avatar`, B.`description`, B.`type`"
-        " FROM `{}` A JOIN `{}` B"
-        " ON A.`group_id` = :group_id AND A.`member_id` = B.`id`";
+    static char const * SELECT_MEMBERS = "SELECT B.id, B.creator_id"
+        ", B.alias, B.avatar, B.description, B.extra, B.type"
+        " FROM \"{}\" A JOIN \"{}\" B"
+        " ON A.group_id = :group_id AND A.member_id = B.id";
 
     std::vector<contact::contact> members;
 
@@ -116,6 +113,7 @@ auto members (contact_manager::rep_type const & rep
         c.alias       = me.alias;
         c.avatar      = me.avatar;
         c.description = me.description;
+        c.extra       = me.extra;
         c.type        = conversation_enum::person;
 
         members.push_back(std::move(c));
@@ -137,6 +135,7 @@ auto members (contact_manager::rep_type const & rep
             res["alias"]       >> c.alias;
             res["avatar"]      >> c.avatar;
             res["description"] >> c.description;
+            res["extra"]       >> c.extra;
             res["type"]        >> c.type;
 
             members.push_back(std::move(c));
@@ -157,8 +156,8 @@ template <>
 bool
 contact_manager<BACKEND>::group_ref::add_member_unchecked (contact::id member_id)
 {
-    static char const * INSERT_MEMBER = "INSERT OR IGNORE INTO `{}`"
-        " (`group_id`, `member_id`) VALUES (:group_id, :member_id)";
+    static char const * INSERT_MEMBER = "INSERT OR IGNORE INTO \"{}\""
+        " (group_id, member_id) VALUES (:group_id, :member_id)";
 
     auto & rep = _pmanager->_rep;
 
@@ -218,8 +217,8 @@ template <>
 bool
 contact_manager<BACKEND>::group_ref::remove_member (contact::id member_id)
 {
-    static char const * REMOVE_MEMBER = "DELETE from `{}` WHERE"
-        " `group_id` = :group_id AND `member_id` = :member_id";
+    static char const * REMOVE_MEMBER = "DELETE FROM \"{}\" WHERE"
+        " group_id = :group_id AND member_id = :member_id";
 
     auto & rep = _pmanager->_rep;
 
@@ -244,7 +243,7 @@ template <>
 void
 contact_manager<BACKEND>::group_ref::remove_all_members ()
 {
-    static char const * REMOVE_ALL_MEMBERS = "DELETE from `{}` WHERE `group_id` = :group_id";
+    static char const * REMOVE_ALL_MEMBERS = "DELETE FROM \"{}\" WHERE group_id = :group_id";
 
     auto & rep = _pmanager->_rep;
 

@@ -35,6 +35,7 @@ struct contact
     std::string alias;
     std::string avatar;     // Application specific image path/name/code.
     std::string description;
+    std::string extra;      // Extra data (implementation specific)
     id          creator_id; // For person same as ID.
     conversation_enum type;
 };
@@ -45,6 +46,7 @@ struct person
     std::string alias;
     std::string avatar;
     std::string description;
+    std::string extra;
 };
 
 struct group
@@ -53,6 +55,7 @@ struct group
     std::string alias;
     std::string avatar;
     std::string description;
+    std::string extra;
     id          creator_id;
 };
 
@@ -62,6 +65,7 @@ struct channel
     std::string alias;
     std::string avatar;
     std::string description;
+    std::string extra;
     id          creator_id;
 };
 

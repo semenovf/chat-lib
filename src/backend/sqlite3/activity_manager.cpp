@@ -26,7 +26,7 @@ activity_manager::rep_type
 activity_manager::make (shared_db_handle dbh)
 {
     static std::string const CREATE_ACTIVITY_LOG_TABLE {
-        "CREATE TABLE IF NOT EXISTS `{}` ("
+        "CREATE TABLE IF NOT EXISTS \"{}\" ("
         "contact_id {} NOT NULL"
         ", contact_activity {} NOT NULL"
         ", utc_time {} NO NULL)"
@@ -34,7 +34,7 @@ activity_manager::make (shared_db_handle dbh)
     };
 
     static std::string const CREATE_ACTIVITY_BRIEF_TABLE {
-        "CREATE TABLE IF NOT EXISTS `{}` ("
+        "CREATE TABLE IF NOT EXISTS \"{}\" ("
         "contact_id {} UNIQUE NOT NULL"
         ", online_utc_time {}"
         ", offline_utc_time {}"
@@ -42,7 +42,7 @@ activity_manager::make (shared_db_handle dbh)
     };
 
     static std::string const CREATE_ACTIVITY_BRIEF_INDEX {
-        "CREATE INDEX IF NOT EXISTS `{0}_index` ON `{0}` (`contact_id`)"
+        "CREATE INDEX IF NOT EXISTS \"{0}_index\" ON {0} (contact_id)"
     };
 
     rep_type rep;
@@ -132,11 +132,11 @@ activity_manager<BACKEND>::log_activity (contact::id id
     , contact_activity ca, pfs::utc_time const & time, bool brief_only, error * perr)
 {
     static std::string const INSERT_LOG_RECORD {
-        "INSERT INTO `{}` (`contact_id`, `contact_activity`, `utc_time`) VALUES (?, ?, ?)"
+        "INSERT INTO \"{}\" (contact_id, contact_activity, utc_time) VALUES (?, ?, ?)"
     };
 
     static std::string const UPDATE_BRIEF {
-        "INSERT INTO `{0}` (contact_id, {1}) VALUES (:contact_id, :time)"
+        "INSERT INTO \"{0}\" (contact_id, {1}) VALUES (:contact_id, :time)"
         " ON CONFLICT DO UPDATE SET {1}=:time WHERE contact_id=:contact_id"
     };
 
@@ -183,7 +183,7 @@ activity_manager<BACKEND>::last_activity (contact::id id, contact_activity ca
     , error * perr)
 {
     static std::string const SELECT_ACTIVITY = {
-        "SELECT {} FROM `{}` WHERE contact_id=?"
+        "SELECT {} FROM \"{}\" WHERE contact_id=?"
     };
 
     auto time_field_name = (ca == contact_activity::online)
@@ -219,7 +219,7 @@ activity_entry
 activity_manager<BACKEND>::last_activity (contact::id id, error * perr)
 {
     static std::string const SELECT_ACTIVITY = {
-        "SELECT * FROM `{}` WHERE contact_id=?"
+        "SELECT * FROM \"{}\" WHERE contact_id=?"
     };
 
     try {
@@ -253,7 +253,7 @@ void
 activity_manager<BACKEND>::clear_activities (contact::id id, error * perr)
 {
     static std::string const CLEAR_ACTIVITIES {
-        "DELETE from `{}` WHERE contact_id = ?"
+        "DELETE FROM \"{}\" WHERE contact_id = ?"
     };
 
     auto stmt1 = _rep.dbh->prepare(fmt::format(CLEAR_ACTIVITIES, _rep.log_table_name));
@@ -286,7 +286,7 @@ template <>
 void
 activity_manager<BACKEND>::clear_activities (error * perr)
 {
-    static std::string const CLEAR_ALL_ACTIVITIES { "DELETE from `{}`" };
+    static std::string const CLEAR_ALL_ACTIVITIES { "DELETE FROM \"{}\"" };
 
     auto stmt1 = _rep.dbh->prepare(fmt::format(CLEAR_ALL_ACTIVITIES, _rep.log_table_name));
     auto stmt2 = _rep.dbh->prepare(fmt::format(CLEAR_ALL_ACTIVITIES, _rep.brief_table_name));
@@ -318,7 +318,7 @@ activity_manager<BACKEND>::for_each_activity (contact::id id
     , error * perr)
 {
     static std::string const SELECT_ACTIVITY = {
-        "SELECT contact_activity, utc_time FROM `{}` WHERE contact_id=? ORDER BY utc_time ASC"
+        "SELECT contact_activity, utc_time FROM \"{}\" WHERE contact_id=? ORDER BY utc_time ASC"
     };
 
     try {
@@ -356,7 +356,7 @@ activity_manager<BACKEND>::for_each_activity (
     , error * perr)
 {
     static std::string const SELECT_ACTIVITY = {
-        "SELECT contact_id, contact_activity, utc_time FROM `{}` ORDER BY utc_time ASC"
+        "SELECT contact_id, contact_activity, utc_time FROM \"{}\" ORDER BY utc_time ASC"
     };
 
     try {
@@ -395,7 +395,7 @@ activity_manager<BACKEND>::for_each_activity_brief (
         , pfs::optional<pfs::utc_time> const & offline_utc_time)> f, error * perr)
 {
     static std::string const SELECT_ACTIVITY_BRIEF = {
-        "SELECT contact_id, online_utc_time, offline_utc_time FROM `{}`"
+        "SELECT contact_id, online_utc_time, offline_utc_time FROM \"{}\""
     };
 
     try {

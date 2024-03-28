@@ -22,26 +22,26 @@ static std::string const DEFAULT_INCOMING_TABLE_NAME { "file_cache_in" };
 static std::string const DEFAULT_OUTGOING_TABLE_NAME { "file_cache_out" };
 
 static std::string const CREATE_FILE_CACHE_TABLE {
-    "CREATE TABLE IF NOT EXISTS `{}` ("
-    "`file_id` {} NOT NULL"
-    ", `author_id` {} NOT NULL"
-    ", `conversation_id` {} NOT NULL"
-    ", `message_id` {} NOT NULL"
-    ", `attachment_index` {} NOT NULL"
-    ", `abspath` {} NOT NULL"
-    ", `name` {} NOT NULL"
-    ", `size` {} NOT NULL"
-    ", `mime` {} NOT NULL"
-    ", `modtime` {} NOT NULL"
-    ", PRIMARY KEY (`file_id`)) WITHOUT ROWID"
+    "CREATE TABLE IF NOT EXISTS \"{}\" ("
+    "file_id {} NOT NULL"
+    ", author_id {} NOT NULL"
+    ", conversation_id {} NOT NULL"
+    ", message_id {} NOT NULL"
+    ", attachment_index {} NOT NULL"
+    ", abspath {} NOT NULL"
+    ", name {} NOT NULL"
+    ", size {} NOT NULL"
+    ", mime {} NOT NULL"
+    ", modtime {} NOT NULL"
+    ", PRIMARY KEY (file_id)) WITHOUT ROWID"
 };
 
 static std::string const CREATE_OUTGOING_INDEX_BY_ID {
-    "CREATE UNIQUE INDEX IF NOT EXISTS `{0}_id_index` ON `{0}` (`file_id`)"
+    "CREATE UNIQUE INDEX IF NOT EXISTS \"{0}_id_index\" ON \"{0}\" (file_id)"
 };
 
 static std::string const CREATE_INCOMING_INDEX_BY_ID {
-    "CREATE UNIQUE INDEX IF NOT EXISTS `{0}_id_index` ON `{0}` (`file_id`)"
+    "CREATE UNIQUE INDEX IF NOT EXISTS \"{0}_id_index\" ON \"{0}\" (file_id)"
 };
 
 namespace backend {
@@ -115,9 +115,8 @@ static void store_file (backend::sqlite3::shared_db_handle dbh, std::string cons
     , file::credentials const & fc)
 {
     static std::string const INSERT_FILE {
-        "INSERT OR REPLACE INTO `{}` (`file_id`, `author_id`, `conversation_id`"
-            ", `message_id`, `attachment_index`"
-            ", `abspath`, `name`, `size`, `mime`, `modtime`)"
+        "INSERT OR REPLACE INTO \"{}\" (file_id, author_id, conversation_id"
+            ", message_id, attachment_index, abspath, name, size, mime, modtime)"
         " VALUES (:file_id, :author_id, :conversation_id, :message_id"
             ", :attachment_index, :abspath, :name, :size, :mime, :modtime)"
     };
@@ -200,9 +199,8 @@ file_cache<BACKEND>::reserve_incoming_file (file::id file_id
     , mime::mime_enum mime)
 {
     static std::string const RESERVE_INCOMING_FILE {
-        "INSERT OR REPLACE INTO `{}` (`file_id`, `author_id`, `conversation_id`"
-            ", `message_id`, `attachment_index`"
-            ", `abspath`, `name`, `size`, `mime`, `modtime`)"
+        "INSERT OR REPLACE INTO \"{}\" (file_id, author_id, conversation_id"
+            ", message_id, attachment_index, abspath, name, size, mime, modtime)"
         " VALUES (:file_id, :author_id, :conversation_id, :message_id"
             ", :attachment_index, :abspath, :name, :size, :mime, :modtime)"
     };
@@ -247,9 +245,8 @@ file_cache<BACKEND>::commit_incoming_file (file::id file_id
     , pfs::filesystem::path const & abspath)
 {
     static std::string const COMMIT_INCOMING_FILE {
-        "UPDATE `{}` SET `abspath` = :abspath, `name` = :name, `size` = :size"
-        ", `modtime` = :modtime"
-        " WHERE `file_id` = :file_id"
+        "UPDATE \"{}\" SET abspath = :abspath, name = :name, size = :size, modtime = :modtime"
+        " WHERE file_id = :file_id"
     };
 
     bool no_mime = true; // MIME already set by `reserve_incoming_file`.
@@ -286,11 +283,9 @@ fetch_file (file::id file_id, backend::sqlite3::shared_db_handle dbh
     , std::string const & table_name)
 {
     static std::string const SELECT_FILE_BY_ID {
-        "SELECT `file_id`, `author_id`, `conversation_id`"
-            ", `message_id`, `attachment_index`"
-            ", `abspath`, `name`"
-            ", `size`, `mime`, `modtime`"
-        " FROM `{}` WHERE `file_id` = :file_id"
+        "SELECT file_id, author_id, conversation_id, message_id, attachment_index"
+            ", abspath, name, size, mime, modtime"
+        " FROM \"{}\" WHERE file_id = :file_id"
     };
 
     try {
@@ -343,11 +338,9 @@ fetch_files (contact::id conversation_id, backend::sqlite3::shared_db_handle dbh
     , std::string const & table_name)
 {
     static std::string const SELECT_FILES {
-        "SELECT `file_id`, `author_id`, `conversation_id`"
-            ", `message_id`, `attachment_index`"
-            ", `abspath`, `name`"
-            ", `size`, `mime`, `modtime`"
-        " FROM `{}` WHERE `conversation_id` = :conversation_id"
+        "SELECT file_id, author_id, conversation_id, message_id, attachment_index"
+            ", abspath, name, size, mime, modtime"
+        " FROM \"{}\" WHERE conversation_id = :conversation_id"
     };
 
     std::vector<file::credentials> result;
@@ -398,7 +391,7 @@ file_cache<BACKEND>::incoming_files (contact::id conversation_id) const
     return fetch_files(conversation_id, _rep.dbh, _rep.in_table_name);
 }
 
-static std::string const DELETE_BY_ID { "DELETE FROM `{}` WHERE `file_id` = {}" };
+static std::string const DELETE_BY_ID { "DELETE FROM \"{}\" WHERE file_id = {}" };
 
 template<>
 void
@@ -420,7 +413,7 @@ template<>
 void
 file_cache<BACKEND>::remove_broken ()
 {
-    static std::string const SELECT_PATH { "SELECT `file_id`, `path` FROM `{}`" };
+    static std::string const SELECT_PATH { "SELECT file_id, path FROM \"{}\"" };
 
     try {
         _rep.dbh->begin();
@@ -451,7 +444,7 @@ file_cache<BACKEND>::remove_broken ()
 }
 
 static std::string const CLEAR_TABLE {
-    "DELETE FROM `{}`"
+    "DELETE FROM \"{}\""
 };
 
 template<>
