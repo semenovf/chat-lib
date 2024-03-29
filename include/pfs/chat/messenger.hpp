@@ -796,8 +796,10 @@ public:
             auto self_created_group = (c.type == conversation_enum::group)
                 && (c.creator_id == my_contact_id);
 
-            if (self_created_group)
-                dispatch_group(addressee_id, c.contact_id);
+            if (self_created_group) {
+                if (is_member_of(c.contact_id, addressee_id))
+                    dispatch_group(addressee_id, c.contact_id);
+            }
         });
     }
 
