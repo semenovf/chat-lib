@@ -57,31 +57,33 @@ conversation::make (contact::id author_id, contact::id conversation_id
     rep.table_name = DEFAULT_TABLE_NAME_PREFIX + to_string(conversation_id);
     rep.invalidate_cache = & invalidate_cache;
 
-    std::array<std::string, 1> sqls = {
-        fmt::format(CREATE_CONVERSATION_TABLE
-            , rep.table_name
-            , affinity_traits<decltype(message::message_credentials{}.message_id)>::name()
-            , affinity_traits<decltype(message::message_credentials{}.author_id)>::name()
-            , affinity_traits<decltype(message::message_credentials{}.creation_time)>::name()
-            , affinity_traits<decltype(message::message_credentials{}.modification_time)>::name()
-            , affinity_traits<decltype(message::message_credentials{}.delivered_time)>::name()
-            , affinity_traits<decltype(message::message_credentials{}.read_time)>::name()
-            , affinity_traits<std::string>::name())
-    };
+    if (!rep.dbh->exists(rep.table_name)) {
+        std::array<std::string, 1> sqls = {
+            fmt::format(CREATE_CONVERSATION_TABLE
+                , rep.table_name
+                , affinity_traits<decltype(message::message_credentials{}.message_id)>::name()
+                , affinity_traits<decltype(message::message_credentials{}.author_id)>::name()
+                , affinity_traits<decltype(message::message_credentials{}.creation_time)>::name()
+                , affinity_traits<decltype(message::message_credentials{}.modification_time)>::name()
+                , affinity_traits<decltype(message::message_credentials{}.delivered_time)>::name()
+                , affinity_traits<decltype(message::message_credentials{}.read_time)>::name()
+                , affinity_traits<std::string>::name())
+        };
 
-    try {
-        rep.dbh->begin();
+        try {
+            rep.dbh->begin();
 
-        for (auto const & sql: sqls)
-            rep.dbh->query(sql);
+            for (auto const & sql: sqls)
+                rep.dbh->query(sql);
 
-        rep.dbh->commit();
-    } catch (debby::error ex) {
-        rep.dbh->rollback();
-        shared_db_handle empty;
-        rep.dbh.swap(empty);
+            rep.dbh->commit();
+        } catch (debby::error ex) {
+            rep.dbh->rollback();
+            shared_db_handle empty;
+            rep.dbh.swap(empty);
 
-        throw error{errc::storage_error, ex.what()};
+            throw error{errc::storage_error, ex.what()};
+        }
     }
 
     invalidate_cache(& rep);
