@@ -7,6 +7,8 @@
 //      2022.11.03 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
+#include <string>
+#include <vector>
 
 namespace chat {
 
@@ -18,9 +20,9 @@ public:
      *
      * @param message_address Message address.
      */
-    mutable std::function<void (contact::id /*addressee_id*/
-        , std::string const & /*data*/)> dispatch_data
-    = [] (contact::id, std::string const &) {};
+    mutable std::function<void (contact::id /*addressee*/
+        , std::vector<char> const & /*data*/)> dispatch_data
+    = [] (contact::id, std::vector<char> const &) {};
 
     /**
      * Called when file/attachment request received.

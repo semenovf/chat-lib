@@ -19,7 +19,6 @@ option(CHAT__BUILD_STATIC "Enable build static library" ON)
 set(CHAT__CONTACT_MANAGER_BACKEND "sqlite3" CACHE STRING "Enable `sqlite3` contact manager backend")
 set(CHAT__MESSAGE_STORE_BACKEND "sqlite3" CACHE STRING "Enable `sqlite3` message store backend")
 set(CHAT__FILE_CACHE_BACKEND "sqlite3" CACHE STRING "Enable `sqlite3` message store backend")
-set(CHAT__SERIALIZER_BACKEND "cereal" CACHE STRING  "Enable serialization based on `Cereal` library")
 
 if (NOT PORTABLE_TARGET__CURRENT_PROJECT_DIR)
     set(PORTABLE_TARGET__CURRENT_PROJECT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
@@ -91,23 +90,6 @@ endif()
 if (NOT TARGET pfs::ionik AND NOT TARGET pfs::ionik::static)
     portable_target(INCLUDE_PROJECT
         ${PORTABLE_TARGET__CURRENT_PROJECT_DIR}/3rdparty/pfs/ionik/library.cmake)
-endif()
-
-if (CHAT__SERIALIZER_BACKEND STREQUAL "cereal")
-    if (NOT TARGET cereal)
-        portable_target(INCLUDE_PROJECT ${PORTABLE_TARGET__CURRENT_PROJECT_DIR}/cmake/Cereal.cmake)
-    endif()
-
-    if (CHAT__BUILD_SHARED)
-        portable_target(LINK ${PROJECT_NAME} PUBLIC cereal)
-    endif()
-
-    if (CHAT__BUILD_STATIC)
-        portable_target(LINK ${STATIC_PROJECT_NAME} PUBLIC cereal)
-    endif()
-
-    list(APPEND _chat__sources
-        ${CMAKE_CURRENT_LIST_DIR}/src/backend/serializer/cereal.cpp)
 endif()
 
 if (CHAT__BUILD_SHARED)

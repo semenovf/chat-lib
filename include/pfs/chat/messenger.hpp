@@ -16,7 +16,7 @@
 #include "message.hpp"
 #include "message_store.hpp"
 #include "protocol.hpp"
-#include "serializer.hpp"
+#include "primal_serializer.hpp"
 #include "callback_traits/function.hpp"
 #include "pfs/assert.hpp"
 #include "pfs/fmt.hpp"
@@ -143,7 +143,7 @@ template <typename ContactManagerBackend
     , typename MessageStoreBackend
     , typename ActivityManagerBackend
     , typename FileCacheBackend
-    , typename SerializerBackend
+    , typename Serializer = primal_serializer<pfs::endian::network>
     , typename CallbackTraits = function_callbacks>
 class messenger: public CallbackTraits
 {
@@ -155,7 +155,7 @@ public:
     using message_store_type    = message_store<MessageStoreBackend>;
     using activity_manager_type = activity_manager<ActivityManagerBackend>;
     using file_cache_type       = file_cache<FileCacheBackend>;
-    using serializer_type       = serializer<SerializerBackend>;
+    using serializer_type       = Serializer;
 //     using icon_library_type    = typename ...;
 
     using conversation_type = typename message_store_type::conversation_type;
@@ -633,9 +633,9 @@ public:
             ? to_string(*msg->contents)
             : std::string{};
 
-        typename serializer_type::output_packet_type out {};
+        typename serializer_type::ostream_type out;
         out << m;
-        dispatch_multicast(addressee, out.data());
+        dispatch_multicast(addressee, out.take());
     }
 
     /**
@@ -687,9 +687,9 @@ public:
             ? my_contact().contact_id : conversation_id;
         m.read_time = read_time;
 
-        typename serializer_type::output_packet_type out {};
+        typename serializer_type::ostream_type out;
         out << m;
-        this->dispatch_data(conv_contact.contact_id, out.data());
+        this->dispatch_data(conv_contact.contact_id, out.take());
     }
 
     /**
@@ -709,9 +709,9 @@ public:
             , conversation_enum::person
         }};
 
-        typename serializer_type::output_packet_type out {};
+        typename serializer_type::ostream_type out;
         out << c;
-        this->dispatch_data(addressee_id, out.data());
+        this->dispatch_data(addressee_id, out.take());
     }
 
     /**
@@ -744,9 +744,9 @@ public:
         }};
 
         {
-            typename serializer_type::output_packet_type out {};
+            typename serializer_type::ostream_type out;
             out << c;
-            this->dispatch_data(addressee_id, out.data());
+            this->dispatch_data(addressee_id, out.take());
         }
 
         // Send group members
@@ -760,9 +760,9 @@ public:
             gm.members.push_back(c.contact_id);
 
         {
-            typename serializer_type::output_packet_type out {};
+            typename serializer_type::ostream_type out;
             out << gm;
-            this->dispatch_data(addressee_id, out.data());
+            this->dispatch_data(addressee_id, out.take());
         }
     }
 
@@ -779,10 +779,9 @@ public:
         protocol::group_members gm;
         gm.group_id = group_id;
 
-        typename serializer_type::output_packet_type out {};
+        typename serializer_type::ostream_type out;
         out << gm;
-
-        this->dispatch_data(addressee_id, out.data());
+        this->dispatch_data(addressee_id, out.take());
     }
 
     /**
@@ -813,10 +812,9 @@ public:
         if (addressee_id == my_contact().contact_id)
             return;
 
-        typename serializer_type::output_packet_type out {};
+        typename serializer_type::ostream_type out;
         out << protocol::file_request{file_id};
-
-        this->dispatch_data(addressee_id, out.data());
+        this->dispatch_data(addressee_id, out.take());
     }
 
     void dispatch_file_error (contact::id addressee_id, file::id file_id)
@@ -828,9 +826,9 @@ public:
         protocol::file_error m;
         m.file_id = file_id;
 
-        typename serializer_type::output_packet_type out {};
+        typename serializer_type::ostream_type out;
         out << m;
-        this->dispatch_data(addressee_id, out.data());
+        this->dispatch_data(addressee_id, out.take());
     }
 
     /**
@@ -846,9 +844,9 @@ public:
      * @throw chat::error{} Bad/corrupted message content.
      * @throw chat::error{errc::bad_packet_type} Bad packet type received.
      */
-    void process_incoming_data (contact::id addresser_id, std::string const & data)
+    void process_incoming_data (contact::id addresser_id, char const * data, std::size_t size)
     {
-        typename serializer_type::input_packet_type in {data.data(), data.size()};
+        typename serializer_type::istream_type in {data, size};
         protocol::packet_enum packet_type;
         in >> packet_type;
 
@@ -1056,7 +1054,8 @@ public:
 
 private:
     // Can be considered that `dispatch_data` is analog to `dispatch_unicast`.
-    void dispatch_multicast (contact::contact const & addressee, std::string const & data)
+    void dispatch_multicast (contact::contact const & addressee
+        , typename serializer_type::output_archive_type const & data)
     {
         switch (addressee.type) {
             case conversation_enum::person:
@@ -1155,9 +1154,9 @@ private:
             ? my_contact().contact_id : conversation_id;
         m.delivered_time  = received_time;
 
-        typename serializer_type::output_packet_type out {};
+        typename serializer_type::ostream_type out;
         out << m;
-        dispatch_multicast(addressee, out.data());
+        dispatch_multicast(addressee, out.take());
     }
 
     /**
