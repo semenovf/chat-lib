@@ -328,7 +328,7 @@ conversation<BACKEND>::editor_type
 conversation<BACKEND>::create ()
 {
     auto message_id = message::id_generator{}.next();
-    auto ed = editor_type::make(& this->_rep, message_id, false);
+    auto ed = editor_type::make(& this->_rep, message_id, editor_mode_enum::create);
     ed.cache_outgoing_local_file = cache_outgoing_local_file;
     ed.cache_outgoing_custom_file = cache_outgoing_custom_file;
     return ed;
@@ -364,7 +364,7 @@ conversation<BACKEND>::open (message::id message_id)
         if (content_data)
             content = message::content{*content_data};
 
-        auto ed = editor_type::make(& this->_rep, message_id, std::move(content));
+        auto ed = editor_type::make(& this->_rep, message_id, std::move(content), editor_mode_enum::modify);
         ed.cache_outgoing_local_file = cache_outgoing_local_file;
         return ed;
     }

@@ -11,16 +11,16 @@
 #include "pfs/filesystem.hpp"
 #include "pfs/fmt.hpp"
 #include "pfs/memory.hpp"
-#include "pfs/chat/messenger.hpp"
-#include "pfs/chat/activity_manager.hpp"
-#include "pfs/chat/contact_manager.hpp"
-#include "pfs/chat/message_store.hpp"
-#include "pfs/chat/serializer.hpp"
-#include "pfs/chat/backend/sqlite3/activity_manager.hpp"
-#include "pfs/chat/backend/sqlite3/contact_manager.hpp"
-#include "pfs/chat/backend/sqlite3/message_store.hpp"
-#include "pfs/chat/backend/sqlite3/file_cache.hpp"
-#include "pfs/chat/backend/serializer/cereal.hpp"
+#include "chat/messenger.hpp"
+#include "chat/activity_manager.hpp"
+#include "chat/contact_manager.hpp"
+#include "chat/message_store.hpp"
+// #include "chat/serializer.hpp"
+#include "chat/backend/sqlite3/activity_manager.hpp"
+#include "chat/backend/sqlite3/contact_manager.hpp"
+#include "chat/backend/sqlite3/message_store.hpp"
+#include "chat/backend/sqlite3/file_cache.hpp"
+// #include "chat/backend/serializer/cereal.hpp"
 #include <fstream>
 
 namespace fs = pfs::filesystem;
@@ -44,7 +44,7 @@ using Messenger = chat::messenger<
     , chat::backend::sqlite3::message_store
     , chat::backend::sqlite3::activity_manager
     , chat::backend::sqlite3::file_cache
-    , chat::backend::cereal::serializer>;
+    , chat::primal_serializer<>>;
 
 using SharedMessenger = std::shared_ptr<Messenger>;
 
@@ -214,10 +214,10 @@ TEST_CASE("messenger") {
 ////////////////////////////////////////////////////////////////////////////////
 // Step 4. Instantiate messenger
 ////////////////////////////////////////////////////////////////////////////////
-    std::string last_data_sent;
+    std::vector<char> last_data_sent;
 
     auto send_message = [& last_data_sent] (chat::contact::id addressee
-        , std::string const & data) {
+        , std::vector<char> const & data) {
 
         fmt::print(fmt::format("Send message {}\n", addressee));
 
@@ -338,7 +338,7 @@ TEST_CASE("messenger") {
 ////////////////////////////////////////////////////////////////////////////////
 // Step 5.1 Add group contact
 ////////////////////////////////////////////////////////////////////////////////
-    chat::contact::group group1 {groupId1, groupAlias1, "", "", contactId1};
+    chat::contact::group group1 {groupId1, groupAlias1, "", "", "", contactId1};
     REQUIRE_NE(messenger1->add(group1), chat::contact::id{});
     messenger1->add_member(groupId1, contactId2);
     messenger1->add_member(groupId1, contactId3);
@@ -378,7 +378,7 @@ TEST_CASE("messenger") {
 
         auto editor = conversation.create();
 
-        REQUIRE_EQ(editor.message_id(), chat::message::id{});
+        REQUIRE_NE(editor.message_id(), chat::message::id{});
 
         editor.add_text(TEXT);
         editor.add_html(HTML);
@@ -388,7 +388,6 @@ TEST_CASE("messenger") {
         editor.save();
 
         last_message_id = editor.message_id();
-        REQUIRE_NE(editor.message_id(), chat::message::id{});
     }
 
     {
@@ -396,6 +395,8 @@ TEST_CASE("messenger") {
         REQUIRE(conversation);
 
         auto editor = conversation.open(last_message_id);
+
+        auto mime0 = editor.content().at(0).mime;
 
         REQUIRE_EQ(editor.content().at(0).mime, mime::mime_enum::text__plain);
         REQUIRE_EQ(editor.content().at(1).mime, mime::mime_enum::text__html);
@@ -461,6 +462,6 @@ TEST_CASE("messenger") {
 ////////////////////////////////////////////////////////////////////////////////
     {
         // `last_data_sent` is the serialized data sent by `messenger1`
-        messenger2->process_incoming_data(contactId1, last_data_sent);
+        messenger2->process_incoming_data(contactId1, last_data_sent.data(), last_data_sent.size());
     }
 }

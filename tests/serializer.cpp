@@ -8,9 +8,8 @@
 ////////////////////////////////////////////////////////////////////////////////
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"
-#include "pfs/chat/protocol.hpp"
-#include "pfs/chat/serializer.hpp"
-#include "pfs/chat/backend/serializer/cereal.hpp"
+#include "chat/protocol.hpp"
+#include "chat/primal_serializer.hpp"
 #include <fstream>
 
 namespace {
@@ -20,7 +19,7 @@ std::string TEST_CONTENT {"Lorem ipsum dolor sit amet, consectetuer adipiscing e
 } // namespace
 
 TEST_CASE("serializer") {
-    using serializer = chat::serializer<chat::backend::cereal::serializer>;
+    using serializer = chat::primal_serializer<>;
     auto time_point = pfs::current_utc_time_point();
 
     chat::protocol::regular_message m;
@@ -29,12 +28,11 @@ TEST_CASE("serializer") {
     m.mod_time      = time_point;
     m.content       = TEST_CONTENT;
 
-    serializer::output_packet_type out;
+    serializer::ostream_type out;
     out << m;
 
     chat::protocol::regular_message m1;
-    auto s = out.data();
-    serializer::input_packet_type in {s};
+    serializer::istream_type in {out.data(), out.size()};
     chat::protocol::packet_enum packet_type;
     in >> packet_type >> m1;
 

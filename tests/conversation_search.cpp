@@ -27,12 +27,14 @@ static auto my_id = "01FV1KFY7WCBKDQZ5B4T5ZJMSA"_uuid;
 static auto conversation_id = "01FV1KFY7WWS3WSBV4BFYF7ZC9"_uuid;
 
 static std::vector<chat::message::content_credentials> test_data = {
-    {
-          mime::mime_enum::text__plain
+    chat::message::content_credentials {
+          false
+        , mime::mime_enum::text__plain
         , "Лорем ипсум долор сит амет. Вис лорем. Хис ан ЛоРеМ, куад алтера лореМ. Еи хас ЛОРЕМ."
     }
-    , {
-          mime::mime_enum::text__html
+    , chat::message::content_credentials {
+          false
+        , mime::mime_enum::text__html
         , "<span>Лорем ипсум долор сит амет.</span> Вис лорем. Хис ан <div ЛоРеМ>ЛоРеМ</div>, куад алтера лореМ. Еи хас ЛОРЕМ."
     }
 };

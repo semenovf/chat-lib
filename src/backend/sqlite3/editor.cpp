@@ -35,12 +35,12 @@ namespace backend {
 namespace sqlite3 {
 
 editor::rep_type
-editor::make (conversation::rep_type * convers, message::id message_id, bool modification)
+editor::make (conversation::rep_type * convers, message::id message_id, editor_mode_enum mode)
 {
     rep_type rep;
     rep.convers    = convers;
     rep.message_id = message_id;
-    rep.mod = modification;
+    rep.mode = mode;
     return rep;
 }
 
@@ -48,13 +48,13 @@ editor::rep_type
 editor::make (conversation::rep_type * convers
     , message::id message_id
     , message::content && content
-    , bool modification)
+    , editor_mode_enum mode)
 {
     rep_type rep;
     rep.convers    = convers;
     rep.message_id = message_id;
     rep.content    = std::move(content);
-    rep.mod = modification;
+    rep.mode = mode;
 
     return rep;
 }
@@ -205,7 +205,7 @@ editor<BACKEND>::save ()
             (*_rep.convers->invalidate_cache)(_rep.convers);
         }
     } else {
-        if (!_rep.mod) {
+        if (_rep.mode == editor_mode_enum::create) {
             // Create/save new message
             auto creation_time = pfs::current_utc_time_point();
 

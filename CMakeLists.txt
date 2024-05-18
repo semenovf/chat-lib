@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2021-2023 Vladislav Trifochkin
+# Copyright (c) 2021-2024 Vladislav Trifochkin
 #
 # This file is part of `chat-lib`.
 #
@@ -14,9 +14,10 @@ option(CHAT__BUILD_STRICT "Build with strict policies: C++ standard required, C+
 option(CHAT__BUILD_TESTS "Build tests" OFF)
 option(CHAT__BUILD_DEMO "Build examples/demo" OFF)
 option(CHAT__ENABLE_COVERAGE "Build tests with coverage support" OFF)
+option(CHAT__ENABLE_PROFILER "Build with profiling support" OFF)
 
 if (NOT PORTABLE_TARGET__ENABLED)
-    list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/3rdparty/portable-target/cmake/v2)
+    list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/2ndparty/portable-target/cmake/v2)
     include(PortableTarget)
     portable_target(SET ENABLE_TRACE ON)
 endif()
@@ -38,4 +39,15 @@ endif()
 
 if (CHAT__BUILD_DEMO AND EXISTS ${CMAKE_CURRENT_LIST_DIR}/demo)
     add_subdirectory(demo)
+endif()
+
+if (CHAT__ENABLE_PROFILER)
+    message(STATUS "Profiler feature enabled")
+
+    if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+        set(CMAKE_CXX_FLAGS "-pg")
+        set(CMAKE_C_FLAGS "-pg")
+    else()
+        message(FATAL_ERROR "Profiler feature requires GCC")
+    endif()
 endif()

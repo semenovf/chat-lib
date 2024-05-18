@@ -9,8 +9,9 @@
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 #include "db_traits.hpp"
-#include "pfs/chat/exports.hpp"
-#include "pfs/chat/contact.hpp"
+#include "chat/exports.hpp"
+#include "chat/contact.hpp"
+#include "chat/editor_mode.hpp"
 #include <atomic>
 #include <map>
 #include <string>
@@ -62,16 +63,16 @@ struct editor
         conversation::rep_type * convers;
         message::id      message_id;
         message::content content;
-        bool mod; // modification (true) or creation (false)
+        editor_mode_enum mode;
     };
 
     static CHAT__EXPORT rep_type make (conversation::rep_type * convers
-        , message::id message_id, bool modification);
+        , message::id message_id, editor_mode_enum mode);
 
     static CHAT__EXPORT rep_type make (conversation::rep_type * convers
         , message::id message_id
         , message::content && content
-        , bool modification);
+        , editor_mode_enum mode);
 };
 
 }}} // namespace chat::backend::sqlite3

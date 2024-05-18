@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2021-2023 Vladislav Trifochkin
+# Copyright (c) 2021-2024 Vladislav Trifochkin
 #
 # This file is part of `chat-lib`.
 #
@@ -9,6 +9,7 @@
 #      2021.11.29 Refactored for use `portable_target`.
 #      2022.07.23 Configuration options replaced by `STRING` variables.
 #      2023.02.10 Separated static and shared builds.
+#      2024.05.18 Replaced the sequence of two target configurations with a foreach statement.
 ################################################################################
 cmake_minimum_required (VERSION 3.11)
 project(chat LANGUAGES C CXX)
@@ -26,11 +27,13 @@ endif()
 
 if (CHAT__BUILD_SHARED)
     portable_target(ADD_SHARED ${PROJECT_NAME} ALIAS pfs::chat EXPORTS CHAT__EXPORTS)
+    list(APPEND _chat__targets ${PROJECT_NAME})
 endif()
 
 if (CHAT__BUILD_STATIC)
     set(STATIC_PROJECT_NAME ${PROJECT_NAME}-static)
     portable_target(ADD_STATIC ${STATIC_PROJECT_NAME} ALIAS pfs::chat::static EXPORTS CHAT__STATIC)
+    list(APPEND _chat__targets ${STATIC_PROJECT_NAME})
 endif()
 
 list(APPEND _chat__sources
@@ -68,87 +71,54 @@ if (CHAT__FILE_CACHE_BACKEND STREQUAL "sqlite3")
 endif()
 
 if (NOT TARGET pfs::common)
-    portable_target(INCLUDE_PROJECT
-        ${PORTABLE_TARGET__CURRENT_PROJECT_DIR}/3rdparty/pfs/common/library.cmake)
+    portable_target(INCLUDE_PROJECT ${CMAKE_CURRENT_LIST_DIR}/2ndparty/common/library.cmake)
 endif()
 
 if (NOT TARGET pfs::jeyson AND NOT TARGET pfs::jeyson::static)
-    portable_target(INCLUDE_PROJECT
-        ${PORTABLE_TARGET__CURRENT_PROJECT_DIR}/3rdparty/pfs/jeyson/library.cmake)
+    portable_target(INCLUDE_PROJECT ${PORTABLE_TARGET__CURRENT_PROJECT_DIR}/2ndparty/jeyson/library.cmake)
 endif()
 
 if (NOT TARGET pfs::debby AND NOT TARGET pfs::debby::static)
-    portable_target(INCLUDE_PROJECT
-        ${PORTABLE_TARGET__CURRENT_PROJECT_DIR}/3rdparty/pfs/debby/library.cmake)
+    portable_target(INCLUDE_PROJECT ${PORTABLE_TARGET__CURRENT_PROJECT_DIR}/2ndparty/debby/library.cmake)
 endif()
 
 if (NOT TARGET pfs::mime AND NOT TARGET pfs::mime::static)
-    portable_target(INCLUDE_PROJECT
-        ${PORTABLE_TARGET__CURRENT_PROJECT_DIR}/3rdparty/pfs/mime/library.cmake)
+    portable_target(INCLUDE_PROJECT ${PORTABLE_TARGET__CURRENT_PROJECT_DIR}/2ndparty/mime/library.cmake)
 endif()
 
 if (NOT TARGET pfs::ionik AND NOT TARGET pfs::ionik::static)
-    portable_target(INCLUDE_PROJECT
-        ${PORTABLE_TARGET__CURRENT_PROJECT_DIR}/3rdparty/pfs/ionik/library.cmake)
+    portable_target(INCLUDE_PROJECT ${PORTABLE_TARGET__CURRENT_PROJECT_DIR}/2ndparty/ionik/library.cmake)
 endif()
 
-if (CHAT__BUILD_SHARED)
-    portable_target(SOURCES ${PROJECT_NAME} ${_chat__sources})
-    portable_target(INCLUDE_DIRS ${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_LIST_DIR}/include)
+foreach(_target IN LISTS _chat__targets)
+    portable_target(SOURCES ${_target} ${_chat__sources})
+    portable_target(INCLUDE_DIRS ${_target} PUBLIC
+        ${CMAKE_CURRENT_LIST_DIR}/include
+        ${CMAKE_CURRENT_LIST_DIR}/include/pfs)
 
-    portable_target(LINK ${PROJECT_NAME} PUBLIC pfs::common)
+    portable_target(LINK ${_target} PUBLIC pfs::common)
 
     if (TARGET pfs::debby)
-        portable_target(LINK ${PROJECT_NAME} PUBLIC pfs::debby)
+        portable_target(LINK ${_target} PUBLIC pfs::debby)
     elseif (TARGET pfs::debby::static)
-        portable_target(LINK ${PROJECT_NAME} PUBLIC pfs::debby::static)
+        portable_target(LINK ${_target} PUBLIC pfs::debby::static)
     endif()
 
     if (TARGET pfs::jeyson)
-        portable_target(LINK ${PROJECT_NAME} PUBLIC pfs::jeyson)
+        portable_target(LINK ${_target} PUBLIC pfs::jeyson)
     elseif(TARGET pfs::jeyson::static)
-        portable_target(LINK ${PROJECT_NAME} PUBLIC pfs::jeyson::static)
+        portable_target(LINK ${_target} PUBLIC pfs::jeyson::static)
     endif()
 
     if (TARGET pfs::mime)
-        portable_target(LINK ${PROJECT_NAME} PUBLIC pfs::mime)
+        portable_target(LINK ${_target} PUBLIC pfs::mime)
     elseif(TARGET pfs::mime::static)
-        portable_target(LINK ${PROJECT_NAME} PUBLIC pfs::mime::static)
+        portable_target(LINK ${_target} PUBLIC pfs::mime::static)
     endif()
 
     if (TARGET pfs::ionik)
-        portable_target(LINK ${PROJECT_NAME} PUBLIC pfs::ionik)
+        portable_target(LINK ${_target} PUBLIC pfs::ionik)
     elseif(TARGET pfs::ionik::static)
-        portable_target(LINK ${PROJECT_NAME} PUBLIC pfs::ionik::static)
+        portable_target(LINK ${_target} PUBLIC pfs::ionik::static)
     endif()
-endif()
-
-if (CHAT__BUILD_STATIC)
-    portable_target(SOURCES ${STATIC_PROJECT_NAME} ${_chat__sources})
-    portable_target(INCLUDE_DIRS ${STATIC_PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_LIST_DIR}/include)
-    portable_target(LINK ${STATIC_PROJECT_NAME} PUBLIC pfs::common)
-
-    if (TARGET pfs::debby::static)
-        portable_target(LINK ${STATIC_PROJECT_NAME} PUBLIC pfs::debby::static)
-    elseif (TARGET pfs::debby)
-        portable_target(LINK ${STATIC_PROJECT_NAME} PUBLIC pfs::debby)
-    endif()
-
-    if (TARGET pfs::jeyson::static)
-        portable_target(LINK ${STATIC_PROJECT_NAME} PUBLIC pfs::jeyson::static)
-    elseif (TARGET pfs::jeyson)
-        portable_target(LINK ${STATIC_PROJECT_NAME} PUBLIC pfs::jeyson)
-    endif()
-
-    if (TARGET pfs::mime::static)
-        portable_target(LINK ${STATIC_PROJECT_NAME} PUBLIC pfs::mime::static)
-    elseif (TARGET pfs::mime)
-        portable_target(LINK ${STATIC_PROJECT_NAME} PUBLIC pfs::mime)
-    endif()
-
-    if (TARGET pfs::ionik::static)
-        portable_target(LINK ${STATIC_PROJECT_NAME} PUBLIC pfs::ionik::static)
-    elseif (TARGET pfs::ionik)
-        portable_target(LINK ${STATIC_PROJECT_NAME} PUBLIC pfs::ionik)
-    endif()
-endif()
+endforeach()
