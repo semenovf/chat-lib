@@ -1196,8 +1196,7 @@ private:
         auto conv = this->conversation(m.conversation_id);
 
         if (!conv) {
-            throw error {errc::conversation_not_found
-                , to_string(m.conversation_id)};
+            throw error {errc::conversation_not_found, to_string(m.conversation_id)};
         }
 
         process_read_notification(conv, m.message_id, m.read_time);
@@ -1206,21 +1205,19 @@ private:
     /**
      * Process file request.
      */
-    void process_file_request (contact::id addresser_id
-        , protocol::file_request const & m)
+    void process_file_request (contact::id addresser_id, protocol::file_request const & m)
     {
         auto fc = _file_cache->outgoing_file(m.file_id);
 
         if (fc) {
-            this->dispatch_file(addresser_id, fc->file_id, fc->abspath);
+            this->dispatch_file(addresser_id, fc->file_id, fc->abspath, fc.name, fc.size);
         } else {
             // File not found in cache by specified ID.
             dispatch_file_error(addresser_id, m.file_id);
         }
     }
 
-    void process_file_error (contact::id addresser_id
-        , protocol::file_error const & m)
+    void process_file_error (contact::id addresser_id, protocol::file_error const & m)
     {
         this->file_error(addresser_id, m.file_id);
     }

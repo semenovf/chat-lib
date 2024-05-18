@@ -7,6 +7,8 @@
 //      2022.11.03 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
+#include "chat/contact.hpp"
+#include "chat/file.hpp"
 #include <string>
 #include <vector>
 

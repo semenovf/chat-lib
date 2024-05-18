@@ -50,7 +50,7 @@ struct credentials
     std::string abspath;
 
     // File name for attachments, audio and video files
-    // For outgoing file it is same as `path.filename()`.
+    // For outgoing file it is same as `abspath.filename()`.
     // For incoming file it is original (remote) filename.
     std::string name;
 
