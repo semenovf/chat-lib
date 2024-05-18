@@ -11,7 +11,7 @@
 #include "db_traits.hpp"
 #include "chat/exports.hpp"
 #include "chat/contact.hpp"
-#include "chat/editor_mode.hpp"
+#include "chat/editor_mode_enum.hpp"
 #include <atomic>
 #include <map>
 #include <string>

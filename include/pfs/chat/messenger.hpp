@@ -1210,7 +1210,7 @@ private:
         auto fc = _file_cache->outgoing_file(m.file_id);
 
         if (fc) {
-            this->dispatch_file(addresser_id, fc->file_id, fc->abspath, fc.name, fc.size);
+            this->dispatch_file(addresser_id, fc->file_id, fc->abspath);
         } else {
             // File not found in cache by specified ID.
             dispatch_file_error(addresser_id, m.file_id);

@@ -33,8 +33,7 @@ foreach (t ${TESTS})
 endforeach()
 
 if (NOT TARGET pfs::lorem)
-    portable_target(INCLUDE_PROJECT
-        ${CMAKE_SOURCE_DIR}/3rdparty/pfs/lorem/library.cmake)
+    portable_target(INCLUDE_PROJECT ${CMAKE_SOURCE_DIR}/2ndparty/lorem/library.cmake)
 endif()
 
 portable_target(LINK contact_list_search pfs::lorem)
