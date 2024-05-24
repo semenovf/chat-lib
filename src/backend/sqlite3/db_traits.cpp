@@ -13,10 +13,11 @@ namespace chat {
 namespace backend {
 namespace sqlite3 {
 
-shared_db_handle make_handle (pfs::filesystem::path const & path
-    , bool create_if_missing)
+shared_db_handle make_handle (pfs::filesystem::path const & path, bool create_if_missing)
 {
-    auto p = db_traits::database_type::make_unique(path, create_if_missing);
+    auto presets = debby::backend::sqlite3::database::presets_enum::CONCURRENCY_PRESET;
+
+    auto p = db_traits::database_type::make_unique(path, create_if_missing, presets);
     return std::move(p);
 }
 
