@@ -98,7 +98,7 @@ struct primal_serializer
         in >> target.group_id >> sz;
 
         if (sz > 0) {
-            target.members.resize(sz);
+            target.members.reserve(sz);
             chat::contact::id x;
 
             for (typename ostream_type::size_type i = 0; i < sz; i++) {
