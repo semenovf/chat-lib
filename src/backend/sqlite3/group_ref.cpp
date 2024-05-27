@@ -191,7 +191,7 @@ contact_manager<BACKEND>::group_ref::add_member (contact::id member_id)
 
     auto & rep = _pmanager->_rep;
 
-    if (member_id != rep.me.contact_id) {
+    if (member_id != rep.my_contact_id) {
         //auto c = rep.contacts->get(member_id);
         auto c = _pmanager->get(member_id);
 

@@ -24,10 +24,12 @@ struct contact_manager
     struct rep_type
     {
         shared_db_handle dbh;
-        contact::person  me;
-        std::string      contacts_table_name;
-        std::string      members_table_name;
-        std::string      followers_table_name;
+        // contact::person  me;
+        chat::contact::id my_contact_id;
+        std::string my_contact_table_name;
+        std::string contacts_table_name;
+        std::string members_table_name;
+        std::string followers_table_name;
     };
 
     static CHAT__EXPORT rep_type make (contact::person const & me

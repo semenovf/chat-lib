@@ -22,15 +22,28 @@ using namespace debby::backend::sqlite3;
 namespace backend {
 namespace sqlite3 {
 
-static std::string const DEFAULT_CONTACTS_TABLE_NAME  { "chat_contacts" };
-static std::string const DEFAULT_MEMBERS_TABLE_NAME   { "chat_members" };
-static std::string const DEFAULT_FOLLOWERS_TABLE_NAME { "chat_channels" };
+static std::string const DEFAULT_MY_CONTACT_TABLE_NAME { "chat_me" };
+static std::string const DEFAULT_CONTACTS_TABLE_NAME   { "chat_contacts" };
+static std::string const DEFAULT_MEMBERS_TABLE_NAME    { "chat_members" };
+static std::string const DEFAULT_FOLLOWERS_TABLE_NAME  { "chat_channels" };
+
+static std::string const CREATE_MY_CONTACT_TABLE {
+    //      ---- Optional TEMPORARY
+    //      |
+    //      v
+    "CREATE {} TABLE IF NOT EXISTS `{}` ("
+        "id {} NOT NULL UNIQUE"
+        ", alias {} NOT NULL"
+        ", avatar {}"
+        ", description {}"
+        ", extra {})"
+};
 
 static std::string const CREATE_CONTACTS_TABLE {
     //      ---- Optional TEMPORARY
     //      |
     //      v
-    "CREATE {} TABLE IF NOT EXISTS \"{}\" ("
+    "CREATE {} TABLE IF NOT EXISTS `{}` ("
         "id {} NOT NULL UNIQUE"
         ", creator_id {} NOT NULL"
         ", alias {} NOT NULL"
@@ -42,32 +55,32 @@ static std::string const CREATE_CONTACTS_TABLE {
 };
 
 static std::string const CREATE_MEMBERS_TABLE {
-    "CREATE TABLE IF NOT EXISTS \"{}\" ("
+    "CREATE TABLE IF NOT EXISTS `{}` ("
         "group_id {} NOT NULL"
         ", member_id {} NOT NULL)"
 };
 
 static std::string const CREATE_FOLLOWERS_TABLE {
-    "CREATE TABLE IF NOT EXISTS \"{}\" ("
+    "CREATE TABLE IF NOT EXISTS `{}` ("
         "channel_id {} NOT NULL"
         ", follower_id {} NOT NULL)"
 };
 
 static std::string const CREATE_CONTACTS_INDEX {
-    "CREATE UNIQUE INDEX IF NOT EXISTS \"{0}_index\" ON \"{0}\" (id)"
+    "CREATE UNIQUE INDEX IF NOT EXISTS `{0}_index` ON `{0}` (id)"
 };
 
 static std::string const CREATE_MEMBERS_INDEX {
-    "CREATE INDEX IF NOT EXISTS \"{0}_index\" ON \"{0}\" (group_id)"
+    "CREATE INDEX IF NOT EXISTS `{0}_index` ON `{0}` (group_id)"
 };
 
 // Preventing duplicate pairs of group_id:member_id
 static std::string const CREATE_MEMBERS_UNIQUE_INDEX {
-    "CREATE UNIQUE INDEX IF NOT EXISTS \"{0}_unique_index\" ON \"{0}\" (group_id, member_id)"
+    "CREATE UNIQUE INDEX IF NOT EXISTS `{0}_unique_index` ON `{0}` (group_id, member_id)"
 };
 
 static std::string const CREATE_FOLLOWERS_INDEX {
-    "CREATE INDEX IF NOT EXISTS \"{0}_index\" ON \"{0}\" (channel_id)"
+    "CREATE INDEX IF NOT EXISTS `{0}_index` ON `{0}` (channel_id)"
 };
 
 contact_manager::rep_type
@@ -76,13 +89,23 @@ contact_manager::make (contact::person const & me, shared_db_handle dbh)
     rep_type rep;
 
     rep.dbh = dbh;
-    rep.me  = me;
-    rep.contacts_table_name  = DEFAULT_CONTACTS_TABLE_NAME;
-    rep.members_table_name   = DEFAULT_MEMBERS_TABLE_NAME;
-    rep.followers_table_name = DEFAULT_FOLLOWERS_TABLE_NAME;
+    //rep.me  = me;
+    rep.my_contact_id = me.contact_id;
+    rep.my_contact_table_name = DEFAULT_MY_CONTACT_TABLE_NAME;
+    rep.contacts_table_name   = DEFAULT_CONTACTS_TABLE_NAME;
+    rep.members_table_name    = DEFAULT_MEMBERS_TABLE_NAME;
+    rep.followers_table_name  = DEFAULT_FOLLOWERS_TABLE_NAME;
 
-    std::array<std::string, 7> sqls = {
-          fmt::format(CREATE_CONTACTS_TABLE
+    std::array<std::string, 9> sqls = {
+          fmt::format(CREATE_MY_CONTACT_TABLE
+            , ""
+            , rep.my_contact_table_name
+            , affinity_traits<contact::id>::name()
+            , affinity_traits<decltype(contact::contact{}.alias)>::name()
+            , affinity_traits<decltype(contact::contact{}.avatar)>::name()
+            , affinity_traits<decltype(contact::contact{}.description)>::name()
+            , affinity_traits<decltype(contact::contact{}.extra)>::name())
+        , fmt::format(CREATE_CONTACTS_TABLE
             , ""
             , rep.contacts_table_name
             , affinity_traits<contact::id>::name()
@@ -104,6 +127,15 @@ contact_manager::make (contact::person const & me, shared_db_handle dbh)
         , fmt::format(CREATE_MEMBERS_INDEX  , rep.members_table_name)
         , fmt::format(CREATE_MEMBERS_UNIQUE_INDEX, rep.members_table_name)
         , fmt::format(CREATE_FOLLOWERS_INDEX, rep.followers_table_name)
+
+        , fmt::format("INSERT OR REPLACE INTO `{}` (id, alias, avatar, description, extra)"
+            " VALUES (\"{}\", \"{}\", \"{}\", \"{}\", \"{}\")"
+            , rep.my_contact_table_name
+            , to_string(me.contact_id)
+            , me.alias
+            , me.avatar
+            , me.description
+            , me.extra)
     };
 
     try {
@@ -113,7 +145,7 @@ contact_manager::make (contact::person const & me, shared_db_handle dbh)
             rep.dbh->query(sql);
 
         rep.dbh->commit();
-    } catch (debby::error ex) {
+    } catch (debby::error const & ex) {
         rep.dbh->rollback();
 
         shared_db_handle empty;
@@ -190,7 +222,7 @@ contact_manager<BACKEND>::get (contact::id id) const
         }
 
         return contact::contact{};
-    } catch (debby::error ex) {
+    } catch (debby::error const & ex) {
         throw error {errc::storage_error, ex.what()};
     }
 }
@@ -215,7 +247,7 @@ contact_manager<BACKEND>::at (int offset) const
         }
 
         return contact::contact{};
-    } catch (debby::error ex) {
+    } catch (debby::error const & ex) {
         throw error {errc::storage_error, ex.what()};
     }
 }
@@ -248,35 +280,79 @@ template <>
 contact::person
 contact_manager<BACKEND>::my_contact () const
 {
-    return contact::person {
-          _rep.me.contact_id
-        , _rep.me.alias
-        , _rep.me.avatar
-        , _rep.me.description
-        , _rep.me.extra
-    };
+    static char const * SELECT_MY_CONTACT = "SELECT id, alias, avatar, description, extra"
+        " FROM \"{}\" WHERE id = :id";
+
+    try {
+        auto stmt = _rep.dbh->prepare(fmt::format(SELECT_MY_CONTACT, _rep.my_contact_table_name));
+
+        stmt.bind(":id", _rep.my_contact_id);
+
+        auto res = stmt.exec();
+
+        if (res.has_more()) {
+            contact::person p;
+            res["id"]          >> p.contact_id;
+            res["alias"]       >> p.alias;
+            res["avatar"]      >> p.avatar;
+            res["description"] >> p.description;
+            res["extra"]       >> p.extra;
+
+            return p;
+        }
+
+        return contact::person{};
+    } catch (debby::error const & ex) {
+        throw error {errc::storage_error, ex.what()};
+    }
 }
 
 template <>
 void
 contact_manager<BACKEND>::change_my_alias (std::string const & alias)
 {
-    if (!alias.empty())
-        _rep.me.alias = alias;
+    static char const * UPDATE_MY_ALIAS = "UPDATE \"{}\" SET alias = :alias";
+
+    if (alias.empty())
+        return;
+
+    try {
+        auto stmt = _rep.dbh->prepare(fmt::format(UPDATE_MY_ALIAS, _rep.my_contact_table_name));
+        stmt.bind(":alias" , to_storage(alias));
+        stmt.exec();
+    } catch (debby::error const & ex) {
+        throw error {errc::storage_error, ex.what()};
+    }
 }
 
 template <>
 void
 contact_manager<BACKEND>::change_my_avatar (std::string const & avatar)
 {
-    _rep.me.avatar = avatar;
+    static char const * UPDATE_MY_ALIAS = "UPDATE \"{}\" SET avatar = :avatar";
+
+    try {
+        auto stmt = _rep.dbh->prepare(fmt::format(UPDATE_MY_ALIAS, _rep.my_contact_table_name));
+        stmt.bind(":avatar", avatar);
+        stmt.exec();
+    } catch (debby::error const & ex) {
+        throw error {errc::storage_error, ex.what()};
+    }
 }
 
 template <>
 void
 contact_manager<BACKEND>::change_my_desc (std::string const & desc)
 {
-    _rep.me.description = desc;
+    static char const * UPDATE_MY_ALIAS = "UPDATE \"{}\" SET description = :description";
+
+    try {
+        auto stmt = _rep.dbh->prepare(fmt::format(UPDATE_MY_ALIAS, _rep.my_contact_table_name));
+        stmt.bind(":description", desc);
+        stmt.exec();
+    } catch (debby::error const & ex) {
+        throw error {errc::storage_error, ex.what()};
+    }
 }
 
 template <>
@@ -332,7 +408,7 @@ contact_manager<BACKEND>::add (contact::contact const & c)
         auto n = stmt.rows_affected();
 
         return n > 0;
-    } catch (debby::error ex) {
+    } catch (debby::error const & ex) {
         throw error {errc::storage_error, ex.what()};
     }
 
@@ -407,7 +483,7 @@ contact_manager<BACKEND>::update (contact::contact const & c)
         auto n = stmt.rows_affected();
 
         return n > 0;
-    } catch (debby::error ex) {
+    } catch (debby::error const & ex) {
         throw error {errc::storage_error, ex.what()};
     }
 }
@@ -469,7 +545,7 @@ contact_manager<BACKEND>::remove (contact::id id)
             auto res = stmt->exec();
 
         _rep.dbh->commit();
-    } catch (debby::error ex) {
+    } catch (debby::error const & ex) {
         _rep.dbh->rollback();
         throw error{errc::storage_error, ex.what()};
     }
@@ -492,7 +568,7 @@ contact_manager<BACKEND>::wipe ()
             _rep.dbh->clear(t);
 
         _rep.dbh->commit();
-    } catch (debby::error ex) {
+    } catch (debby::error const & ex) {
         _rep.dbh->rollback();
         throw error{errc::storage_error, ex.what()};
     }
@@ -627,7 +703,7 @@ contact_manager<BACKEND>::contacts<contact_list<backend::sqlite3::contact_list>>
         this->for_each_movable(std::move(ff));
 
         _rep.dbh->commit();
-    } catch (debby::error ex) {
+    } catch (debby::error const & ex) {
         _rep.dbh->rollback();
         throw error {errc::storage_error, ex.what()};
     }
