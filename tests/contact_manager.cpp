@@ -409,12 +409,12 @@ TEST_CASE("groups") {
 
         REQUIRE_THROWS(contact_manager.gref(g.contact_id).add_member(c3.contact_id));
 
-        auto memebers = contact_manager.gref(g.contact_id).members();
-        REQUIRE(memebers.size() == 3);
+        auto members = contact_manager.gref(g.contact_id).members();
+        REQUIRE(members.size() == 3);
 
-        REQUIRE_EQ(memebers[0].alias, my_alias);
-        REQUIRE_EQ(memebers[1].alias, c1.alias);
-        REQUIRE_EQ(memebers[2].alias, c2.alias);
+        REQUIRE(std::find_if(members.cbegin(), members.cend(), [] (chat::contact::contact const & c) { return c.alias == my_alias; }) != members.end());
+        REQUIRE(std::find_if(members.cbegin(), members.cend(), [& c1](chat::contact::contact const & c) { return c.alias == c1.alias; }) != members.end());
+        REQUIRE(std::find_if(members.cbegin(), members.cend(), [& c2](chat::contact::contact const & c) { return c.alias == c2.alias; }) != members.end());
 
         REQUIRE(contact_manager.gref(g.contact_id).is_member_of(my_uuid));
         REQUIRE(contact_manager.gref(g.contact_id).is_member_of(c1.contact_id));

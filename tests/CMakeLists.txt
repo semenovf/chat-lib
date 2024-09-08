@@ -32,11 +32,18 @@ foreach (t ${TESTS})
         LINK ${_chat_lib})
 endforeach()
 
-if (NOT TARGET pfs::lorem)
+if (NOT TARGET pfs::lorem AND NOT TARGET pfs::lorem::static)
     portable_target(INCLUDE_PROJECT ${CMAKE_SOURCE_DIR}/2ndparty/lorem/library.cmake)
+
 endif()
 
-portable_target(LINK contact_list_search pfs::lorem)
+if (TARGET pfs::lorem)
+    set(_lorem_lib pfs::lorem)
+elseif (TARGET pfs::lorem::static)
+    set(_lorem_lib pfs::lorem::static)
+endif()
+
+portable_target(LINK contact_list_search ${_lorem_lib})
 
 file(GENERATE OUTPUT data/attachment1.bin CONTENT "ABCD")
 file(GENERATE OUTPUT data/attachment2.bin CONTENT "EFGH")

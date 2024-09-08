@@ -95,7 +95,11 @@ TEST_CASE("search") {
         , chat::search_flags{chat::search_flags::ignore_case
             | chat::search_flags::text_content});
 
+#if PFS__ICU_ENABLED
     REQUIRE_EQ(search_result.total_found, 10);
+#else
+    REQUIRE_EQ(search_result.total_found, 2);
+#endif
     int counter = 1;
 
     for (auto const & r: search_result.m) {

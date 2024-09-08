@@ -9,8 +9,9 @@
 #pragma once
 #include "contact.hpp"
 #include "message.hpp"
-#include "pfs/unicode/search.hpp"
-#include "pfs/unicode/utf8_iterator.hpp"
+#include <pfs/numeric_cast.hpp>
+#include <pfs/unicode/search.hpp>
+#include <pfs/unicode/utf8_iterator.hpp>
 #include <cstdint>
 #include <vector>
 
@@ -159,7 +160,7 @@ private:
         , search_flags sf = search_flags::ignore_case | search_flags::text_content) const
     {
         if (_pmc->contents) {
-            for (int i = 0, count = _pmc->contents->count(); i < count; i++) {
+            for (int i = 0, count = pfs::numeric_cast<int>(_pmc->contents->count()); i < count; i++) {
                 auto cc = _pmc->contents->at(i);
 
                 bool is_text_content = cc.mime == mime::mime_enum::text__plain
