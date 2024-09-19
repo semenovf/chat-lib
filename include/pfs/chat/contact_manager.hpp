@@ -11,6 +11,7 @@
 #include "contact.hpp"
 #include "contact_list.hpp"
 #include "error.hpp"
+#include "exports.hpp"
 #include "flags.hpp"
 #include "member_difference.hpp"
 #include "backend/in_memory/contact_list.hpp"

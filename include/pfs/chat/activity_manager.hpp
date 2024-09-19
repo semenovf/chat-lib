@@ -37,7 +37,7 @@ private:
 
 private:
     activity_manager () = default;
-    activity_manager (rep_type && rep);
+    CHAT__EXPORT activity_manager (rep_type && rep);
 
 public:
     activity_manager (activity_manager const & other) = delete;

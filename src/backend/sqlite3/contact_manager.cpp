@@ -639,6 +639,7 @@ contact_manager<BACKEND>::for_each_until_movable (std::function<bool(contact::co
 
 template <>
 template <>
+CHAT__EXPORT
 contact_list<backend::in_memory::contact_list>
 contact_manager<BACKEND>::contacts<contact_list<backend::in_memory::contact_list>> (
     std::function<bool(contact::contact const &)> f) const
@@ -659,6 +660,7 @@ contact_manager<BACKEND>::contacts<contact_list<backend::in_memory::contact_list
 
 template <>
 template <>
+CHAT__EXPORT
 contact_list<backend::sqlite3::contact_list>
 contact_manager<BACKEND>::contacts<contact_list<backend::sqlite3::contact_list>> (
     std::function<bool(contact::contact const &)> f) const
