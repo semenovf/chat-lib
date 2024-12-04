@@ -7,12 +7,13 @@
 //      2022.11.03 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
+#include "pfs/chat/namespace.hpp"
 #include "pfs/chat/contact.hpp"
 #include "pfs/chat/file.hpp"
 #include <string>
 #include <vector>
 
-namespace chat {
+CHAT__NAMESPACE_BEGIN
 
 class function_callbacks
 {
@@ -105,4 +106,4 @@ public:
     = [] (contact::id, file::id) {};
 };
 
-} // namespace chat
+CHAT__NAMESPACE_END

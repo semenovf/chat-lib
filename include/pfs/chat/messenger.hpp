@@ -8,28 +8,18 @@
 //      2024.12.02 Started V2.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
+#include "namespace.hpp"
 #include "activity_manager.hpp"
 #include "contact.hpp"
 #include "contact_manager.hpp"
 #include "error.hpp"
-// #include "file.hpp"
 #include "file_cache.hpp"
-// #include "message.hpp"
 #include "message_store.hpp"
-// #include "protocol.hpp"
 #include "primal_serializer.hpp"
 #include "callback_traits/function.hpp"
-// #include "pfs/assert.hpp"
-// #include "pfs/fmt.hpp"
-// #include "pfs/i18n.hpp"
-// #include "pfs/log.hpp"
-// #include "pfs/numeric_cast.hpp"
-// #include <algorithm>
-// #include <functional>
-// #include <iterator>
 #include <vector>
 
-namespace chat {
+CHAT__NAMESPACE_BEGIN
 
 ////////////////////////////////////////////////////////////////////////////////
 //  ______________________________________________________________
@@ -1056,4 +1046,4 @@ private:
     }
 };
 
-} // namespace chat
+CHAT__NAMESPACE_END

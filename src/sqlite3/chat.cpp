@@ -18,7 +18,7 @@
 #include <pfs/debby/relational_database.hpp>
 #include <array>
 
-namespace chat {
+CHAT__NAMESPACE_BEGIN
 
 using relational_database_t = debby::relational_database<debby::backend_enum::sqlite3>;
 using data_definition_t = debby::data_definition<debby::backend_enum::sqlite3>;
@@ -607,4 +607,4 @@ void chat_t::wipe ()
     _d->invalidate_cache();
 }
 
-} // namespace chat
+CHAT__NAMESPACE_END

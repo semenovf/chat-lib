@@ -7,6 +7,7 @@
 //      2021.11.20 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
+#include "namespace.hpp"
 #include "contact.hpp"
 #include "error.hpp"
 #include "exports.hpp"
@@ -20,7 +21,8 @@
 #include <memory>
 #include <utility>
 
-namespace chat {
+CHAT__NAMESPACE_BEGIN
+
 namespace message {
 
 using id = ::pfs::universal_id;
@@ -208,4 +210,6 @@ struct message_credentials
     pfs::optional<content> contents;
 };
 
-}} // namespace chat::message
+} // namespace message
+
+CHAT__NAMESPACE_END

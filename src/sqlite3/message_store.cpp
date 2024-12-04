@@ -13,7 +13,7 @@
 #include "chat/sqlite3.hpp"
 #include <array>
 
-namespace chat {
+CHAT__NAMESPACE_BEGIN
 
 using relational_database_t = debby::relational_database<debby::backend_enum::sqlite3>;
 
@@ -83,4 +83,4 @@ void message_store_t::clear () noexcept
     _d->pdb->remove(tables);
 }
 
-} // namespace chat
+CHAT__NAMESPACE_END

@@ -10,7 +10,8 @@
 #include "pfs/chat/message.hpp"
 #include <cassert>
 
-namespace chat {
+CHAT__NAMESPACE_BEGIN
+
 namespace message {
 
 static char const * ATT_KEY  = "att";  // Attacment flag (is content is attachment or embedded data)
@@ -246,4 +247,6 @@ std::string content::to_string () const noexcept
     return jeyson::to_string(_d);
 }
 
-}} // chat::message
+} // namespace message
+
+CHAT__NAMESPACE_END

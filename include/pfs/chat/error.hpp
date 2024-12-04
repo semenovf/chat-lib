@@ -7,6 +7,7 @@
 //      2022.01.05 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
+#include "namespace.hpp"
 #include "exports.hpp"
 #include "pfs/error.hpp"
 #include "pfs/filesystem.hpp"
@@ -15,7 +16,7 @@
 #include <system_error>
 #include <cstdio>
 
-namespace chat {
+CHAT__NAMESPACE_BEGIN
 
 enum class errc
 {
@@ -85,4 +86,4 @@ public:
 
 using result_status = error;
 
-} // namespace chat
+CHAT__NAMESPACE_END

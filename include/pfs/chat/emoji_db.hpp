@@ -7,11 +7,12 @@
 //      2022.01.05 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
+#include "namespace.hpp"
 #include <map>
 #include <set>
 #include <string>
 
-namespace chat {
+CHAT__NAMESPACE_BEGIN
 
 class emoji_db final
 {
@@ -26,4 +27,4 @@ public:
     static bool has (std::string const & emoji_id);
 };
 
-} // namespace chat
+CHAT__NAMESPACE_END

@@ -9,7 +9,7 @@
 #include "pfs/chat/chat_enum.hpp"
 #include "pfs/chat/error.hpp"
 
-namespace chat {
+CHAT__NAMESPACE_BEGIN
 
 chat_enum to_chat_enum (int n)
 {
@@ -22,7 +22,7 @@ chat_enum to_chat_enum (int n)
             break;
     }
 
-    throw chat::error {chat::make_error_code(chat::errc::invalid_argument)};;
+    throw error {make_error_code(errc::invalid_argument)};
     return chat_enum::person;
 }
 
@@ -42,4 +42,4 @@ std::string to_string (chat_enum type)
     return std::string{};
 }
 
-} // namespace chat
+CHAT__NAMESPACE_END

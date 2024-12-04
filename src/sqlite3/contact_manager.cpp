@@ -19,7 +19,7 @@
 #include <string>
 #include <type_traits>
 
-namespace chat {
+CHAT__NAMESPACE_BEGIN
 
 using data_definition_t = debby::data_definition<debby::backend_enum::sqlite3>;
 using contact_manager_t = contact_manager<storage::sqlite3>;
@@ -311,7 +311,7 @@ bool contact_manager_t::add (contact::person && p)
         , std::move(p.description)
         , std::move(p.extra)
         , p.contact_id
-        , chat::chat_enum::person
+        , chat_enum::person
     };
 
     return this->add(std::move(c));
@@ -327,7 +327,7 @@ bool contact_manager_t::add (contact::group && g)
         , std::move(g.description)
         , std::move(g.extra)
         , g.creator_id
-        , chat::chat_enum::group
+        , chat_enum::group
     };
 
     auto failure = transaction([this, & c] {
@@ -786,4 +786,4 @@ void contact_manager_t::change_my_desc (std::string && desc)
         throw error {errc::storage_error, err.what()};
 }
 
-} // namespace chat
+CHAT__NAMESPACE_END

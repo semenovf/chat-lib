@@ -8,13 +8,14 @@
 //      2022.02.17 Refactored to use backend.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
+#include "namespace.hpp"
 #include "contact.hpp"
 #include "error.hpp"
 #include "exports.hpp"
 #include <memory>
 #include <functional>
 
-namespace chat {
+CHAT__NAMESPACE_BEGIN
 
 template <typename Storage>
 class contact_list final
@@ -82,4 +83,4 @@ public:
     CHAT__EXPORT void for_each_until (std::function<bool(contact::contact const &)> f) const;
 };
 
-} // namespace chat
+CHAT__NAMESPACE_END

@@ -11,11 +11,11 @@
 #include <pfs/debby/data_definition.hpp>
 #include <pfs/mime_enum.hpp>
 
-namespace debby {
+DEBBY__NAMESPACE_BEGIN
 
 using table_t = table<backend_enum::sqlite3>;
 
-template <> template <> char const * table_t::column_type_affinity<chat::chat_enum>::value = "INTEGER";
+template <> template <> char const * table_t::column_type_affinity<CHAT__NAMESPACE_NAME::chat_enum>::value = "INTEGER";
 template <> template <> char const * table_t::column_type_affinity<mime::mime_enum>::value = "INTEGER";
 
-} // namespace debby
+DEBBY__NAMESPACE_END

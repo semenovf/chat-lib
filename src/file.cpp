@@ -13,7 +13,8 @@
 #include "pfs/time_point.hpp"
 #include <utility>
 
-namespace chat {
+CHAT__NAMESPACE_BEGIN
+
 namespace file {
 
 namespace fs = pfs::filesystem;
@@ -214,4 +215,6 @@ credentials::credentials (file::id file_id, pfs::filesystem::path const & path
         this->mime = mime::mime_by_extension_fallback(utf8_path);
 }
 
-}} // namespace chat::file
+} // namespace file
+
+CHAT__NAMESPACE_END

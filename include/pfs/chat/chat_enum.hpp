@@ -9,10 +9,11 @@
 //                 Renamed from conversation_enum` to `chat_enum`.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
+#include "namespace.hpp"
 #include "pfs/chat/exports.hpp"
 #include <string>
 
-namespace chat {
+CHAT__NAMESPACE_BEGIN
 
 // There are three exchange modes
 //      1. One-to-one   (personal, individual)
@@ -28,4 +29,4 @@ enum class chat_enum
 CHAT__EXPORT chat_enum to_chat_enum (int n);
 CHAT__EXPORT std::string to_string (chat_enum type);
 
-} // namespace chat
+CHAT__NAMESPACE_END

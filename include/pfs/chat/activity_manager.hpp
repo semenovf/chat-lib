@@ -8,13 +8,14 @@
 //      2024.12.01 Started V2.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
+#include "namespace.hpp"
 #include "contact.hpp"
 #include <pfs/optional.hpp>
 #include <pfs/time_point.hpp>
 #include <functional>
 #include <memory>
 
-namespace chat {
+CHAT__NAMESPACE_BEGIN
 
 enum class contact_activity
 {
@@ -128,4 +129,4 @@ public:
     }
 };
 
-} // namespace chat
+CHAT__NAMESPACE_END

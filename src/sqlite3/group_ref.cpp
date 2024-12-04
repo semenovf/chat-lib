@@ -12,7 +12,7 @@
 #include "chat/contact_manager.hpp"
 #include <pfs/i18n.hpp>
 
-namespace chat {
+CHAT__NAMESPACE_BEGIN
 
 using contact_manager_t = contact_manager<storage::sqlite3>;
 
@@ -362,4 +362,4 @@ member_difference_result contact_manager_t::group_ref::update (std::vector<conta
     return r;
 }
 
-} // namespace chat
+CHAT__NAMESPACE_END

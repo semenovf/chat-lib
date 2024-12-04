@@ -7,9 +7,10 @@
 //      2022.05.20 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
+#include "namespace.hpp"
 #include <type_traits>
 
-namespace chat {
+CHAT__NAMESPACE_BEGIN
 
 template <typename EnumClass>
 inline constexpr int sort_flags (EnumClass by, EnumClass order)
@@ -26,4 +27,4 @@ inline constexpr bool sort_flag_on (typename std::underlying_type<EnumClass>::ty
         & static_cast<typename std::underlying_type<EnumClass>::type>(flag);
 }
 
-} // namespace chat
+CHAT__NAMESPACE_END

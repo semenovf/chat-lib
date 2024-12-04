@@ -7,8 +7,10 @@
 //      2024.11.24 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
+#include "namespace.hpp"
 
-namespace chat {
+CHAT__NAMESPACE_BEGIN
+
 namespace storage {
 
 struct in_memory
@@ -16,5 +18,6 @@ struct in_memory
     class contact_list;
 };
 
-}} // namespace chat::storage
+} // namespace storage
 
+CHAT__NAMESPACE_END

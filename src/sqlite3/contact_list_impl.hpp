@@ -14,7 +14,8 @@
 #include <vector>
 #include <string>
 
-namespace chat {
+CHAT__NAMESPACE_BEGIN
+
 namespace storage {
 
 class sqlite3::contact_list
@@ -46,6 +47,6 @@ public: // static
     static void fill_contact (relational_database_t::result_type & result, contact::contact & c);
 };
 
-}} // namespace chat::storage
+} // namespace storage
 
-
+CHAT__NAMESPACE_END

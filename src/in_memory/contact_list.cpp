@@ -13,7 +13,7 @@
 #include <map>
 #include <vector>
 
-namespace chat {
+CHAT__NAMESPACE_BEGIN
 
 namespace storage {
 
@@ -109,4 +109,4 @@ void contact_list_t::for_each_until (std::function<bool(contact::contact const &
     }
 }
 
-} // namespace chat
+CHAT__NAMESPACE_END

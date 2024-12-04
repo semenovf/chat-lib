@@ -9,12 +9,13 @@
 //      2024.11.30 Started V2.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
+#include "namespace.hpp"
 #include "chat.hpp"
 #include "exports.hpp"
 #include "message.hpp"
 #include <memory>
 
-namespace chat {
+CHAT__NAMESPACE_BEGIN
 
 template <typename Storage>
 class message_store final
@@ -71,4 +72,4 @@ public:
     }
 };
 
-} // namespace chat
+CHAT__NAMESPACE_END

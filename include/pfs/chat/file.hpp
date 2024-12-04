@@ -10,6 +10,7 @@
 //      2023.06.23 Added constructors to `credentials` instead of make functions.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
+#include "namespace.hpp"
 #include "contact.hpp"
 #include "exports.hpp"
 #include "pfs/filesystem.hpp"
@@ -19,14 +20,18 @@
 #include "pfs/time_point.hpp"
 #include <memory>
 
-namespace chat {
+CHAT__NAMESPACE_BEGIN
+
 namespace message {
 
 using id = ::pfs::universal_id;
 
-}}
+}
 
-namespace chat {
+CHAT__NAMESPACE_END
+
+CHAT__NAMESPACE_BEGIN
+
 namespace file {
 
 using id = pfs::universal_id;
@@ -115,4 +120,6 @@ public:
 
 using optional_credentials = pfs::optional<credentials>;
 
-}} // namespace chat::file
+} // namespace file
+
+CHAT__NAMESPACE_END

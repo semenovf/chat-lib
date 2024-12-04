@@ -8,7 +8,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 #include "pfs/chat/emoji_db.hpp"
 
-namespace chat {
+CHAT__NAMESPACE_BEGIN
 
 // [Emotion Markup Language](https://en.wikipedia.org/wiki/Emotion_Markup_Language)
 // [List of emoticons](https://en.wikipedia.org/wiki/List_of_emoticons)
@@ -62,5 +62,4 @@ bool emoji_db::has (std::string const & shortcode)
     return _emojis.count(shortcode) > 0;
 }
 
-} // namespace chat
-
+CHAT__NAMESPACE_END

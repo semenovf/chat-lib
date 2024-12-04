@@ -10,6 +10,7 @@
 //                 Renamed conversation to chat.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
+#include "namespace.hpp"
 #include "contact.hpp"
 #include "editor.hpp"
 #include "exports.hpp"
@@ -24,7 +25,7 @@
 #include <functional>
 #include <memory>
 
-namespace chat {
+CHAT__NAMESPACE_BEGIN
 
 enum class chat_sort_flag: int
 {
@@ -232,4 +233,4 @@ public:
     CHAT__EXPORT void wipe ();
 };
 
-} // namespace chat
+CHAT__NAMESPACE_END

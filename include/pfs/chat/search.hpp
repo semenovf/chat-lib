@@ -7,6 +7,7 @@
 //      2023.05.10 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
+#include "namespace.hpp"
 #include "contact.hpp"
 #include "message.hpp"
 #include <pfs/numeric_cast.hpp>
@@ -15,7 +16,7 @@
 #include <cstdint>
 #include <vector>
 
-namespace chat {
+CHAT__NAMESPACE_BEGIN
 
 class search_flags
 {
@@ -375,4 +376,4 @@ public:
     }
 };
 
-} // namespace chat
+CHAT__NAMESPACE_END

@@ -15,7 +15,7 @@
 #include <pfs/debby/data_definition.hpp>
 #include <pfs/debby/relational_database.hpp>
 
-namespace chat {
+CHAT__NAMESPACE_BEGIN
 
 using relational_database_t = debby::relational_database<debby::backend_enum::sqlite3>;
 using data_definition_t = debby::data_definition<debby::backend_enum::sqlite3>;
@@ -232,4 +232,4 @@ void contact_list_t::for_each_until (std::function<bool(contact::contact const &
     }
 }
 
-} // namespace chat
+CHAT__NAMESPACE_END

@@ -9,6 +9,7 @@
 //      2024.12.01 Started V2.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
+#include "namespace.hpp"
 #include "exports.hpp"
 #include "message.hpp"
 #include <pfs/filesystem.hpp>
@@ -17,7 +18,7 @@
 #include <functional>
 #include <string>
 
-namespace chat {
+CHAT__NAMESPACE_BEGIN
 
 template <typename Storage>
 class chat;
@@ -126,4 +127,4 @@ public:
     CHAT__EXPORT message::id message_id () const noexcept;
 };
 
-} // namespace chat
+CHAT__NAMESPACE_END

@@ -9,7 +9,7 @@
 #include "pfs/chat/member_difference.hpp"
 #include <algorithm>
 
-namespace chat {
+CHAT__NAMESPACE_BEGIN
 
 member_difference_result
 member_difference (std::vector<contact::id> old_members, std::vector<contact::id> new_members)
@@ -30,4 +30,4 @@ member_difference (std::vector<contact::id> old_members, std::vector<contact::id
     return r;
 }
 
-} // namespace chat
+CHAT__NAMESPACE_END

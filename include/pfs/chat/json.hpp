@@ -7,10 +7,11 @@
 //      2022.02.11 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
+#include "namespace.hpp"
 #include "pfs/jeyson/json.hpp"
 
-namespace chat {
+CHAT__NAMESPACE_BEGIN
 
 using json = jeyson::json<>;
 
-} // namespace chat
+CHAT__NAMESPACE_END

@@ -8,7 +8,8 @@
 ////////////////////////////////////////////////////////////////////////////////
 #include "chat/sqlite3.hpp"
 
-namespace chat {
+CHAT__NAMESPACE_BEGIN
+
 namespace storage {
 
 class sqlite3::contact_manager
@@ -25,4 +26,6 @@ public:
     contact_manager (contact::person const & my_contact, relational_database_t & db);
 };
 
-}} // namespace chat::storage
+} // namespace storage
+
+CHAT__NAMESPACE_END

@@ -7,13 +7,14 @@
 //      2022.07.23 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
+#include "namespace.hpp"
 #include "contact.hpp"
 #include "file.hpp"
 #include <pfs/filesystem.hpp>
 #include <pfs/universal_id.hpp>
 #include <vector>
 
-namespace chat {
+CHAT__NAMESPACE_BEGIN
 
 template <typename Storage>
 class file_cache final
@@ -157,4 +158,4 @@ public:
     }
 };
 
-} // namespace chat
+CHAT__NAMESPACE_END

@@ -7,6 +7,7 @@
 //      2024.11.23 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
+#include "namespace.hpp"
 #include "contact.hpp"
 #include "error.hpp"
 #include "exports.hpp"
@@ -16,7 +17,8 @@
 #include <functional>
 #include <string>
 
-namespace chat {
+CHAT__NAMESPACE_BEGIN
+
 namespace storage {
 
 struct sqlite3
@@ -80,4 +82,6 @@ struct sqlite3
     static CHAT__EXPORT file_cache * make_file_cache (debby::relational_database<debby::backend_enum::sqlite3> & db);
 };
 
-}} // namespace chat::storage
+} // namespace storage
+
+CHAT__NAMESPACE_END

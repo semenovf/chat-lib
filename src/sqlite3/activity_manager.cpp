@@ -13,7 +13,7 @@
 #include <pfs/debby/data_definition.hpp>
 #include <pfs/debby/sqlite3.hpp>
 
-namespace chat {
+CHAT__NAMESPACE_BEGIN
 
 using data_definition_t = debby::data_definition<debby::backend_enum::sqlite3>;
 using activity_manager_t = activity_manager<storage::sqlite3>;
@@ -405,4 +405,4 @@ void activity_manager_t::for_each_activity_brief (
         throw error {errc::storage_error, err.what()};
 }
 
-} // namespace chat
+CHAT__NAMESPACE_END

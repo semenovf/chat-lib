@@ -7,11 +7,13 @@
 //      2022.02.21 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
+#include "namespace.hpp"
 #include "contact.hpp"
 #include "file.hpp"
 #include "message.hpp"
 
-namespace chat {
+CHAT__NAMESPACE_BEGIN
+
 namespace protocol {
 
 enum class packet_enum: std::int8_t {
@@ -70,4 +72,6 @@ struct file_error
     file::id file_id;
 };
 
-}} // namespace chat::protocol
+} // namespace protocol
+
+CHAT__NAMESPACE_END

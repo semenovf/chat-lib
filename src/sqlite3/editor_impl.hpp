@@ -11,7 +11,8 @@
 #include "chat/message.hpp"
 #include "chat/sqlite3.hpp"
 
-namespace chat {
+CHAT__NAMESPACE_BEGIN
+
 namespace storage {
 
 class sqlite3::editor
@@ -37,4 +38,6 @@ public:
     {}
 };
 
-}} // namespace chat::storage
+} // namespace storage
+
+CHAT__NAMESPACE_END

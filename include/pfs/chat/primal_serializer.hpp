@@ -7,6 +7,7 @@
 //      2024.04.23 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
+#include "namespace.hpp"
 #include "contact.hpp"
 #include "message.hpp"
 #include "protocol.hpp"
@@ -17,7 +18,7 @@
 #include <pfs/time_point_pack.hpp>
 #include <pfs/universal_id_pack.hpp>
 
-namespace chat {
+CHAT__NAMESPACE_BEGIN
 
 template <pfs::endian Endianess = pfs::endian::network>
 struct primal_serializer
@@ -230,4 +231,4 @@ inline void unpack (pfs::binary_istream<Endianess> & in, Packet & pkt)
 
 } // namespace protocol
 
-} // namespace chat
+CHAT__NAMESPACE_END

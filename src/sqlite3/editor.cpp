@@ -17,7 +17,7 @@
 #include <pfs/debby/relational_database.hpp>
 #include <pfs/ionik/audio/wav_explorer.hpp>
 
-namespace chat {
+CHAT__NAMESPACE_BEGIN
 
 namespace fs = pfs::filesystem;
 
@@ -217,4 +217,4 @@ message::id editor_t::message_id () const noexcept
     return _d->message_id;
 }
 
-} // namespace chat
+CHAT__NAMESPACE_END

@@ -9,7 +9,7 @@
 #include "pfs/chat/error.hpp"
 #include "pfs/i18n.hpp"
 
-namespace chat {
+CHAT__NAMESPACE_BEGIN
 
 char const * error_category::name () const noexcept
 {
@@ -74,4 +74,4 @@ std::string error_category::message (int ev) const
     }
 };
 
-} // namespace chat
+CHAT__NAMESPACE_END

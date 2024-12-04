@@ -1,19 +1,18 @@
 ////////////////////////////////////////////////////////////////////////////////
 // Copyright (c) 2024 Vladislav Trifochkin
 //
+// License: see LICENSE file
+//
 // This file is part of `chat-lib`.
 //
 // Changelog:
-//      2024.05.18 Initial version.
+//      2024.12.04 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
-#include "namespace.hpp"
 
-CHAT__NAMESPACE_BEGIN
+#ifndef CHAT__NAMESPACE_NAME
+#   define CHAT__NAMESPACE_NAME chat
+#   define CHAT__NAMESPACE_BEGIN namespace CHAT__NAMESPACE_NAME {
+#   define CHAT__NAMESPACE_END }
+#endif
 
-enum class editor_mode {
-      create //< Open editor for message creation
-    , modify //< Open editor for message modification
-};
-
-CHAT__NAMESPACE_END

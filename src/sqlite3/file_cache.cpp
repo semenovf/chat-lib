@@ -13,7 +13,7 @@
 #include <pfs/debby/data_definition.hpp>
 #include <pfs/debby/sqlite3.hpp>
 
-namespace chat {
+CHAT__NAMESPACE_BEGIN
 
 namespace fs = pfs::filesystem;
 
@@ -492,4 +492,4 @@ void file_cache_t::clear ()
         throw error{errc::storage_error, err.what()};
 }
 
-} // namespace chat
+CHAT__NAMESPACE_END

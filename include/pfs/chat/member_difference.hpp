@@ -7,11 +7,12 @@
 //      2022.08.29 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
+#include "namespace.hpp"
 #include "contact.hpp"
 #include "exports.hpp"
 #include <vector>
 
-namespace chat {
+CHAT__NAMESPACE_BEGIN
 
 struct member_difference_result
 {
@@ -22,4 +23,4 @@ struct member_difference_result
 CHAT__EXPORT member_difference_result member_difference (std::vector<contact::id> old_members
     , std::vector<contact::id> new_members);
 
-} // namespace chat
+CHAT__NAMESPACE_END

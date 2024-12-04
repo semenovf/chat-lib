@@ -16,7 +16,8 @@
 #include <map>
 #include <string>
 
-namespace chat {
+CHAT__NAMESPACE_BEGIN
+
 namespace storage {
 
 class sqlite3::chat
@@ -50,5 +51,6 @@ public: // static
     static void fill_message (relational_database_t::result_type & result, message::message_credentials & m);
 };
 
-}} // namespace chat::storage
+} // namespace storage
 
+CHAT__NAMESPACE_END

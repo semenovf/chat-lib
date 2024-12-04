@@ -7,13 +7,15 @@
 //      2021.11.20 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
+#include "namespace.hpp"
 #include "chat_enum.hpp"
 #include "exports.hpp"
 #include "pfs/time_point.hpp"
 #include "pfs/universal_id.hpp"
 #include <string>
 
-namespace chat {
+CHAT__NAMESPACE_BEGIN
+
 namespace contact {
 
 using id = pfs::universal_id;
@@ -90,4 +92,6 @@ inline bool is_channel (contact const & c) noexcept
     return c.type == chat_enum::channel;
 }
 
-}} // namespace chat::contact
+} // namespace contact
+
+CHAT__NAMESPACE_END

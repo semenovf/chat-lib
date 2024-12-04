@@ -9,6 +9,7 @@
 //      2024.11.23 Started V2.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
+#include "namespace.hpp"
 #include "contact.hpp"
 #include "contact_list.hpp"
 #include "error.hpp"
@@ -23,7 +24,7 @@
 #include <tuple>
 #include <utility>
 
-namespace chat {
+CHAT__NAMESPACE_BEGIN
 
 template <typename Storage>
 class contact_manager final
@@ -415,4 +416,4 @@ public:
     }
 };
 
-} // namespace chat
+CHAT__NAMESPACE_END
