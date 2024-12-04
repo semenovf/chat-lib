@@ -84,7 +84,7 @@ static error make_filesize_limit_error (std::string const & path, std::size_t fi
     };
 }
 
-credentials::credentials (contact::id author_id, contact::id conversation_id
+credentials::credentials (contact::id author_id, contact::id chat_id
     , message::id message_id, std::int16_t attachment_index, fs::path const & path)
 {
     auto abspath = path.is_absolute()
@@ -113,7 +113,7 @@ credentials::credentials (contact::id author_id, contact::id conversation_id
 
     this->file_id          = id_generator{}.next();
     this->author_id        = author_id;
-    this->conversation_id  = conversation_id;
+    this->chat_id          = chat_id;
     this->message_id       = message_id;
     this->attachment_index = attachment_index;
     this->abspath          = utf8_path;
@@ -124,7 +124,7 @@ credentials::credentials (contact::id author_id, contact::id conversation_id
 }
 
 credentials::credentials (contact::id author_id
-    , contact::id conversation_id
+    , contact::id chat_id
     , message::id message_id
     , std::int16_t attachment_index
     , std::string const & uri
@@ -141,7 +141,7 @@ credentials::credentials (contact::id author_id
 
     this->file_id          = id_generator{}.next();
     this->author_id        = author_id;
-    this->conversation_id  = conversation_id;
+    this->chat_id          = chat_id;
     this->message_id       = message_id;
     this->attachment_index = attachment_index;
     this->abspath          = uri;
@@ -153,7 +153,7 @@ credentials::credentials (contact::id author_id
 
 credentials::credentials (file::id file_id
     , contact::id author_id
-    , contact::id conversation_id
+    , contact::id chat_id
     , message::id message_id
     , std::int16_t attachment_index
     , std::string const & name
@@ -167,7 +167,7 @@ credentials::credentials (file::id file_id
 
     this->file_id          = file_id;
     this->author_id        = author_id;
-    this->conversation_id  = conversation_id;
+    this->chat_id          = chat_id;
     this->message_id       = message_id;
     this->attachment_index = attachment_index;
     this->abspath          = std::string{};
@@ -203,8 +203,8 @@ credentials::credentials (file::id file_id, pfs::filesystem::path const & path
         throw make_filesize_limit_error(utf8_path, size);
 
     this->file_id         = file_id;
-    //this->author_id       = author_id;
-    //this->conversation_id = conversation_id;
+    //this->author_id = author_id;
+    //this->chat_id = chat_id;
     this->abspath         = utf8_path;
     this->name            = fs::utf8_encode(path.filename());
     this->size            = static_cast<filesize_t>(res.second);

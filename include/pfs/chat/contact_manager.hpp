@@ -1,11 +1,12 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright (c) 2021,2022 Vladislav Trifochkin
+// Copyright (c) 2021-2024 Vladislav Trifochkin
 //
 // This file is part of `chat-lib`.
 //
 // Changelog:
 //      2021.12.28 Initial version.
 //      2022.02.16 Refactored to use backend.
+//      2024.11.23 Started V2.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 #include "contact.hpp"
@@ -13,11 +14,10 @@
 #include "error.hpp"
 #include "exports.hpp"
 #include "flags.hpp"
+#include "in_memory.hpp"
 #include "member_difference.hpp"
-#include "backend/in_memory/contact_list.hpp"
-#include "pfs/memory.hpp"
-#include "pfs/optional.hpp"
-#include "pfs/time_point.hpp"
+#include <pfs/optional.hpp>
+#include <pfs/time_point.hpp>
 #include <functional>
 #include <memory>
 #include <tuple>
@@ -25,26 +25,10 @@
 
 namespace chat {
 
-enum class contact_novelty
-{
-      added   = 0
-    , updated = 1
-};
-
-enum class contact_sort_flag: int
-{
-      by_nothing = 0
-    , no_order = 0
-    , by_alias = 1 << 0
-
-    , ascending_order  = 1 << 8
-    , descending_order = 1 << 9
-};
-
-template <typename Backend>
+template <typename Storage>
 class contact_manager final
 {
-    using rep_type = typename Backend::rep_type;
+    using rep = typename Storage::contact_manager;
 
 public:
     class group_const_ref
@@ -128,8 +112,7 @@ public:
          * Adds member specified by @a member_id to the group specified by
          * @a group_id without checking @a member_id is person contact.
          *
-         * @return @c true if new member added or @c false if member alread
-         *         exists.
+         * @return @c true if new member added or @c false if member alread exists.
          *
          * @throw chat::error{errc::storage_error} on storage error.
          */
@@ -139,8 +122,7 @@ public:
          * Adds member specified by @a member_id to the group specified
          * by @a group_id.
          *
-         * @return @c true if new member added or @c false if member already
-         *         exists.
+         * @return @c true if new member added or @c false if member already exists.
          *
          * @throw chat::error{errc::storage_error} on storage error.
          * @throw chat::error{errc::contact_not_found} Contact not found by @a member_id.
@@ -203,18 +185,18 @@ public:
     };
 
 private:
-    rep_type _rep;
+    std::unique_ptr<rep> _d;
 
 private:
-    contact_manager () = delete;
-    CHAT__EXPORT contact_manager (rep_type && rep);
-    contact_manager (contact_manager const & other) = delete;
-    contact_manager & operator = (contact_manager const & other) = delete;
-    contact_manager & operator = (contact_manager && other) = delete;
+    CHAT__EXPORT contact_manager (rep * d) noexcept;
 
 public:
-    contact_manager (contact_manager && other) = default;
-    ~contact_manager () = default;
+    CHAT__EXPORT contact_manager (contact_manager && other) noexcept;
+    CHAT__EXPORT contact_manager & operator = (contact_manager && other) noexcept;
+    CHAT__EXPORT ~contact_manager ();
+
+    contact_manager (contact_manager const & other) = delete;
+    contact_manager & operator = (contact_manager const & other) = delete;
 
 private:
     /**
@@ -225,7 +207,7 @@ private:
      *
      * @throw chat::error (@c errc::storage_error) on storage error.
      */
-    bool add (contact::contact const & c);
+    bool add (contact::contact && c);
 
     /**
      * Update contact.
@@ -235,7 +217,7 @@ private:
      *
      * @throw chat::error (@c errc::storage_error) on storage error.
      */
-    bool update (contact::contact const & c);
+    bool update (contact::contact && c);
 
 public:
     /**
@@ -248,17 +230,17 @@ public:
     /**
      * Changes @a alias for my contact.
      */
-    CHAT__EXPORT void change_my_alias (std::string const & alias);
+    CHAT__EXPORT void change_my_alias (std::string && alias);
 
     /**
      * Changes @a avatar for my contact.
      */
-    CHAT__EXPORT void change_my_avatar (std::string const & avatar);
+    CHAT__EXPORT void change_my_avatar (std::string && avatar);
 
     /**
      * Changes description for my contact.
      */
-    CHAT__EXPORT void change_my_desc (std::string const & desc);
+    CHAT__EXPORT void change_my_desc (std::string && desc);
 
     /**
      * Total count of contacts.
@@ -268,22 +250,22 @@ public:
     /**
      * Count of contacts with specified type.
      */
-    CHAT__EXPORT std::size_t count (conversation_enum type) const;
+    CHAT__EXPORT std::size_t count (chat_enum type) const;
 
     /**
      * Count of person contacts.
      */
     std::size_t person_count () const
     {
-        return count(conversation_enum::person);
+        return count(chat_enum::person);
     }
 
     /**
      * Count of group contacts.
      */
-    std::size_t groups_count () const
+    std::size_t group_count () const
     {
-        return count(conversation_enum::group);
+        return count(chat_enum::group);
     }
 
     /**
@@ -315,7 +297,7 @@ public:
      * @throw chat::error{errc::storage_error} on storage error.
      *
      */
-    CHAT__EXPORT bool add (contact::person const & p);
+    CHAT__EXPORT bool add (contact::person && p);
 
     /**
      * Add group contact. @a creator_id also added to group.
@@ -326,7 +308,7 @@ public:
      * @throw chat::error{errc::storage_error} on storage error.
      *
      */
-    CHAT__EXPORT bool add (contact::group const & g);
+    CHAT__EXPORT bool add (contact::group && g);
 
     /**
      * Updates person contact.
@@ -336,7 +318,7 @@ public:
      *
      * @throw chat::error{errc::storage_error} on storage error.
      */
-    CHAT__EXPORT bool update (contact::person const & p);
+    CHAT__EXPORT bool update (contact::person && p);
 
     /**
      * Updates group contact.
@@ -346,7 +328,7 @@ public:
      *
      * @throw chat::error{errc::storage_error} on storage error.
      */
-    CHAT__EXPORT bool update (contact::group const & g);
+    CHAT__EXPORT bool update (contact::group && g);
 
     /**
      * Conversation group reference if @a group_id is identifier of exist
@@ -385,11 +367,11 @@ public:
     CHAT__EXPORT void remove (contact::id id);
 
     /**
-     * Wipes (erase all contacts, groups and channels) contact database.
+     * Clears (erase all contacts, groups and channels) contact database.
      *
      * @throw chat::error{errc::storage_error} on storage error.
      */
-    CHAT__EXPORT void wipe ();
+    CHAT__EXPORT void clear ();
 
     /**
      * Fetch all contacts and process them by @a f
@@ -409,12 +391,13 @@ public:
     CHAT__EXPORT void for_each_until_movable (std::function<bool(contact::contact &&)> f) const;
 
     /**
-     * Execute transaction (batch execution). Useful for storages that support
-     * tranactions
+     * Execute transaction (batch execution). Useful for storages that support tranactions
+     *
+     * @return @c nullopt on success or @c std::string containing an error description otherwise.
      */
-    CHAT__EXPORT bool transaction (std::function<bool()> op) noexcept;
+    CHAT__EXPORT pfs::optional<std::string> transaction (std::function<pfs::optional<std::string>()> op);
 
-    template <typename ContactList = contact_list<backend::in_memory::contact_list>>
+    template <typename ContactList = contact_list<storage::in_memory>>
     CHAT__EXPORT ContactList contacts (std::function<bool(contact::contact const &)> f
         = [] (contact::contact const &) { return true; }) const;
 
@@ -422,14 +405,13 @@ public:
     template <typename ...Args>
     static contact_manager make (Args &&... args)
     {
-        return contact_manager{Backend::make(std::forward<Args>(args)...)};
+        return contact_manager{Storage::make_contact_manager(std::forward<Args>(args)...)};
     }
 
     template <typename ...Args>
     static std::unique_ptr<contact_manager> make_unique (Args &&... args)
     {
-        auto ptr = new contact_manager {Backend::make(std::forward<Args>(args)...)};
-        return std::unique_ptr<contact_manager>(ptr);
+        return std::make_unique<contact_manager>(Storage::make_contact_manager(std::forward<Args>(args)...));
     }
 };
 

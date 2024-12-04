@@ -10,7 +10,7 @@
 
 namespace chat {
 
-enum class editor_mode_enum {
+enum class editor_mode {
       create //< Open editor for message creation
     , modify //< Open editor for message modification
 };

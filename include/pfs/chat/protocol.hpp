@@ -40,7 +40,7 @@ struct regular_message
 {
     message::id message_id;
     contact::id author_id;
-    contact::id conversation_id;  // Target conversation ID (same as author for
+    contact::id chat_id;  // Target conversation ID (same as author for
                                   // personal conversation or group conversation ID)
     pfs::utc_time_point mod_time; // Creation or modification time
     std::string content;
@@ -49,14 +49,14 @@ struct regular_message
 struct delivery_notification
 {
     message::id message_id;
-    contact::id conversation_id;
+    contact::id chat_id;
     pfs::utc_time_point delivered_time;
 };
 
 struct read_notification
 {
     message::id message_id;
-    contact::id conversation_id;
+    contact::id chat_id;
     pfs::utc_time_point read_time;
 };
 

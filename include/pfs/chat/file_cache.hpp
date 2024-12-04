@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright (c) 2021,2022 Vladislav Trifochkin
+// Copyright (c) 2021-2024 Vladislav Trifochkin
 //
 // This file is part of `chat-lib`.
 //
@@ -9,30 +9,30 @@
 #pragma once
 #include "contact.hpp"
 #include "file.hpp"
-#include "pfs/filesystem.hpp"
-#include "pfs/universal_id.hpp"
+#include <pfs/filesystem.hpp>
+#include <pfs/universal_id.hpp>
 #include <vector>
 
 namespace chat {
 
-template <typename Backend>
-class file_cache
+template <typename Storage>
+class file_cache final
 {
-    using rep_type = typename Backend::rep_type;
+    using rep = typename Storage::file_cache;
 
 private:
-    rep_type _rep;
-
-private:
-    file_cache () = delete;
-    CHAT__EXPORT file_cache (rep_type && rep);
-    file_cache (file_cache const & other) = delete;
-    file_cache & operator = (file_cache const & other) = delete;
-    file_cache & operator = (file_cache && other) = delete;
+    std::unique_ptr<rep> _d;
 
 public:
-    file_cache (file_cache && other) = default;
-    ~file_cache () = default;
+    CHAT__EXPORT file_cache (file_cache && other) noexcept;
+    CHAT__EXPORT file_cache & operator = (file_cache && other) noexcept;
+    CHAT__EXPORT ~file_cache ();
+
+    // For internal use only
+    CHAT__EXPORT file_cache (rep * d) noexcept;
+
+    file_cache (file_cache const & other) = delete;
+    file_cache & operator = (file_cache const & other) = delete;
 
 public:
     /**
@@ -46,7 +46,7 @@ public:
      * @return Stored file credentials.
      */
     CHAT__EXPORT file::credentials cache_outgoing_file (contact::id author_id
-        , contact::id conversation_id, message::id message_id
+        , contact::id chat_id, message::id message_id
         , std::int16_t attachment_index,  pfs::filesystem::path const & path);
 
     /**
@@ -55,7 +55,7 @@ public:
      * @return Stored file credentials.
      */
     CHAT__EXPORT file::credentials cache_outgoing_file (contact::id author_id
-        , contact::id conversation_id
+        , contact::id chat_id
         , message::id message_id
         , std::int16_t attachment_index
         , std::string const & uri
@@ -68,7 +68,7 @@ public:
      */
     CHAT__EXPORT void reserve_incoming_file (file::id file_id
         , contact::id author_id
-        , contact::id conversation_id
+        , contact::id chat_id
         , message::id message_id
         , std::int16_t attachment_index
         , std::string const & name
@@ -78,8 +78,7 @@ public:
     /**
      * Commits (stores absolute path) the incoming file.
      */
-    CHAT__EXPORT void commit_incoming_file (file::id file_id
-        , pfs::filesystem::path const & path);
+    CHAT__EXPORT void commit_incoming_file (file::id file_id, pfs::filesystem::path const & path);
 
     /**
      * Loads outgoing file credentials by specified unique identifier @a file_id.
@@ -103,12 +102,12 @@ public:
     /**
      * Total list of incoming files (attachments) from specified opponent.
      */
-    CHAT__EXPORT std::vector<file::credentials> incoming_files (contact::id conversation_id) const;
+    CHAT__EXPORT std::vector<file::credentials> incoming_files (contact::id chat_id) const;
 
     /**
      * Total list of outgoing files (attachments) for specified opponent.
      */
-    CHAT__EXPORT std::vector<file::credentials> outgoing_files (contact::id conversation_id) const;
+    CHAT__EXPORT std::vector<file::credentials> outgoing_files (contact::id chat_id) const;
 
     /**
      * Removes broken outgoing and incoming file credentials (when there is no
@@ -123,7 +122,7 @@ public:
      *
      * @throw chat::error @c errc::storage_error on storage error.
      */
-    CHAT__EXPORT void clear () noexcept;
+    CHAT__EXPORT void clear ();
 
 private:
     /**
@@ -145,7 +144,7 @@ public:
     template <typename ...Args>
     static file_cache make (Args &&... args)
     {
-        return file_cache{Backend::make(std::forward<Args>(args)...)};
+        return file_cache{Storage::make_file_cache(std::forward<Args>(args)...)};
     }
 
     /**
@@ -154,8 +153,7 @@ public:
     template <typename ...Args>
     static std::unique_ptr<file_cache> make_unique (Args &&... args)
     {
-        auto ptr = new file_cache{Backend::make(std::forward<Args>(args)...)};
-        return std::unique_ptr<file_cache>(ptr);
+        return std::make_unique<file_cache>(Storage::make_file_cache(std::forward<Args>(args)...));
     }
 };
 

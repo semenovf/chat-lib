@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright (c) 2021-2023 Vladislav Trifochkin
+// Copyright (c) 2021-2024 Vladislav Trifochkin
 //
 // This file is part of `chat-lib`.
 //
@@ -9,17 +9,18 @@
 ////////////////////////////////////////////////////////////////////////////////
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"
-#include "pfs/filesystem.hpp"
-#include "pfs/fmt.hpp"
-#include "pfs/iterator.hpp"
-#include "pfs/memory.hpp"
-#include "pfs/universal_id.hpp"
-#include "pfs/string_view.hpp"
-#include "pfs/time_point.hpp"
-#include "pfs/unicode/char.hpp"
 #include "pfs/chat/contact.hpp"
 #include "pfs/chat/contact_manager.hpp"
-#include "pfs/chat/backend/sqlite3/contact_manager.hpp"
+#include "pfs/chat/in_memory.hpp"
+#include "pfs/chat/sqlite3.hpp"
+#include <pfs/filesystem.hpp>
+#include <pfs/fmt.hpp>
+#include <pfs/iterator.hpp>
+#include <pfs/memory.hpp>
+#include <pfs/universal_id.hpp>
+#include <pfs/string_view.hpp>
+#include <pfs/time_point.hpp>
+#include <pfs/unicode/char.hpp>
 #include <type_traits>
 #include <algorithm>
 
@@ -58,12 +59,12 @@ char const * NAMES[] = {
 using contact_t = chat::contact::contact;
 using person_t = chat::contact::person;
 using group_t = chat::contact::group;
-using contact_manager_t = chat::contact_manager<chat::backend::sqlite3::contact_manager>;
+using contact_manager_t = chat::contact_manager<chat::storage::sqlite3>;
 
 struct forward_iterator : public pfs::iterator_facade<
-          pfs::forward_iterator_tag
-        , forward_iterator
-        , person_t, char const **, person_t>
+      pfs::forward_iterator_tag
+    , forward_iterator
+    , person_t, char const **, person_t>
 {
     char const ** _p;
     forward_iterator (char const ** p) : _p(p) {}
@@ -87,14 +88,15 @@ auto my_alias = std::string{"My Alias"};
 
 REGISTER_EXCEPTION_TRANSLATOR (chat::error & ex)
 {
-    static std::string __s {};
-    __s = ex.what();
-    return doctest::String(__s.c_str(), static_cast<unsigned int>(__s.size()));
+    static std::string static_tmp_str {};
+    static_tmp_str = ex.what();
+    return doctest::String(static_tmp_str.c_str(), static_cast<unsigned int>(static_tmp_str.size()));
 }
 
 TEST_CASE("constructors") {
     // Contact list public constructors/assign operators
-    using in_memory_contact_list_t = chat::contact_list<chat::backend::in_memory::contact_list>;
+    using in_memory_contact_list_t = chat::contact_list<chat::storage::in_memory>;
+
     REQUIRE_FALSE(std::is_default_constructible<in_memory_contact_list_t>::value);
     REQUIRE_FALSE(std::is_copy_constructible<in_memory_contact_list_t>::value);
     REQUIRE_FALSE(std::is_copy_assignable<in_memory_contact_list_t>::value);
@@ -107,7 +109,7 @@ TEST_CASE("constructors") {
     REQUIRE_FALSE(std::is_copy_constructible<contact_manager_t>::value);
     REQUIRE_FALSE(std::is_copy_assignable<contact_manager_t>::value);
     REQUIRE(std::is_move_constructible<contact_manager_t>::value);
-    REQUIRE_FALSE(std::is_move_assignable<contact_manager_t>::value);
+    REQUIRE(std::is_move_assignable<contact_manager_t>::value);
     REQUIRE(std::is_destructible<contact_manager_t>::value);
 }
 
@@ -117,17 +119,17 @@ TEST_CASE("initialization") {
         REQUIRE(pfs::filesystem::remove_all(contact_db_path) > 0);
     }
 
-    auto dbh = chat::backend::sqlite3::make_handle(contact_db_path, true);
+    auto db = debby::sqlite3::make(contact_db_path);
 
-    REQUIRE(dbh);
+    REQUIRE(db);
 
-    auto contact_manager = contact_manager_t::make(
-        chat::contact::person{my_uuid, my_alias}, dbh);
+    chat::contact::person my_contact {my_uuid, my_alias};
+    auto contact_manager = contact_manager_t::make(my_contact, db);
 
     REQUIRE(contact_manager);
 
     if (contact_manager.count() > 0)
-        contact_manager.wipe();
+        contact_manager.clear();
 
     REQUIRE_EQ(contact_manager.count(), 0);
 
@@ -141,29 +143,30 @@ TEST_CASE("initialization") {
             ++first;
         }
 
-        return true;
+        return pfs::optional<std::string>{};
     };
 
-    REQUIRE(contact_manager.transaction(batch_add));
+    REQUIRE_EQ(contact_manager.transaction(batch_add), pfs::nullopt);
 }
 
 // Reside this tests before any modifications of database
 TEST_CASE("contact_list") {
-    auto dbh = chat::backend::sqlite3::make_handle(contact_db_path, true);
+    auto db = debby::sqlite3::make(contact_db_path);
 
-    REQUIRE(dbh);
+    REQUIRE(db);
 
-    auto contact_manager = contact_manager_t::make(
-        chat::contact::person{my_uuid, my_alias}, dbh);
+    auto contact_manager = contact_manager_t::make(db);
 
     REQUIRE(contact_manager);
 
     {
-        auto contact_list = contact_manager.contacts([] (contact_t const & c)->bool {
-            auto predicate = [] (pfs::unicode::char_t a, pfs::unicode::char_t b)->bool {
+        auto contact_list = contact_manager.contacts([] (contact_t const & c) -> bool {
+            auto predicate = [] (pfs::unicode::char_t a, pfs::unicode::char_t b) -> bool {
                 return a == b;
             };
+
             pfs::string_view needle {"ile"};
+
             return std::search(c.alias.begin(), c.alias.end(), needle.begin()
                 , needle.end(), predicate) != c.alias.end();
         });
@@ -173,9 +176,10 @@ TEST_CASE("contact_list") {
         CHECK((contact_list.at(0).alias == "Kile" || contact_list.at(0).alias == "Mile"));
         CHECK((contact_list.at(1).alias == "Kile" || contact_list.at(1).alias == "Mile"));
 
-        //contact_list.for_each([] (contact_t const & c) {
-        //    fmt::print("{} | {:10} | {}\n", c.contact_id, c.alias, to_string(c.type));
-        //});
+        fmt::println("\n-- Kile and Mile ----");
+        contact_list.for_each([] (contact_t const & c) {
+            fmt::print("{} | {:10} | {}\n", c.contact_id, c.alias, to_string(c.type));
+        });
     }
 
     {
@@ -194,6 +198,7 @@ TEST_CASE("contact_list") {
         // Gwenore, Alden, Gene, Jaquenetta, Enrika, Ken, Laurene
         CHECK_EQ(contact_list.count(), 7);
 
+        fmt::println("\n-- Search result with ignore case using standard C ----");
         contact_list.for_each([] (contact_t const & c) {
             fmt::print("{} | {:10} | {}\n", c.contact_id, c.alias, to_string(c.type));
         });
@@ -212,21 +217,21 @@ TEST_CASE("contact_list") {
 
         CHECK_EQ(contact_list.count(), 5);
 
+        fmt::println("\n-- Search result with ignore case using ICU ----");
         contact_list.for_each([] (contact_t const & c) {
             fmt::print("{} | {:10} | {}\n", c.contact_id, c.alias, to_string(c.type));
         });
 #endif
 }
 
-template <typename ContactListBackend>
+template <typename Storage>
 void test_contacts ()
 {
-    auto dbh = chat::backend::sqlite3::make_handle(contact_db_path, true);
+    auto db = debby::sqlite3::make(contact_db_path);
 
-    REQUIRE(dbh);
+    REQUIRE(db);
 
-    auto contact_manager = contact_manager_t::make(
-        chat::contact::person{my_uuid, my_alias}, dbh);
+    auto contact_manager = contact_manager_t::make(db);
 
     REQUIRE(contact_manager);
 
@@ -237,7 +242,7 @@ void test_contacts ()
 
     std::vector<person_t> all_contacts;
 
-    auto contacts = contact_manager.contacts<chat::contact_list<ContactListBackend>>();
+    auto contacts = contact_manager.contacts<chat::contact_list<Storage>>();
 
     contacts.for_each([& all_contacts] (contact_t const & c) {
         //fmt::print("{} | {:10} | {}\n", c.contact_id, c.alias, to_string(c.type));
@@ -253,23 +258,23 @@ void test_contacts ()
             auto last = all_contacts.cend();
 
             for (; success && first != last; ++first) {
-                if (contact_manager.add(*first))
+                if (contact_manager.add(person_t{*first}))
                     count++;
             }
 
-            return success;
+            return pfs::optional<std::string>{};
         };
 
-        REQUIRE(contact_manager.transaction(batch_add));
+        REQUIRE(!contact_manager.transaction(batch_add));
         REQUIRE_EQ(count, 0);
     }
 
-    // Change alias for first contact (update)
+    // Change alias for the first contact (update)
     {
         auto c = all_contacts[0];
         c.alias = "NewAlias";
 
-        auto success = contact_manager.update(c);
+        auto success = contact_manager.update(std::move(c));
         REQUIRE(success);
     }
 
@@ -279,7 +284,7 @@ void test_contacts ()
         c.contact_id = pfs::generate_uuid();
         c.alias = "Noname";
 
-        auto success = contact_manager.update(c);
+        auto success = contact_manager.update(std::move(c));
         REQUIRE_FALSE(success);
     }
 
@@ -287,14 +292,14 @@ void test_contacts ()
     {
         auto c = contact_manager.get(all_contacts[1].contact_id);
         REQUIRE_EQ(c.alias, all_contacts[1].alias);
-        REQUIRE_EQ(c.type, chat::conversation_enum::person);
+        REQUIRE_EQ(c.type, chat::chat_enum::person);
     }
 
     // Get contact by offset
     {
         auto c = contact_manager.at(1);
         REQUIRE_EQ(c.alias, all_contacts[1].alias);
-        REQUIRE_EQ(c.type, chat::conversation_enum::person);
+        REQUIRE_EQ(c.type, chat::chat_enum::person);
     }
 
     // Attempt to get non-existent contact
@@ -305,17 +310,16 @@ void test_contacts ()
 }
 
 TEST_CASE("contacts") {
-    test_contacts<chat::backend::in_memory::contact_list>();
-    test_contacts<chat::backend::sqlite3::contact_list>();
+    test_contacts<chat::storage::in_memory>();
+    test_contacts<chat::storage::sqlite3>();
 }
 
 TEST_CASE("groups") {
-    auto dbh = chat::backend::sqlite3::make_handle(contact_db_path, true);
+    auto db = debby::sqlite3::make(contact_db_path);
 
-    REQUIRE(dbh);
+    REQUIRE(db);
 
-    auto contact_manager = contact_manager_t::make(
-        chat::contact::person{my_uuid, my_alias}, dbh);
+    auto contact_manager = contact_manager_t::make(db);
 
     REQUIRE(contact_manager);
 
@@ -325,12 +329,12 @@ TEST_CASE("groups") {
         g.contact_id = pfs::generate_uuid();
         g.creator_id = my_uuid;
 
-        REQUIRE(contact_manager.add(g));
+        REQUIRE(contact_manager.add(std::move(g)));
 
         // No new group added as it already exist
         REQUIRE_FALSE(contact_manager.gref(g.contact_id).add_member(my_uuid));
 
-        REQUIRE_EQ(contact_manager.groups_count(), 1);
+        REQUIRE_EQ(contact_manager.group_count(), 1);
     }
 
     chat::contact::id sample_id;
@@ -342,12 +346,12 @@ TEST_CASE("groups") {
         g.contact_id = pfs::generate_uuid();
         g.creator_id = my_uuid;
 
-        REQUIRE(contact_manager.add(g));
+        REQUIRE(contact_manager.add(group_t{g}));
 
         g.alias = sample_alias;
 
-        REQUIRE(contact_manager.update(g));
-        REQUIRE_EQ(contact_manager.groups_count(), 2);
+        REQUIRE(contact_manager.update(group_t{g}));
+        REQUIRE_EQ(contact_manager.group_count(), 2);
 
         sample_id = g.contact_id;
     }
@@ -358,7 +362,7 @@ TEST_CASE("groups") {
         g.contact_id = pfs::generate_uuid();
         g.alias = "Noname";
 
-        REQUIRE_FALSE(contact_manager.update(g));
+        REQUIRE_FALSE(contact_manager.update(std::move(g)));
     }
 
     // Get contact by id
@@ -380,21 +384,21 @@ TEST_CASE("groups") {
         g.contact_id = pfs::generate_uuid();
         g.creator_id = my_uuid;
 
-        REQUIRE(contact_manager.add(g));
+        REQUIRE(contact_manager.add(group_t{g}));
 
-        REQUIRE_EQ(contact_manager.groups_count(), 3);
+        REQUIRE_EQ(contact_manager.group_count(), 3);
 
         person_t c1;
         c1.contact_id = pfs::generate_uuid();
         c1.alias = "Contact 1 for " + g.alias;
 
-        REQUIRE(contact_manager.add(c1));
+        REQUIRE(contact_manager.add(person_t{c1}));
 
         person_t c2;
         c2.contact_id = pfs::generate_uuid();
         c2.alias = "Contact 2 for " + g.alias;
 
-        REQUIRE(contact_manager.add(c2));
+        REQUIRE(contact_manager.add(person_t{c2}));
 
         // Only person can be added to group now.
         // NOTE This behavior is subject to change in the future.
@@ -402,7 +406,7 @@ TEST_CASE("groups") {
         c3.contact_id = pfs::generate_uuid();
         c3.alias = "Contact 3 for " + g.alias;
         c3.creator_id = my_uuid;
-        REQUIRE(contact_manager.add(c3));
+        REQUIRE(contact_manager.add(group_t{c3}));
 
         REQUIRE(contact_manager.gref(g.contact_id).add_member(c1.contact_id));
         REQUIRE(contact_manager.gref(g.contact_id).add_member(c2.contact_id));
@@ -423,7 +427,40 @@ TEST_CASE("groups") {
 
         // Including my contact
         REQUIRE_EQ(contact_manager.gref(g.contact_id).count(), 3);
+
+        auto member_ids = contact_manager.gref(g.contact_id).member_ids();
+        REQUIRE_EQ(member_ids.size(), 3);
+        REQUIRE(std::find(member_ids.cbegin(), member_ids.cend(), my_uuid) != member_ids.end());
+        REQUIRE(std::find(member_ids.cbegin(), member_ids.cend(), c1.contact_id) != member_ids.end());
+        REQUIRE(std::find(member_ids.cbegin(), member_ids.cend(), c2.contact_id) != member_ids.end());
+        REQUIRE_FALSE(std::find(member_ids.cbegin(), member_ids.cend(), c3.contact_id) != member_ids.end());
+
+        // Remove
+        contact_manager.remove(c2.contact_id);
+        member_ids = contact_manager.gref(g.contact_id).member_ids();
+        REQUIRE_EQ(member_ids.size(), 2);
+
+        auto removed_contact = contact_manager.get(c2.contact_id);
+        REQUIRE_FALSE(is_valid(removed_contact));
+
+        contact_manager.gref(g.contact_id).remove_member(c1.contact_id);
+        REQUIRE_EQ(contact_manager.gref(g.contact_id).count(), 1);
+
+        contact_manager.gref(g.contact_id).remove_all_members();
+        REQUIRE_EQ(contact_manager.gref(g.contact_id).count(), 0);
     }
 
-    // TODO Check remove methods
+    {
+        std::string my_new_alias {"My New Alias"};
+        std::string my_new_avatar {"My New Avatar"};
+        std::string my_new_desc {"My New Description"};
+        contact_manager.change_my_alias(std::move(my_new_alias));
+        contact_manager.change_my_avatar(std::move(my_new_avatar));
+        contact_manager.change_my_desc(std::move(my_new_desc));
+
+        auto me = contact_manager.my_contact();
+        REQUIRE_EQ(me.alias, my_new_alias);
+        REQUIRE_EQ(me.avatar, my_new_avatar);
+        REQUIRE_EQ(me.description, my_new_desc);
+    }
 }

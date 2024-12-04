@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright (c) 2021,2022 Vladislav Trifochkin
+// Copyright (c) 2021-2024 Vladislav Trifochkin
 //
 // This file is part of `chat-lib`.
 //
@@ -7,8 +7,8 @@
 //      2022.11.03 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
-#include "chat/contact.hpp"
-#include "chat/file.hpp"
+#include "pfs/chat/contact.hpp"
+#include "pfs/chat/file.hpp"
 #include <string>
 #include <vector>
 
@@ -38,38 +38,38 @@ public:
      * Called by receiver when message received.
      *
      * @param author_id Author/sender identifier.
-     * @param conversation_id Conversation identifier.
+     * @param chat_id Chat identifier.
      * @param message_id Message identifier.
      */
     mutable std::function<void (contact::id /*author_id*/
-        , contact::id /*conversation_id*/
+        , contact::id /*chat_id*/
         , message::id /*message_id*/)> message_received
     = [] (contact::id, contact::id, message::id) {};
 
     /**
      * Called by author when message delivered to addressee (receiver).
      *
-     * @param conversation_id Conversation identifier.
+     * @param chat_id Chat identifier.
      * @param message_id Message identifier.
      * @param delivered_time Delivered time in UTC.
      */
-    mutable std::function<void (contact::id /*conversation_id*/
+    mutable std::function<void (contact::id /*chat_id*/
         , message::id /*message_id*/
-        , pfs::utc_time_point /*delivered_time*/)> message_delivered
-    = [] (contact::id, message::id, pfs::utc_time_point) {};
+        , pfs::utc_time /*delivered_time*/)> message_delivered
+    = [] (contact::id, message::id, pfs::utc_time) {};
 
     /**
      * Called by author when received read message notification or opponent when
      * read received message from author.
      *
-     * @param conversation_id Conversation identifier.
+     * @param chat_id Chat identifier.
      * @param message_id Message identifier.
      * @param delivered_time Read time in UTC.
      */
-    mutable std::function<void (contact::id /*conversation_id*/
+    mutable std::function<void (contact::id /*chat_id*/
         , message::id /*message_id*/
-        , pfs::utc_time_point /*read_time*/)> message_read
-    = [] (contact::id, message::id, pfs::utc_time_point) {};
+        , pfs::utc_time /*read_time*/)> message_read
+    = [] (contact::id, message::id, pfs::utc_time) {};
 
     /**
      * Called after adding contact.
@@ -101,7 +101,7 @@ public:
      * Requested file/resource not found, corrupted or permission denied.
      */
     mutable std::function<void (contact::id /*requester*/
-        , file::id /*file_id*/)> file_error
+        , file::id /*file_id*/)> on_file_error
     = [] (contact::id, file::id) {};
 };
 

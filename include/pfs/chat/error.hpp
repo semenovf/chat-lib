@@ -23,7 +23,7 @@ enum class errc
     , invalid_argument
     , contact_not_found
     , group_not_found
-    , conversation_not_found
+    , chat_not_found
     , message_not_found
     , file_not_found
     , unsuitable_group_member

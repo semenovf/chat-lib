@@ -7,7 +7,7 @@
 //      2021.11.20 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
-#include "conversation_enum.hpp"
+#include "chat_enum.hpp"
 #include "exports.hpp"
 #include "pfs/time_point.hpp"
 #include "pfs/universal_id.hpp"
@@ -37,7 +37,7 @@ struct contact
     std::string description;
     std::string extra;      // Extra data (implementation specific)
     id          creator_id; // For person same as ID.
-    conversation_enum type;
+    chat_enum   type;
 };
 
 struct person
@@ -77,17 +77,17 @@ inline bool is_valid (T const & t) noexcept
 
 inline bool is_person (contact const & c) noexcept
 {
-    return c.type == conversation_enum::person;
+    return c.type == chat_enum::person;
 }
 
 inline bool is_group (contact const & c) noexcept
 {
-    return c.type == conversation_enum::group;
+    return c.type == chat_enum::group;
 }
 
 inline bool is_channel (contact const & c) noexcept
 {
-    return c.type == conversation_enum::channel;
+    return c.type == chat_enum::channel;
 }
 
 }} // namespace chat::contact

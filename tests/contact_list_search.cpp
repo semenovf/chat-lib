@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright (c) 2021-2023 Vladislav Trifochkin
+// Copyright (c) 2023-2024 Vladislav Trifochkin
 //
 // This file is part of `chat-lib`.
 //
@@ -8,16 +8,16 @@
 ////////////////////////////////////////////////////////////////////////////////
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"
-#include "pfs/log.hpp"
 #include "pfs/chat/contact.hpp"
 #include "pfs/chat/contact_manager.hpp"
 #include "pfs/chat/search.hpp"
-#include "pfs/chat/backend/in_memory/contact_list.hpp"
-#include "pfs/chat/backend/sqlite3/contact_manager.hpp"
-#include "pfs/lorem/person.hpp"
+#include "pfs/chat/in_memory.hpp"
+#include "pfs/chat/sqlite3.hpp"
+#include <pfs/log.hpp>
+#include <pfs/lorem/person.hpp>
 
 using person_t = chat::contact::person;
-using contact_manager_t = chat::contact_manager<chat::backend::sqlite3::contact_manager>;
+using contact_manager_t = chat::contact_manager<chat::storage::sqlite3>;
 
 auto contact_db_path = pfs::filesystem::temp_directory_path() / "contact_list_search_test.db";
 auto my_uuid = pfs::generate_uuid();
@@ -37,17 +37,16 @@ TEST_CASE("initialization") {
         REQUIRE(pfs::filesystem::remove_all(contact_db_path) > 0);
     }
 
-    auto dbh = chat::backend::sqlite3::make_handle(contact_db_path, true);
+    auto db = debby::sqlite3::make(contact_db_path);
 
-    REQUIRE(dbh);
+    REQUIRE(db);
 
-    auto contact_manager = contact_manager_t::make(
-        chat::contact::person{my_uuid, my_alias}, dbh);
+    auto contact_manager = contact_manager_t::make(chat::contact::person{my_uuid, my_alias}, db);
 
     REQUIRE(contact_manager);
 
     if (contact_manager.count() > 0)
-        contact_manager.wipe();
+        contact_manager.clear();
 
     REQUIRE_EQ(contact_manager.count(), 0);
 
@@ -69,19 +68,18 @@ TEST_CASE("initialization") {
             contact_manager.add(std::move(c));
         }
 
-        return true;
+        return pfs::optional<std::string>{};
     };
 
-    REQUIRE(contact_manager.transaction(batch_add));
+    REQUIRE_EQ(contact_manager.transaction(batch_add), pfs::nullopt);
 }
 
 TEST_CASE("search") {
-    auto dbh = chat::backend::sqlite3::make_handle(contact_db_path, true);
+    auto db = debby::sqlite3::make(contact_db_path);
 
-    REQUIRE(dbh);
+    REQUIRE(db);
 
-    auto contact_manager = contact_manager_t::make(
-        chat::contact::person{my_uuid, my_alias}, dbh);
+    auto contact_manager = contact_manager_t::make(db);
 
     REQUIRE(contact_manager);
 

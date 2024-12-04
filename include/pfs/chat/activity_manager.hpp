@@ -5,13 +5,14 @@
 //
 // Changelog:
 //      2023.04.11 Initial version.
+//      2024.12.01 Started V2.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 #include "contact.hpp"
-#include "error.hpp"
-#include "pfs/optional.hpp"
-#include "pfs/time_point.hpp"
+#include <pfs/optional.hpp>
+#include <pfs/time_point.hpp>
 #include <functional>
+#include <memory>
 
 namespace chat {
 
@@ -27,25 +28,24 @@ struct activity_entry
     pfs::optional<pfs::utc_time> online_utc_time;
 };
 
-template <typename Backend>
+template <typename Storage>
 class activity_manager final
 {
-    using rep_type = typename Backend::rep_type;
+    using rep = typename Storage::activity_manager;
 
 private:
-    rep_type _rep;
-
-private:
-    activity_manager () = default;
-    CHAT__EXPORT activity_manager (rep_type && rep);
+    std::unique_ptr<rep> _d;
 
 public:
-    activity_manager (activity_manager const & other) = delete;
-    activity_manager (activity_manager && other) = default;
-    activity_manager & operator = (activity_manager const & other) = delete;
-    activity_manager & operator = (activity_manager && other) = delete;
+    CHAT__EXPORT activity_manager (activity_manager && other) noexcept;
+    CHAT__EXPORT activity_manager & operator = (activity_manager && other) noexcept;
+    CHAT__EXPORT ~activity_manager ();
 
-    ~activity_manager () = default;
+    // For internal use only
+    CHAT__EXPORT activity_manager (rep * d) noexcept;
+
+    activity_manager (activity_manager const & other) = delete;
+    activity_manager & operator = (activity_manager const & other) = delete;
 
 public:
     /**
@@ -55,11 +55,11 @@ public:
 
 
     /**
-     * Wipes (erase) all activities.
+     * Clears all activities.
      *
      * @throw chat::error{errc::storage_error} on storage error.
      */
-    CHAT__EXPORT void wipe (chat::error * perr = nullptr);
+    CHAT__EXPORT void clear ();
 
     /**
      * Logs contact activity.
@@ -72,63 +72,59 @@ public:
      *        added to the log of all contact activities.
      */
     CHAT__EXPORT void log_activity (contact::id id, contact_activity ca
-        , pfs::utc_time const & time, bool brief_only, error * perr = nullptr);
+        , pfs::utc_time const & time, bool brief_only);
 
     /**
      * Get last activity time specified by @a ca.
      */
     CHAT__EXPORT pfs::optional<pfs::utc_time> last_activity (contact::id id
-        , contact_activity ca, error * perr = nullptr);
+        , contact_activity ca);
 
     /**
      * Get last activity brief
      */
-    CHAT__EXPORT activity_entry last_activity (contact::id id, error * perr = nullptr);
+    CHAT__EXPORT activity_entry last_activity (contact::id id);
 
     /**
      * Clear activities for specfied contact.
      */
-    CHAT__EXPORT void clear_activities (contact::id id, error * perr = nullptr);
+    CHAT__EXPORT void clear_activities (contact::id id);
 
     /**
      * Clear activities for all contacts.
      */
-    CHAT__EXPORT void clear_activities (error * perr = nullptr);
+    CHAT__EXPORT void clear_activities ();
 
     /**
      * Iterate all activity log entries for specified contact.
      */
     CHAT__EXPORT void for_each_activity (contact::id id
-        , std::function<void(contact_activity ca, pfs::utc_time const &)> f
-        , error * perr = nullptr);
+        , std::function<void(contact_activity ca, pfs::utc_time const &)> f);
 
     /**
      * Iterate all activity log entries for all contacts.
      */
     CHAT__EXPORT void for_each_activity (
-          std::function<void(contact::id, contact_activity ca, pfs::utc_time const &)> f
-        , error * perr = nullptr);
+          std::function<void(contact::id, contact_activity ca, pfs::utc_time const &)> f);
 
     /**
      * Iterate all activity brief log entries.
      */
     CHAT__EXPORT void for_each_activity_brief (
           std::function<void(contact::id, pfs::optional<pfs::utc_time> const &/*online*/
-            , pfs::optional<pfs::utc_time> const &/*offline*/)> f
-        , error * perr = nullptr);
+            , pfs::optional<pfs::utc_time> const &/*offline*/)> f);
 
 public:
     template <typename ...Args>
     static activity_manager make (Args &&... args)
     {
-        return activity_manager{Backend::make(std::forward<Args>(args)...)};
+        return activity_manager{Storage::make_activity_manager(std::forward<Args>(args)...)};
     }
 
     template <typename ...Args>
     static std::unique_ptr<activity_manager> make_unique (Args &&... args)
     {
-        auto ptr = new activity_manager{Backend::make(std::forward<Args>(args)...)};
-        return std::unique_ptr<activity_manager>(ptr);
+        return std::make_unique<activity_manager>(Storage::make_activity_manager(std::forward<Args>(args)...));
     }
 };
 

@@ -134,7 +134,7 @@ struct forward_iterator : public pfs::iterator_facade<
         chat::contact::contact c;
         c.id    = pfs::generate_uuid();
         c.alias = _p->last_name;
-        c.type  = chat::conversation_enum::person;
+        c.type  = chat::chat_enum::person;
         return c;
     }
 

@@ -242,8 +242,8 @@ public:
     }
 };
 
-template <typename Conversation>
-class conversation_searcher
+template <typename Chat>
+class chat_searcher
 {
 public:
     using match_item = message_searcher::match_item;
@@ -256,10 +256,10 @@ public:
     };
 
 private:
-    Conversation const * _pcv {nullptr};
+    Chat const * _pcv {nullptr};
 
 public:
-    conversation_searcher (Conversation const & cv)
+    chat_searcher (Chat const & cv)
         : _pcv(& cv)
     {}
 
@@ -311,8 +311,8 @@ public:
 template <typename MessageStore, typename ContactList>
 class message_store_searcher
 {
-    using conversation_type = typename MessageStore::conversation_type;
-    using conversation_searcher_type = conversation_searcher<conversation_type>;
+    using chat_type = typename MessageStore::chat_type;
+    using chat_searcher_type = chat_searcher<chat_type>;
 
 public:
     using match_item    = message_searcher::match_item;
@@ -337,7 +337,7 @@ public:
     {
         search_result sr;
 
-        _pcl->for_each([this, & sr, & pattern, sf] (chat::contact::contact const & c) {
+        _pcl->for_each([this, & sr, & pattern, sf] (contact::contact const & c) {
             auto cv = _pms->conversation(c.contact_id);
 
             if (!cv)
@@ -360,7 +360,7 @@ public:
     {
         search_result sr;
 
-        _pcl->for_each([this, & sr, & pattern, sf] (chat::contact::contact const & c) {
+        _pcl->for_each([this, & sr, & pattern, sf] (contact::contact const & c) {
             auto cv = _pms->conversation(c.contact_id);
 
             if (!cv)

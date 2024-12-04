@@ -28,8 +28,8 @@ std::string error_category::message (int ev) const
         case errc::group_not_found:
             return tr::_("group not found");
 
-        case errc::conversation_not_found:
-            return tr::_("conversation not found");
+        case errc::chat_not_found:
+            return tr::_("chat not found");
 
         case errc::message_not_found:
             return tr::_("message not found");

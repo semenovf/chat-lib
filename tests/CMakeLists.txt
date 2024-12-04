@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2021 Vladislav Trifochkin
+# Copyright (c) 2021-2024 Vladislav Trifochkin
 #
 # This file is part of `chat-lib`.
 #
@@ -9,42 +9,36 @@
 ################################################################################
 project(chat-TESTS CXX C)
 
-if (TARGET pfs::chat)
-    set(_chat_lib pfs::chat)
-elseif (TARGET pfs::chat::static)
-    set(_chat_lib pfs::chat::static)
-endif()
-
 set(TESTS
     activity_manager
     contact_manager
     contact_list_search
-    conversation_search
+    chat_search
     file_cache
     message_store
     messenger
     serializer)
 
-foreach (t ${TESTS})
-    portable_target(ADD_TEST ${t}
-        ENABLE_COVERAGE ${CHAT__ENABLE_COVERAGE}
-        SOURCES ${t}.cpp ${${t}_SOURCES}
-        LINK ${_chat_lib})
+foreach (name ${TESTS})
+    add_executable(${name} ${name}.cpp)
+    target_link_libraries(${name} PRIVATE pfs::chat)
+    add_test(NAME ${name} COMMAND ${name})
 endforeach()
 
-if (NOT TARGET pfs::lorem AND NOT TARGET pfs::lorem::static)
-    portable_target(INCLUDE_PROJECT ${CMAKE_SOURCE_DIR}/2ndparty/lorem/library.cmake)
+if (NOT TARGET pfs::lorem)
+    set(FETCHCONTENT_UPDATES_DISCONNECTED_LOREM ON)
+    include(FetchContent)
 
+    FetchContent_Declare(lorem
+        GIT_REPOSITORY "https://github.com/semenovf/lorem-lib.git"
+        GIT_TAG master
+        SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/2ndparty/lorem"
+        SUBBUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/2ndparty/lorem")
+    FetchContent_MakeAvailable(lorem)
 endif()
 
-if (TARGET pfs::lorem)
-    set(_lorem_lib pfs::lorem)
-elseif (TARGET pfs::lorem::static)
-    set(_lorem_lib pfs::lorem::static)
-endif()
+target_link_libraries(contact_list_search PRIVATE pfs::lorem)
 
-portable_target(LINK contact_list_search ${_lorem_lib})
-
-file(GENERATE OUTPUT data/attachment1.bin CONTENT "ABCD")
-file(GENERATE OUTPUT data/attachment2.bin CONTENT "EFGH")
-file(GENERATE OUTPUT data/attachment3.bin CONTENT "IJKL")
+file(GENERATE OUTPUT ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data/attachment1.bin CONTENT "ABCD")
+file(GENERATE OUTPUT ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data/attachment2.bin CONTENT "EFGH")
+file(GENERATE OUTPUT ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data/attachment3.bin CONTENT "IJKL")

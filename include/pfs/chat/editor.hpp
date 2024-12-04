@@ -1,36 +1,37 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright (c) 2021,2022 Vladislav Trifochkin
+// Copyright (c) 2021-2024 Vladislav Trifochkin
 //
 // This file is part of `chat-lib`.
 //
 // Changelog:
 //      2022.01.04 Initial version.
 //      2022.02.17 Refactored to use backend.
+//      2024.12.01 Started V2.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
-#include "error.hpp"
 #include "exports.hpp"
 #include "message.hpp"
 #include <pfs/filesystem.hpp>
 #include <pfs/time_point.hpp>
+#include <cstdint>
 #include <functional>
 #include <string>
 
 namespace chat {
 
-template <typename Backend>
-class conversation;
+template <typename Storage>
+class chat;
 
-template <typename Backend>
+template <typename Storage>
 class editor final
 {
     template <typename B>
-    friend class conversation;
+    friend class chat;
 
-    using rep_type = typename Backend::rep_type;
+    using rep = typename Storage::editor;
 
 private:
-    rep_type _rep;
+    std::unique_ptr<rep> _d;
 
 private:
     /**
@@ -52,16 +53,14 @@ private:
         , std::int64_t /*size*/
         , pfs::utc_time /*modtime*/)> cache_outgoing_custom_file;
 
-private:
-    CHAT__EXPORT editor ();
-    CHAT__EXPORT editor (rep_type && rep);
+public:
+    CHAT__EXPORT editor (editor && other) noexcept;
+    CHAT__EXPORT editor & operator = (editor && other) noexcept;
+    CHAT__EXPORT ~editor ();
+    CHAT__EXPORT editor (rep * d) noexcept;
+
     editor (editor const & other) = delete;
     editor & operator = (editor const & other) = delete;
-
-public:
-    CHAT__EXPORT editor (editor && other);
-    editor & operator = (editor && other) = delete;
-    CHAT__EXPORT ~editor ();
 
 public:
     /**
@@ -125,13 +124,6 @@ public:
      * Get message ID.
      */
     CHAT__EXPORT message::id message_id () const noexcept;
-
-private:
-    template <typename ...Args>
-    static editor make (Args &&... args)
-    {
-        return editor{Backend::make(std::forward<Args>(args)...)};
-    }
 };
 
 } // namespace chat

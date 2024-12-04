@@ -9,37 +9,35 @@
 ////////////////////////////////////////////////////////////////////////////////
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"
-#include "pfs/filesystem.hpp"
-#include "pfs/fmt.hpp"
-#include "pfs/string_view.hpp"
-#include "pfs/chat/message.hpp"
+// #include "pfs/fmt.hpp"
+// #include "pfs/string_view.hpp"
 #include "pfs/chat/message_store.hpp"
-#include "pfs/chat/backend/sqlite3/message_store.hpp"
-
-using message_store_t = chat::message_store<chat::backend::sqlite3::message_store>;
-using conversation_t  = message_store_t::conversation_type;
-using editor_t        = conversation_t::editor_type;
-
-auto message_db_path = pfs::filesystem::temp_directory_path()
-    / PFS__LITERAL_PATH("messages.db");
+#include "pfs/chat/sqlite3.hpp"
+#include <pfs/filesystem.hpp>
 
 namespace fs = pfs::filesystem;
 
+using message_store_t = chat::message_store<chat::storage::sqlite3>;
+using chat_t = message_store_t::chat_type;
+using editor_t = chat_t::editor_type;
+
+auto message_db_path = fs::temp_directory_path() / "messages.db";
+
 TEST_CASE("constructors") {
     // Conversation public constructors/assign operators
-    REQUIRE(std::is_default_constructible<conversation_t>::value);
-    REQUIRE_FALSE(std::is_copy_constructible<conversation_t>::value);
-    REQUIRE_FALSE(std::is_copy_assignable<conversation_t>::value);
-    REQUIRE(std::is_move_constructible<conversation_t>::value);
-    REQUIRE(std::is_move_assignable<conversation_t>::value);
-    REQUIRE(std::is_destructible<conversation_t>::value);
+    REQUIRE(std::is_default_constructible<chat_t>::value);
+    REQUIRE_FALSE(std::is_copy_constructible<chat_t>::value);
+    REQUIRE_FALSE(std::is_copy_assignable<chat_t>::value);
+    REQUIRE(std::is_move_constructible<chat_t>::value);
+    REQUIRE(std::is_move_assignable<chat_t>::value);
+    REQUIRE(std::is_destructible<chat_t>::value);
 
     // Editor public constructors/assign operators
     REQUIRE_FALSE(std::is_default_constructible<editor_t>::value);
     REQUIRE_FALSE(std::is_copy_constructible<editor_t>::value);
     REQUIRE_FALSE(std::is_copy_assignable<editor_t>::value);
     REQUIRE(std::is_move_constructible<editor_t>::value);
-    REQUIRE_FALSE(std::is_move_assignable<editor_t>::value);
+    REQUIRE(std::is_move_assignable<editor_t>::value);
     REQUIRE(std::is_destructible<editor_t>::value);
 
     // Message store public constructors/assign operators
@@ -47,45 +45,45 @@ TEST_CASE("constructors") {
     REQUIRE_FALSE(std::is_copy_constructible<message_store_t>::value);
     REQUIRE_FALSE(std::is_copy_assignable<message_store_t>::value);
     REQUIRE(std::is_move_constructible<message_store_t>::value);
-    REQUIRE_FALSE(std::is_move_assignable<message_store_t>::value);
+    REQUIRE(std::is_move_assignable<message_store_t>::value);
     REQUIRE(std::is_destructible<message_store_t>::value);
 }
 
 TEST_CASE("initialization") {
-    if (pfs::filesystem::exists(message_db_path)) {
+    if (fs::exists(message_db_path)) {
         REQUIRE(pfs::filesystem::remove_all(message_db_path) > 0);
     }
 
-    auto dbh = chat::backend::sqlite3::make_handle(message_db_path, true);
+    auto db = debby::sqlite3::make(message_db_path);
 
-    REQUIRE(dbh);
+    REQUIRE(db);
 
     auto my_id = chat::contact::id_generator{}.next();
-    auto message_store = message_store_t::make(my_id, dbh);
+    auto message_store = message_store_t::make(my_id, db);
 
     REQUIRE(message_store);
-    message_store.wipe();
+    message_store.clear();
 }
 
 TEST_CASE("outgoing messages") {
-    auto dbh = chat::backend::sqlite3::make_handle(message_db_path, true);
+    auto db = debby::sqlite3::make(message_db_path);
     auto my_id = chat::contact::id_generator{}.next();
-    auto message_store = message_store_t::make(my_id, dbh);
-    message_store.wipe();
+    auto message_store = message_store_t::make(my_id, db);
+    message_store.clear();
 
     auto addressee_id = chat::contact::id_generator{}.next();
-    auto conversation = message_store.conversation(addressee_id);
-    auto conversation_id = conversation.id();
+    auto chat = message_store.open_chat(addressee_id);
+    auto chat_id = chat.id();
 
-    conversation.cache_outgoing_local_file = [my_id, conversation_id] (chat::message::id message_id
+    chat.cache_outgoing_local_file = [my_id, chat_id] (chat::message::id message_id
         , std::int16_t attachment_index, fs::path const & path) {
-        return chat::file::credentials {my_id, conversation_id, message_id, attachment_index, path};
+        return chat::file::credentials {my_id, chat_id, message_id, attachment_index, path};
     };
 
-    REQUIRE(conversation);
+    REQUIRE(chat);
 
     for (int i = 0; i < 5; i++) {
-        auto ed = conversation.create();
+        auto ed = chat.create();
 
         ed.add_text("Hello");
         ed.add_html("<html><body><h1>World</h1></body></html>");
@@ -99,17 +97,17 @@ TEST_CASE("outgoing messages") {
 
     // Bad attachment
     {
-        auto ed = conversation.create();
+        auto ed = chat.create();
         REQUIRE_THROWS(ed.attach(fs::utf8_decode("ABRACADABRA")));
     }
 
-    conversation.for_each([& conversation] (chat::message::message_credentials const & m) {
+    chat.for_each([& chat] (chat::message::message_credentials const & m) {
         fmt::print("{} | {} | {}\n"
             , to_string(m.message_id)
             , to_string(m.author_id)
             , to_string(m.creation_time));
 
-        auto ed = conversation.open(m.message_id);
+        auto ed = chat.open(m.message_id);
 
         if (ed.content().count() > 0) {
             REQUIRE_EQ(ed.content().at(0).mime, mime::mime_enum::text__plain);

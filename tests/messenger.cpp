@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright (c) 2021,2022 Vladislav Trifochkin
+// Copyright (c) 2021-2024 Vladislav Trifochkin
 //
 // This file is part of `chat-lib`.
 //
@@ -8,19 +8,11 @@
 ////////////////////////////////////////////////////////////////////////////////
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"
-#include "pfs/filesystem.hpp"
-#include "pfs/fmt.hpp"
-#include "pfs/memory.hpp"
-#include "chat/messenger.hpp"
-#include "chat/activity_manager.hpp"
-#include "chat/contact_manager.hpp"
-#include "chat/message_store.hpp"
-// #include "chat/serializer.hpp"
-#include "chat/backend/sqlite3/activity_manager.hpp"
-#include "chat/backend/sqlite3/contact_manager.hpp"
-#include "chat/backend/sqlite3/message_store.hpp"
-#include "chat/backend/sqlite3/file_cache.hpp"
-// #include "chat/backend/serializer/cereal.hpp"
+#include "pfs/chat/messenger.hpp"
+#include "pfs/chat/sqlite3.hpp"
+#include <pfs/filesystem.hpp>
+#include <pfs/fmt.hpp>
+#include <algorithm>
 #include <fstream>
 
 namespace fs = pfs::filesystem;
@@ -30,159 +22,70 @@ namespace {
 std::string TEXT {"1.Lorem ipsum dolor sit amet, consectetuer adipiscing elit,"};
 std::string HTML {"<html></html>"};
 
-auto on_failure = [] (std::string const & errstr) {
-    fmt::print(stderr, "ERROR: {}\n", errstr);
-};
-
 } // namespace
 
 ////////////////////////////////////////////////////////////////////////////////
 // Step 1. Declare messenger
 ////////////////////////////////////////////////////////////////////////////////
-using Messenger = chat::messenger<
-      chat::backend::sqlite3::contact_manager
-    , chat::backend::sqlite3::message_store
-    , chat::backend::sqlite3::activity_manager
-    , chat::backend::sqlite3::file_cache
-    , chat::primal_serializer<>>;
-
-using SharedMessenger = std::shared_ptr<Messenger>;
+using Messenger = chat::messenger<chat::storage::sqlite3>;
 
 ////////////////////////////////////////////////////////////////////////////////
 // Step 2. Define makers for messenger components
 ////////////////////////////////////////////////////////////////////////////////
-class MessengerBuilder
+class MessengerEnv
 {
-public:
-    chat::contact::person me;
-    pfs::filesystem::path rootPath;
+private:
+    chat::contact::person _me;
+    fs::path _rootPath;
+
+    fs::path _contactDbPath;
+    fs::path _messageStoreDbPath;
+    fs::path _activityManagerDbPath;
+    fs::path _fileCacheDbPath;
+
+    chat::storage::sqlite3::relational_database_t _contactDb;
+    chat::storage::sqlite3::relational_database_t _messageStoreDb;
+    chat::storage::sqlite3::relational_database_t _activityManagerDb;
+    chat::storage::sqlite3::relational_database_t _fileCacheDb;
 
 public:
-    // Mandatory contact manager builder
-    std::unique_ptr<Messenger::contact_manager_type> make_contact_manager () const
+    MessengerEnv (chat::contact::person me, fs::path rootPath)
+        : _me(std::move(me))
+        , _rootPath(std::move(rootPath))
     {
-        auto contactListPath = rootPath;
-
-        if (!fs::exists(contactListPath)) {
-            std::error_code ec;
-
-            if (!fs::create_directory(contactListPath, ec)) {
-                on_failure(fmt::format("Create directory failure: {}: {}"
-                    , pfs::filesystem::utf8_encode(contactListPath)
-                    , ec.message()));
-                return nullptr;
-            }
-        }
-
-        contactListPath /= PFS__LITERAL_PATH("contact_list.db");
-
-        auto dbh = chat::backend::sqlite3::make_handle(contactListPath, true);
-
-        if (!dbh)
-            return nullptr;
-
-        auto contactManager = Messenger::contact_manager_type::make_unique(me, dbh);
-
-        if (!*contactManager)
-            return nullptr;
-
-        return contactManager;
+        _contactDbPath         = _rootPath / PFS__LITERAL_PATH("contact.db");
+        _messageStoreDbPath    = _rootPath / PFS__LITERAL_PATH("messages.db");
+        _activityManagerDbPath = _rootPath / PFS__LITERAL_PATH("activities.db");
+        _fileCacheDbPath       = _rootPath / PFS__LITERAL_PATH("file_cache.db");
     }
 
-    // Mandatory message store builder
-    std::unique_ptr<Messenger::message_store_type> make_message_store () const
+public:
+    fs::path rootPath () const
     {
-        auto messageStorePath = rootPath;
-
-        if (!fs::exists(messageStorePath)) {
-            std::error_code ec;
-
-            if (!fs::create_directory(messageStorePath, ec)) {
-                on_failure(fmt::format("Create directory failure: {}: {}"
-                    , pfs::filesystem::utf8_encode(messageStorePath)
-                    , ec.message()));
-                return nullptr;
-            }
-        }
-
-        messageStorePath /= PFS__LITERAL_PATH("messages.db");
-
-        //auto dbh = chat::persistent_storage::sqlite3::make_handle(messageStorePath, true);
-        auto dbh = chat::backend::sqlite3::make_handle(messageStorePath, true);
-
-        if (!dbh)
-            return nullptr;
-
-        auto messageStore = Messenger::message_store_type::make_unique(me.contact_id, dbh);
-
-        if (!*messageStore)
-            return nullptr;
-
-        return messageStore;
+        return _rootPath;
     }
 
-    // Mandatory activity manager builder
-    std::unique_ptr<Messenger::activity_manager_type> make_activity_manager () const
+    Messenger make ()
     {
-        auto activityManagerPath = rootPath;
+        if (!fs::exists(_rootPath))
+            fs::create_directory(_rootPath);
 
-        if (!fs::exists(activityManagerPath)) {
-            std::error_code ec;
+        _contactDb = debby::sqlite3::make(_contactDbPath);
+        _messageStoreDb = debby::sqlite3::make(_messageStoreDbPath);
+        _activityManagerDb = debby::sqlite3::make(_activityManagerDbPath);
+        _fileCacheDb = debby::sqlite3::make(_fileCacheDbPath);
 
-            if (!fs::create_directory(activityManagerPath, ec)) {
-                on_failure(fmt::format("Create directory failure: {}: {}"
-                    , pfs::filesystem::utf8_encode(activityManagerPath)
-                    , ec.message()));
-                return nullptr;
-            }
-        }
+        auto contactManager  = Messenger::contact_manager_type::make(_me, _contactDb);
+        auto messageStore    = Messenger::message_store_type::make(_me.contact_id, _messageStoreDb);
+        auto activityManager = Messenger::activity_manager_type::make(_activityManagerDb);
+        auto fileCache       = Messenger::file_cache_type::make(_fileCacheDb);
 
-        activityManagerPath /= PFS__LITERAL_PATH("activities.db");
-
-        auto dbh = chat::backend::sqlite3::make_handle(activityManagerPath, true);
-
-        if (!dbh)
-            return nullptr;
-
-        auto activityManager = Messenger::activity_manager_type::make_unique(dbh);
-
-        if (!*activityManager)
-            return nullptr;
-
-        return activityManager;
-    }
-
-    // Mandatory file cache builder
-    std::unique_ptr<Messenger::file_cache_type> make_file_cache () const
-    {
-        auto fileCachePath = rootPath;
-        auto fileCacheRoot = rootPath / PFS__LITERAL_PATH("Files");
-
-        if (!fs::exists(fileCachePath)) {
-            std::error_code ec;
-
-            if (!fs::create_directory(fileCachePath, ec)) {
-                on_failure(fmt::format("Create directory failure: {}: {}"
-                    , pfs::filesystem::utf8_encode(fileCachePath)
-                    , ec.message()));
-                return nullptr;
-            }
-        }
-
-        fileCachePath /= PFS__LITERAL_PATH("file_cache.db");
-
-        //auto dbh = chat::persistent_storage::sqlite3::make_handle(messageStorePath, true);
-        auto dbh = chat::backend::sqlite3::make_handle(fileCachePath, true);
-
-        if (!dbh)
-            return nullptr;
-
-        auto fileCache = Messenger::file_cache_type::make_unique(dbh);
-
-        if (!*fileCache)
-            return nullptr;
-
-        return fileCache;
+        return Messenger {
+              std::move(contactManager)
+            , std::move(messageStore)
+            , std::move(activityManager)
+            , std::move(fileCache)
+        };
     }
 };
 
@@ -201,15 +104,15 @@ TEST_CASE("messenger") {
 ////////////////////////////////////////////////////////////////////////////////
 // Step 3. Instantiate messenger builder
 ////////////////////////////////////////////////////////////////////////////////
-    MessengerBuilder messengerBuilder1;
-    messengerBuilder1.me = chat::contact::person{contactId1, contactAlias1};
-    messengerBuilder1.rootPath = fs::temp_directory_path()
-        / fs::utf8_encode(to_string(contactId1));
+    MessengerEnv messengerEnv1 {
+          chat::contact::person {contactId1, contactAlias1}
+        , fs::temp_directory_path() / fs::utf8_encode(to_string(contactId1))
+    };
 
-    MessengerBuilder messengerBuilder2;
-    messengerBuilder2.me = chat::contact::person{contactId2, contactAlias2};
-    messengerBuilder2.rootPath = fs::temp_directory_path()
-        / fs::utf8_encode(to_string(contactId2));
+    MessengerEnv messengerEnv2 {
+          chat::contact::person {contactId2, contactAlias2}
+        , fs::temp_directory_path() / fs::utf8_encode(to_string(contactId2))
+    };
 
 ////////////////////////////////////////////////////////////////////////////////
 // Step 4. Instantiate messenger
@@ -225,70 +128,58 @@ TEST_CASE("messenger") {
         return true;
     };
 
-    auto messenger1 = std::make_shared<Messenger>(
-          messengerBuilder1.make_contact_manager()
-        , messengerBuilder1.make_message_store()
-        , messengerBuilder1.make_activity_manager()
-        , messengerBuilder1.make_file_cache());
-
-    auto messenger2 = std::make_shared<Messenger>(
-          messengerBuilder2.make_contact_manager()
-        , messengerBuilder2.make_message_store()
-        , messengerBuilder2.make_activity_manager()
-        , messengerBuilder2.make_file_cache());
-
-    REQUIRE(*messenger1);
-    REQUIRE(*messenger2);
+    auto messenger1 = messengerEnv1.make();
+    auto messenger2 = messengerEnv2.make();
 
     auto received_callback = [] (chat::message::id author_id
-        , chat::contact::id conversation_id
+        , chat::contact::id chat_id
         , chat::message::id message_id) {
 
-        fmt::print("Message received from {}: {} for conversation {}\n"
-            , author_id, message_id, conversation_id);
+        fmt::print("Message received from {}: {} for chat {}\n"
+            , author_id, message_id, chat_id);
     };
 
-    auto delivered_callback = [] (chat::contact::id conversation_id
+    auto delivered_callback = [] (chat::contact::id chat_id
         , chat::message::id message_id
-        , pfs::utc_time_point /*delivered_time*/) {
+        , pfs::utc_time /*delivered_time*/) {
 
-        fmt::print("Message delivered for conversation {}: {}\n"
-            , to_string(conversation_id)
+        fmt::print("Message delivered for chat {}: {}\n"
+            , to_string(chat_id)
             , to_string(message_id));
     };
 
-    auto read_callback = [] (chat::contact::id conversation_id
+    auto read_callback = [] (chat::contact::id chat_id
         , chat::message::id message_id
-        , pfs::utc_time_point /*read_time*/) {
+        , pfs::utc_time /*read_time*/) {
 
-        fmt::print("Message read for conversation {}: {}\n"
-            , to_string(conversation_id)
+        fmt::print("Message read for chat {}: {}\n"
+            , to_string(chat_id)
             , to_string(message_id));
     };
 
-    messenger1->dispatch_data = send_message;
-    messenger2->dispatch_data = send_message;
+    messenger1.dispatch_data = send_message;
+    messenger2.dispatch_data = send_message;
 
-    messenger1->message_received = received_callback;
-    messenger2->message_received = received_callback;
+    messenger1.message_received = received_callback;
+    messenger2.message_received = received_callback;
 
-    messenger1->message_delivered = delivered_callback;
-    messenger2->message_delivered = delivered_callback;
+    messenger1.message_delivered = delivered_callback;
+    messenger2.message_delivered = delivered_callback;
 
-    messenger1->message_read = read_callback;
-    messenger2->message_read = read_callback;
+    messenger1.message_read = read_callback;
+    messenger2.message_read = read_callback;
 
 ////////////////////////////////////////////////////////////////////////////////
 // Wipe before tests for clear
 ////////////////////////////////////////////////////////////////////////////////
-    messenger1->wipe_all();
-    messenger2->wipe_all();
+    messenger1.clear_all();
+    messenger2.clear_all();
 
 ////////////////////////////////////////////////////////////////////////////////
 // Create files for testing attachments
 ////////////////////////////////////////////////////////////////////////////////
-    auto f1 = messengerBuilder1.rootPath / "attachment1.bin";
-    auto f2 = messengerBuilder1.rootPath / "attachment2.bin";
+    auto f1 = messengerEnv1.rootPath() / "attachment1.bin";
+    auto f2 = messengerEnv1.rootPath() / "attachment2.bin";
     std::ofstream ofs1{fs::utf8_encode(f1), std::ios::binary | std::ios::trunc};
     std::ofstream ofs2{fs::utf8_encode(f2), std::ios::binary | std::ios::trunc};
 
@@ -307,11 +198,11 @@ TEST_CASE("messenger") {
 ////////////////////////////////////////////////////////////////////////////////
 // Step 5. Add contacts
 ////////////////////////////////////////////////////////////////////////////////
-    REQUIRE_EQ(messenger1->get_contact_manager().count(), 0);
-    REQUIRE_EQ(messenger2->get_contact_manager().count(), 0);
+    REQUIRE_EQ(messenger1.cmanager().count(), 0);
+    REQUIRE_EQ(messenger2.cmanager().count(), 0);
 
-    auto contact1 = messenger1->my_contact();
-    auto contact2 = messenger2->my_contact();
+    auto contact1 = messenger1.my_contact();
+    auto contact2 = messenger2.my_contact();
     chat::contact::person contact3 {contactId3, contactAlias3};
 
     REQUIRE_EQ(contact1.contact_id, contactId1);
@@ -320,63 +211,68 @@ TEST_CASE("messenger") {
     REQUIRE_EQ(contact1.alias, contactAlias1);
     REQUIRE_EQ(contact2.alias, contactAlias2);
 
-    REQUIRE_NE(messenger1->add(contact2), chat::contact::id{});
-    REQUIRE_NE(messenger2->add(contact1), chat::contact::id{});
+    REQUIRE_NE(messenger1.add(chat::contact::person{contact2}), chat::contact::id{});
+    REQUIRE_NE(messenger2.add(chat::contact::person{contact1}), chat::contact::id{});
 
-    REQUIRE_EQ(messenger1->add(contact2), chat::contact::id{}); // Already exists
-    REQUIRE_EQ(messenger2->add(contact1), chat::contact::id{}); // Already exists
+    REQUIRE_EQ(messenger1.add(chat::contact::person{contact2}), chat::contact::id{}); // Already exists
+    REQUIRE_EQ(messenger2.add(chat::contact::person{contact1}), chat::contact::id{}); // Already exists
 
-    REQUIRE(messenger1->update(contact2)); // Ok, attempt to update
-    REQUIRE(messenger2->update(contact1)); // Ok, attempt to update
+    REQUIRE(messenger1.update(chat::contact::person{contact2})); // Ok, attempt to update
+    REQUIRE(messenger2.update(chat::contact::person{contact1})); // Ok, attempt to update
 
-    REQUIRE_NE(messenger1->add(contact3), chat::contact::id{});
-    REQUIRE_NE(messenger2->add(contact3), chat::contact::id{});
+    REQUIRE_NE(messenger1.add(chat::contact::person{contact3}), chat::contact::id{});
+    REQUIRE_NE(messenger2.add(chat::contact::person{contact3}), chat::contact::id{});
 
-    REQUIRE_EQ(messenger1->get_contact_manager().count(), 2);
-    REQUIRE_EQ(messenger2->get_contact_manager().count(), 2);
+    REQUIRE_EQ(messenger1.cmanager().count(), 2);
+    REQUIRE_EQ(messenger2.cmanager().count(), 2);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Step 5.1 Add group contact
 ////////////////////////////////////////////////////////////////////////////////
     chat::contact::group group1 {groupId1, groupAlias1, "", "", "", contactId1};
-    REQUIRE_NE(messenger1->add(group1), chat::contact::id{});
-    messenger1->add_member(groupId1, contactId2);
-    messenger1->add_member(groupId1, contactId3);
+    REQUIRE_NE(messenger1.add(std::move(group1)), chat::contact::id{});
+    messenger1.add_member(groupId1, contactId2);
+    messenger1.add_member(groupId1, contactId3);
 
-    REQUIRE(messenger1->is_member_of(groupId1, contactId1));
-    REQUIRE(messenger1->is_member_of(groupId1, contactId2));
-    REQUIRE(messenger1->is_member_of(groupId1, contactId3));
-    REQUIRE_FALSE(messenger1->is_member_of(groupId1, unknownContactId));
+    REQUIRE(messenger1.is_member_of(groupId1, contactId1));
+    REQUIRE(messenger1.is_member_of(groupId1, contactId2));
+    REQUIRE(messenger1.is_member_of(groupId1, contactId3));
+    REQUIRE_FALSE(messenger1.is_member_of(groupId1, unknownContactId));
 
-    REQUIRE_EQ(messenger1->get_contact_manager().members_count(groupId1), 3);
+    REQUIRE_EQ(messenger1.members_count(groupId1), 3);
 
-    auto members = messenger1->members(groupId1);
+    auto members = messenger1.members(groupId1);
 
     REQUIRE_EQ(members.size(), 3);
 
-    std::error_code ec;
-    auto bad_members = messenger1->members(unknownContactId, ec);
-    REQUIRE(bad_members.empty());
+    REQUIRE_THROWS_AS(messenger1.members(unknownContactId), chat::error);
+
+    auto member_ids = messenger1.member_ids(groupId1);
+    REQUIRE_EQ(member_ids.size(), 3);
+    CHECK_NE(std::find(member_ids.cbegin(), member_ids.cend(), contactId1), member_ids.cend());
+    CHECK_NE(std::find(member_ids.cbegin(), member_ids.cend(), contactId2), member_ids.cend());
+    CHECK_NE(std::find(member_ids.cbegin(), member_ids.cend(), contactId3), member_ids.cend());
+    CHECK_EQ(std::find(member_ids.cbegin(), member_ids.cend(), unknownContactId), member_ids.cend());
 
 ////////////////////////////////////////////////////////////////////////////////
 // Step 6.1 Write message
 ////////////////////////////////////////////////////////////////////////////////
     {
         // Attempt to start/continue conversation with unknown contact
-        auto conversation = messenger1->conversation(unknownContactId);
-        REQUIRE_FALSE(conversation);
+        auto chat = messenger1.open_chat(unknownContactId);
+        REQUIRE_FALSE(chat);
 
         // Assertion here since conversation is invalid
-        // auto editor = conversation.create();
+        REQUIRE_THROWS_AS(chat.create(), chat::error);
     }
 
     chat::message::id last_message_id;
 
     {
-        auto conversation = messenger1->conversation(contactId2);
-        REQUIRE(conversation);
+        auto chat = messenger1.open_chat(contactId2);
+        REQUIRE(chat);
 
-        auto editor = conversation.create();
+        auto editor = chat.create();
 
         REQUIRE_NE(editor.message_id(), chat::message::id{});
 
@@ -391,10 +287,10 @@ TEST_CASE("messenger") {
     }
 
     {
-        auto conversation = messenger1->conversation(contactId2);
-        REQUIRE(conversation);
+        auto chat = messenger1.open_chat(contactId2);
+        REQUIRE(chat);
 
-        auto editor = conversation.open(last_message_id);
+        auto editor = chat.open(last_message_id);
 
         auto mime0 = editor.content().at(0).mime;
 
@@ -421,27 +317,27 @@ TEST_CASE("messenger") {
 // Step 6.2 Dispatch message
 ////////////////////////////////////////////////////////////////////////////////
     {
-        auto conversation = messenger1->conversation(contactId2);
-        REQUIRE(conversation);
+        auto chat = messenger1.open_chat(contactId2);
+        REQUIRE(chat);
 
-        auto m = conversation.message(last_message_id);
+        auto m = chat.message(last_message_id);
 
         REQUIRE(m);
         REQUIRE_EQ(m->message_id, last_message_id);
 
-        messenger1->dispatch_message(conversation, m->message_id);
+        messenger1.dispatch_message(chat, m->message_id);
     }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Step 7.1 Write group message
+// Step 7.1 Write group message and dispatch it
 ////////////////////////////////////////////////////////////////////////////////
     chat::message::id last_group_message_id;
 
     {
-        auto conversation = messenger1->conversation(groupId1);
-        REQUIRE(conversation);
+        auto chat = messenger1.open_chat(groupId1);
+        REQUIRE(chat);
 
-        auto editor = conversation.create();
+        auto editor = chat.create();
 
         editor.add_text(TEXT);
         editor.add_html(HTML);
@@ -451,17 +347,54 @@ TEST_CASE("messenger") {
         editor.save();
 
         last_group_message_id = editor.message_id();
-    }
 
-////////////////////////////////////////////////////////////////////////////////
-// Step 7.2 Dispatch group message
-////////////////////////////////////////////////////////////////////////////////
+        // messenger1.dispatch_message(chat, last_group_message_id);
+    }
 
 ////////////////////////////////////////////////////////////////////////////////
 // Step 8.1 Receive message
 ////////////////////////////////////////////////////////////////////////////////
     {
         // `last_data_sent` is the serialized data sent by `messenger1`
-        messenger2->process_incoming_data(contactId1, last_data_sent.data(), last_data_sent.size());
+        messenger2.process_incoming_data(contactId1, last_data_sent.data(), last_data_sent.size());
+        CHECK_EQ(messenger2.unread_message_count(), 1);
+    }
+
+////////////////////////////////////////////////////////////////////////////////
+// Step 9.1 Activity manager
+////////////////////////////////////////////////////////////////////////////////
+    {
+        auto & am1 = messenger1.amanager();
+        auto & am2 = messenger2.amanager();
+    }
+
+////////////////////////////////////////////////////////////////////////////////
+// Step 10.1 Message store
+////////////////////////////////////////////////////////////////////////////////
+    {
+        auto & ms1 = messenger1.mstore();
+        auto & ms2 = messenger2.mstore();
+    }
+
+////////////////////////////////////////////////////////////////////////////////
+// Step 11 Other checks
+////////////////////////////////////////////////////////////////////////////////
+    {
+        auto my_contact1 = messenger1.my_contact();
+        auto my_contact2 = messenger2.my_contact();
+        CHECK_EQ(my_contact1.alias, contactAlias1);
+        CHECK_EQ(my_contact2.alias, contactAlias2);
+
+        auto newAlias1 = std::string {"PERSON_1_CHANGED"};
+        auto newAvatar1 = std::string {"PERSON_1_AVATAR_CHANGED"};
+        auto newDesc1 = std::string{"PERSON_1_DESC_CHANGED"};
+        messenger1.change_my_alias(newAlias1);
+        messenger1.change_my_avatar(newAvatar1);
+        messenger1.change_my_desc(newDesc1);
+
+        my_contact1 = messenger1.my_contact();
+        CHECK_EQ(my_contact1.alias, newAlias1);
+        CHECK_EQ(my_contact1.avatar, newAvatar1);
+        CHECK_EQ(my_contact1.description, newDesc1);
     }
 }

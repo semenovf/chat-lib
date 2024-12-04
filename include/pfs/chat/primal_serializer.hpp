@@ -7,15 +7,15 @@
 //      2024.04.23 Initial version.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
-#include "pfs/chat/contact.hpp"
-#include "pfs/chat/message.hpp"
-#include "pfs/chat/protocol.hpp"
-#include "pfs/endian.hpp"
-#include "pfs/binary_istream.hpp"
-#include "pfs/binary_ostream.hpp"
-#include "pfs/numeric_cast.hpp"
-#include "pfs/time_point_pack.hpp"
-#include "pfs/universal_id_pack.hpp"
+#include "contact.hpp"
+#include "message.hpp"
+#include "protocol.hpp"
+#include <pfs/endian.hpp>
+#include <pfs/binary_istream.hpp>
+#include <pfs/binary_ostream.hpp>
+#include <pfs/numeric_cast.hpp>
+#include <pfs/time_point_pack.hpp>
+#include <pfs/universal_id_pack.hpp>
 
 namespace chat {
 
@@ -99,7 +99,7 @@ struct primal_serializer
 
         if (sz > 0) {
             target.members.reserve(sz);
-            chat::contact::id x;
+            contact::id x;
 
             for (typename ostream_type::size_type i = 0; i < sz; i++) {
                 in >> x;
@@ -116,7 +116,7 @@ struct primal_serializer
         out << protocol::packet_enum::regular_message
             << payload.message_id
             << payload.author_id
-            << payload.conversation_id
+            << payload.chat_id
             << payload.mod_time
             << payload.content;
     }
@@ -126,7 +126,7 @@ struct primal_serializer
         // Note: packet type must be read before
         in  >> target.message_id
             >> target.author_id
-            >> target.conversation_id
+            >> target.chat_id
             >> target.mod_time
             >> target.content;
     }
@@ -138,7 +138,7 @@ struct primal_serializer
     {
         out << protocol::packet_enum::delivery_notification
             << payload.message_id
-            << payload.conversation_id
+            << payload.chat_id
             << payload.delivered_time;
     }
 
@@ -146,7 +146,7 @@ struct primal_serializer
     {
         // Note: packet type must be read before
         in  >> target.message_id
-            >> target.conversation_id
+            >> target.chat_id
             >> target.delivered_time;
     }
 
@@ -157,7 +157,7 @@ struct primal_serializer
     {
         out << protocol::packet_enum::read_notification
             << payload.message_id
-            << payload.conversation_id
+            << payload.chat_id
             << payload.read_time;
     }
 
@@ -165,7 +165,7 @@ struct primal_serializer
     {
         // Note: packet type must be read before
         in  >> target.message_id
-            >> target.conversation_id
+            >> target.chat_id
             >> target.read_time;
     }
 
@@ -231,4 +231,3 @@ inline void unpack (pfs::binary_istream<Endianess> & in, Packet & pkt)
 } // namespace protocol
 
 } // namespace chat
-

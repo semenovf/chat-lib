@@ -38,7 +38,7 @@ struct credentials
     id file_id;
 
     contact::id author_id;
-    contact::id conversation_id;
+    contact::id chat_id;
     message::id message_id;
     std::int16_t attachment_index {-1}; // attachment index in the message::content object
 
@@ -74,7 +74,7 @@ public:
      *        regular file or maximum file size limit exceeded.
      */
     CHAT__EXPORT
-    credentials (contact::id author_id, contact::id conversation_id
+    credentials (contact::id author_id, contact::id chat_id
         , message::id message_id, std::int16_t attachment_index
         , pfs::filesystem::path const & path);
 
@@ -84,7 +84,7 @@ public:
      */
     CHAT__EXPORT
     credentials (contact::id author_id
-        , contact::id conversation_id
+        , contact::id chat_id
         , message::id message_id
         , std::int16_t attachment_index
         , std::string const & uri
@@ -98,7 +98,7 @@ public:
     CHAT__EXPORT
     credentials (file::id file_id
         , contact::id author_id
-        , contact::id conversation_id
+        , contact::id chat_id
         , message::id message_id
         , std::int16_t attachment_index
         , std::string const & name
@@ -106,7 +106,7 @@ public:
         , mime::mime_enum mime);
 
     /**
-     * Constructs incomplete file credentials: author_id and conversation_id stay
+     * Constructs incomplete file credentials: author_id and chat_id stay
      * invalid; mime also stay invalid if @no_mime is @c true.
      */
     CHAT__EXPORT

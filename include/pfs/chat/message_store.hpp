@@ -6,35 +6,37 @@
 // Changelog:
 //      2021.12.27 Initial version.
 //      2022.02.17 Refactored to use backend.
+//      2024.11.30 Started V2.
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
+#include "chat.hpp"
 #include "exports.hpp"
 #include "message.hpp"
-#include "pfs/memory.hpp"
+#include <memory>
 
 namespace chat {
 
-template <typename Backend>
-class message_store
+template <typename Storage>
+class message_store final
 {
-    using rep_type = typename Backend::rep_type;
+    using rep = typename Storage::message_store;
 
 public:
-    using conversation_type = typename Backend::conversation_type;
+    using chat_type = chat<Storage>;
 
 private:
-    rep_type _rep;
+    std::unique_ptr<rep> _d;
 
 private:
-    message_store () = delete;
-    CHAT__EXPORT message_store (rep_type && rep);
+    CHAT__EXPORT message_store (rep * d) noexcept;
+
+public:
+    CHAT__EXPORT message_store (message_store && other) noexcept;
+    CHAT__EXPORT message_store & operator = (message_store && other) noexcept;
+    CHAT__EXPORT ~message_store ();
+
     message_store (message_store const & other) = delete;
     message_store & operator = (message_store const & other) = delete;
-    message_store & operator = (message_store && other) = delete;
-
-public:
-    message_store (message_store && other) = default;
-    ~message_store () = default;
 
 public:
     /**
@@ -43,30 +45,29 @@ public:
     CHAT__EXPORT operator bool () const noexcept;
 
     /**
-     * Opens conversation by @a conversation_id.
+     * Opens conversation by @a chat_id.
      *
      * @brief This method initializes/opens data storage for conversation messages
      *        associated with specified contact.
      */
-    CHAT__EXPORT conversation_type conversation (contact::id conversation_id) const;
+    CHAT__EXPORT chat_type open_chat (contact::id chat_id) const;
 
     /**
-     * Wipes (erases all, drop all conversations) messages.
+     * Clear all chats.
      */
-    CHAT__EXPORT void wipe () noexcept;
+    CHAT__EXPORT void clear () noexcept;
 
 public:
     template <typename ...Args>
     static message_store make (Args &&... args)
     {
-        return message_store{Backend::make(std::forward<Args>(args)...)};
+        return message_store{Storage::make_message_store(std::forward<Args>(args)...)};
     }
 
     template <typename ...Args>
     static std::unique_ptr<message_store> make_unique (Args &&... args)
     {
-        auto ptr = new message_store{Backend::make(std::forward<Args>(args)...)};
-        return std::unique_ptr<message_store>(ptr);
+        return std::make_unique<message_store>(Storage::make_message_store(std::forward<Args>(args)...));
     }
 };
 

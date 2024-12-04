@@ -8,6 +8,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 #include "contact.hpp"
+#include "exports.hpp"
 #include <vector>
 
 namespace chat {
@@ -18,8 +19,7 @@ struct member_difference_result
     std::vector<contact::id> removed;
 };
 
-member_difference_result member_difference (
-      std::vector<contact::id> old_members
+CHAT__EXPORT member_difference_result member_difference (std::vector<contact::id> old_members
     , std::vector<contact::id> new_members);
 
 } // namespace chat

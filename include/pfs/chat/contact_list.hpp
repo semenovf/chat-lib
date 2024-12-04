@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright (c) 2021-2023 Vladislav Trifochkin
+// Copyright (c) 2021-2024 Vladislav Trifochkin
 //
 // This file is part of `chat-lib`.
 //
@@ -9,35 +9,37 @@
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 #include "contact.hpp"
+#include "error.hpp"
 #include "exports.hpp"
-#include "pfs/string_view.hpp"
-#include <algorithm>
+#include <memory>
 #include <functional>
-#include <vector>
 
 namespace chat {
 
-template <typename Backend>
+template <typename Storage>
 class contact_list final
 {
-public:
-    using rep_type = typename Backend::rep_type;
+    using rep = typename Storage::contact_list;
 
 private:
-    rep_type _rep;
-
-private:
-    contact_list () = default;
+    std::unique_ptr<rep> _d;
 
 public:
-    CHAT__EXPORT contact_list (rep_type && rep);
+    CHAT__EXPORT contact_list ();
+    CHAT__EXPORT contact_list (contact_list && other) noexcept;
+    CHAT__EXPORT contact_list & operator = (contact_list && other) noexcept;
+    CHAT__EXPORT ~contact_list ();
+
+    // For internal use only
+    CHAT__EXPORT contact_list (rep * d) noexcept;
+
     contact_list (contact_list const & other) = delete;
-    contact_list (contact_list && other) = default;
     contact_list & operator = (contact_list const & other) = delete;
-    contact_list & operator = (contact_list && other) = default;
-    ~contact_list () = default;
 
 public:
+    // For internal use only
+    bool add (contact::contact && c);
+
     /**
      * Count of contacts in this contact list.
      */
@@ -46,7 +48,7 @@ public:
     /**
      * Count of contacts of specified type in this contact list.
      */
-    CHAT__EXPORT std::size_t count (conversation_enum type) const;
+    CHAT__EXPORT std::size_t count (chat_enum type) const;
 
     /**
      * Get contact by @a id. On error returns invalid contact.
@@ -78,13 +80,6 @@ public:
      * @throw chat::error (@c errc::storage_error) on storage error.
      */
     CHAT__EXPORT void for_each_until (std::function<bool(contact::contact const &)> f) const;
-
-public:
-    template <typename ...Args>
-    static contact_list make (Args &&... args)
-    {
-        return contact_list{Backend::make(std::forward<Args>(args)...)};
-    }
 };
 
 } // namespace chat

@@ -9,13 +9,13 @@
 ////////////////////////////////////////////////////////////////////////////////
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"
-#include "pfs/filesystem.hpp"
-#include "pfs/fmt.hpp"
 #include "pfs/chat/message.hpp"
 #include "pfs/chat/file_cache.hpp"
-#include "pfs/chat/backend/sqlite3/file_cache.hpp"
+#include "pfs/chat/sqlite3.hpp"
+#include <pfs/filesystem.hpp>
+#include <pfs/fmt.hpp>
 
-using file_cache_t = chat::file_cache<chat::backend::sqlite3::file_cache>;
+using file_cache_t = chat::file_cache<chat::storage::sqlite3>;
 auto file_cache_db_path = pfs::filesystem::temp_directory_path()
     / PFS__LITERAL_PATH("file_cache.db");
 
@@ -25,7 +25,7 @@ TEST_CASE("constructors") {
     REQUIRE_FALSE(std::is_copy_constructible<file_cache_t>::value);
     REQUIRE_FALSE(std::is_copy_assignable<file_cache_t>::value);
     REQUIRE(std::is_move_constructible<file_cache_t>::value);
-    REQUIRE_FALSE(std::is_move_assignable<file_cache_t>::value);
+    REQUIRE(std::is_move_assignable<file_cache_t>::value);
     REQUIRE(std::is_destructible<file_cache_t>::value);
 }
 
@@ -34,13 +34,12 @@ TEST_CASE("file_cache") {
         REQUIRE(pfs::filesystem::remove_all(file_cache_db_path) > 0);
     }
 
-    auto dbh = chat::backend::sqlite3::make_handle(file_cache_db_path, true);
+    auto db = debby::sqlite3::make(file_cache_db_path);
 
-    REQUIRE(dbh);
+    REQUIRE(db);
 
-    auto file_cache = file_cache_t::make(dbh);
+    auto file_cache = file_cache_t::make(db);
 
     REQUIRE(file_cache);
     file_cache.clear();
 }
-
